@@ -70,37 +70,67 @@ def getNode(root, index, currlevel, tgtlevel):
 
 	return None
 
+def getCandidateBlocks(root, currleaf, blockID, level): 
+	lhs = getNode(root, currleaf, 0, level)
+	rhs = getNode(root, position[blockID], level)
+	if lhs == rhs:
+		return (blockID, getNodeVal(blockID))
+
+	else:
+		return None 
 
 LEVELS = getHeight(n0)
 N = 28 
-Z = 4 
+Z = 4 # Z numbers of blocks within each bucket
+stash = []
+position = defaultdict(int, {k:random.randrange(0, (pow(2, LEVELS) - 1)) for k in range(N)})
+
+
 
 def access(opCode, blockId, dataNew): 
 	leafIdx = position[blockId]
 	position[blockId] = random.randrange(0, (pow(2, LEVELS) - 1))
 
-	# S (Read Path of leaf x at all levels)
-	pathNodes =[] 
+	# S (Read Path of leaf x at all levels) 
+	# Is stash a global var? 
+	
 	for l in range(LEVELS):
-		pathNodes.append(getNode(n0, leafIdx, 0, l))
+		stash.append(getNode(n0, leafIdx, 0, l))
 
 	# update block 
 	for i in range(LEVELS):
-		if pathNodes[i].idx == leafIdx:
-			dataOld = pathNodes[i]
+		if stash[i].idx == leafIdx:
+			dataOld = stash[i]
 
-	if opCode == "wr" && (blockId <= N / Z)
-			# (check if the blockId is valid): do we assume a perfect binary tree? 
-
-		pathNodes = [item for item in pathNodes if item not in[pathNodes[blockId]]]
-		pathNodes[blockId] = dataNew
+	if opCode == "wr" && (blockId <= N / Z): # assume blockId is valid or define the number of buckets
+		# (check if the blockId is valid): do we assume a perfect binary tree? 
+		stash = [item for item in stash if item not in[stash[blockId]]]
+		stash[blockId] = dataNew
 
 	# write path 
 	for l in reversed(range(LEVELS)):
-		# insert additional blocks from the stash 
-		pathNodes[leafIdx] = getNode(n0, leafIdx, 0, l)
+		# insert additional blocks from the stash to the path along the tree 
+		candidateBlocks = []
+		for idb in range(N):01
+			candidateBlocks.append(getCandidateBlocks(leafIdx, idb, l))
 
+		if (len(candidateBlocks) >= Z):
+			writeBackSize = Z
+		else:
+			writeBackSize = len(candidateBlocks)
+
+		writeBackBlocks = candidateBlocks[:writeBackSize]
+		updatedStash = candidateBlocks[writeBackSize:]
+
+		stash[l] = writeBackBlocks
 	return dataOld
+ 
+# What is a'? a' is another block ID should be in [0,N] and data' is the corresponding do
+# how to design test cases? 
+
+
+
+	
 
  
 
