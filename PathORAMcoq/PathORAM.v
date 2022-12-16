@@ -3,9 +3,12 @@ Import ListNotations.
 From Coq Require Import Lia.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Arith.EqNat.
+Require Import Coq.Arith.Even.
 Require Import Coq.Init.Datatypes.
 Require Import Coq.Strings.String.
 Require Import Coq.NArith.BinNat. 
+Require Import Coq.Program.Wf.
+
 
 Section Utils.
 
@@ -36,12 +39,57 @@ Section Tree.
 
   Definition PBTree1 {A} : PBTree (list A) := buildPBTlevelOrder [] 0 3.
 
+  Compute PBTree1.
+  
   Inductive Dir := L | R.
 
   (* path needed to reach lfIdx in a BFS-numbered binary tree *)
-  Definition getPath (lfIdx : nat) : list Dir.
-  Admitted.
+  (* Definition getPath (lfIdx : nat) : list Dir.  *)
 
+
+
+  (* 1 goal (ID 92) *)
+  
+  (* idx : nat *)
+
+  (* ============================ *)
+  (* Nat.pred (Nat.div idx 2) < S idx *)
+
+  Lemma div2 : forall (n : nat), PeanoNat.Nat.div2 n  < S n.
+  Proof.
+    fix IH 1.
+    intro n. case n.
+    - constructor.
+    - intro n0. case n0.
+      + constructor. constructor.
+      + intro n1. specialize (IH n1). simpl. apply Lt.lt_n_S.
+        apply PeanoNat.Nat.lt_lt_succ_r. apply IH.
+Defined.
+
+Program Fixpoint getPath (lfIdx : nat) {measure lfIdx} : list Dir :=
+    match lfIdx with
+    | 0 => []
+    | S idx => if Nat.even idx
+              then [R] ++ getPath (PeanoNat.Nat.div2 idx)
+              else [L] ++ getPath (PeanoNat.Nat.div2 idx)
+    end.
+  Next Obligation.
+    apply div2.
+    Qed.
+  Next Obligation.
+  apply div2.
+  Defined.
+
+  Print getPath.
+
+    Fixpoint buildNodeLevelDict {A} (root: PBTree A) (currL : nat) : list (prod nat nat) :=
+    match root with
+    | Leaf idx val => [pair idx currL]
+    | Node idx val l r =>
+        [pair idx currL] ++ buildNodeLevelDict l (S currL)  ++ buildNodeLevelDict r (S currL)
+    end.
+
+  
   Fixpoint writeAtPath {A} (root : PBTree A) (path : list Dir) (data : A) : PBTree A :=
     match root with
     | Leaf idx val => match path with
@@ -55,28 +103,35 @@ Section Tree.
                          end
     end.
 
-  Definition writeToNode {A} (root : PBTree A) (lfIdx : nat) (tgtl : nat) (data : A) : PBTree A := writeAtPath root (firstn tgtl (getPath lfIdx)) data.
+  Definition writeToNode {A} (root : PBTree A) (lfIdx : nat) (tgtl : nat) (data : A) : PBTree A := writeAtPath root (firstn tgtl (getPath lfIdx)) data. 
+  Compute PBTree1.
+  Compute writeToNode PBTree1 9 2 [0; 1; 2].
+  
+  Definition Z := 4. 
 
-  (*
-  Fixpoint writeToNode {A} (root : PBTree A) (lfIdx : nat) (tgtl : nat) (data : A) : PBTree A :=
-    match tgtl with
-    | 0 => match root with
-          | Leaf idx _ => Leaf idx data
-          | Node idx _ l r => Node idx data l r
-          end
-    | S tgtl => match root with
-               | Leaf _ _ => root
-               | Node idx val l r => if isLeft lfIdx tgtl 
-    *)  
+
+  Fixpoint takeN {A} (l : list A) (n : nat) 
+
+           
+  Fixpoint initialize_tree {A} {B} {C}(root : PBTree A) (stsh : list (prod B C)) : PBTree A :=
+    match root with
+      | Leaf idx val => 
+  
 End Tree.
 
 
 
+Section STASH.
+  Definition concatStash {A} (stsh : list (prod nat A)) (a : list (prod nat A)) := stsh ++ a.
+  
+  
+End STASH.
 
 
 Section PathORAM.
   Definition nodesTotal := 28.
-  Definition nodecap := 4.
+  Definition nodeCap := 4.
+  Definition stashInit := [].
 
   Inductive Op :=
   | Rd
