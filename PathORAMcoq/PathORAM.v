@@ -62,7 +62,8 @@ Section Tree.
     - constructor.
     - intro n0. case n0.
       + constructor. constructor.
-      + intro n1. specialize (IH n1). simpl. apply Lt.lt_n_S.
+      + intro n1. specialize (IH n1). simpl.
+        apply Lt.lt_n_S.
         apply PeanoNat.Nat.lt_lt_succ_r. apply IH.
 Defined.
 
@@ -70,8 +71,8 @@ Program Fixpoint getPath (lfIdx : nat) {measure lfIdx} : list Dir :=
     match lfIdx with
     | 0 => []
     | S idx => if Nat.even idx
-              then [R] ++ getPath (PeanoNat.Nat.div2 idx)
-              else [L] ++ getPath (PeanoNat.Nat.div2 idx)
+              then [L] ++ getPath (PeanoNat.Nat.div2 idx)
+              else [R] ++ getPath (PeanoNat.Nat.div2 idx)
     end.
   Next Obligation.
     apply div2.
@@ -80,7 +81,7 @@ Program Fixpoint getPath (lfIdx : nat) {measure lfIdx} : list Dir :=
   apply div2.
   Defined.
 
-  Print getPath.
+  Compute getPath 9.
 
     Fixpoint buildNodeLevelDict {A} (root: PBTree A) (currL : nat) : list (prod nat nat) :=
     match root with
