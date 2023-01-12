@@ -8,7 +8,8 @@ Require Import Coq.Init.Datatypes.
 Require Import Coq.Strings.String.
 Require Import Coq.NArith.BinNat. 
 Require Import Coq.Program.Wf.
-
+Require Import Streams.
+Require Import Coq.ZArith.Zdiv.
 
 Section Utils.
 
@@ -65,9 +66,9 @@ Section Tree.
       + intro n1. specialize (IH n1). simpl.
         apply Lt.lt_n_S.
         apply PeanoNat.Nat.lt_lt_succ_r. apply IH.
-Defined.
+  Defined.
 
-Program Fixpoint getPath (lfIdx : nat) {measure lfIdx} : list Dir :=
+  Program Fixpoint getPath (lfIdx : nat) {measure lfIdx} : list Dir :=
     match lfIdx with
     | 0 => []
     | S idx => if Nat.even idx
@@ -81,16 +82,19 @@ Program Fixpoint getPath (lfIdx : nat) {measure lfIdx} : list Dir :=
   apply div2.
   Defined.
 
-  Compute getPath 9.
+  Definition p9 := getPath 9.
 
-    Fixpoint buildNodeLevelDict {A} (root: PBTree A) (currL : nat) : list (prod nat nat) :=
+  Definition p12 := getPath 12.
+
+  Fixpoint buildNodeLevelDict {A} (root: PBTree A) (currL : nat) : list (prod nat nat) :=
     match root with
     | Leaf idx val => [pair idx currL]
     | Node idx val l r =>
         [pair idx currL] ++ buildNodeLevelDict l (S currL)  ++ buildNodeLevelDict r (S currL)
     end.
 
-  
+  Compute buildNodeLevelDict PBTree1 0.
+
   Fixpoint writeAtPath {A} (root : PBTree A) (path : list Dir) (data : A) : PBTree A :=
     match root with
     | Leaf idx val => match path with
@@ -104,19 +108,86 @@ Program Fixpoint getPath (lfIdx : nat) {measure lfIdx} : list Dir :=
                          end
     end.
 
-  Definition writeToNode {A} (root : PBTree A) (lfIdx : nat) (tgtl : nat) (data : A) : PBTree A := writeAtPath root (firstn tgtl (getPath lfIdx)) data. 
+  Compute writeAtPath PBTree1 p12 [1;2;3].
+  Compute writeAtPath PBTree1 p9 [4;5;6].
+
+  
+  Definition writeToNode {A} (root : PBTree A) (lfIdx : nat) (tgtl : nat) (data : A) : PBTree A :=
+    writeAtPath root (firstn tgtl (getPath lfIdx)) data. 
+
   Compute PBTree1.
   Compute writeToNode PBTree1 9 2 [0; 1; 2].
-  
-  Definition Z := 4. 
+
+  (* Definition of rand comes from Yves Bertot *)
+  CoFixpoint rand (seed n1 n2 : Z) : Stream Z :=
+    let seed' := Zmod seed n2 in Cons seed' (rand (seed' * n1) n1 n2).           
+
+  Fixpoint take {X} n (str : Stream X) : list X :=
+    match n with
+    | 0 => []
+    | S m => match str with
+            | Cons x str' => x :: take m str'
+            end
+    end.
+
+  Definition first60 := take 60(rand 475 919 953).
+
+  Definition md_tot := fun x => Zmod x 15.
+
+  Definition randSeq := List.map Z.to_nat (List.map md_tot first60).
+
+  Fixpoint modNodesTotal (randList : list Z) : list nat :=
+    List.map Z.to_nat(List.map md_tot randList).
+
+  Fixpoint indexed_list {X} (start : nat) (l : list X) : list (nat * X) :=
+    match l with
+    | [] => []
+    | h :: t => (start, h) :: indexed_list (S start) t
+    end.
+
+  Compute indexed_list 0 randSeq.
+
+  Fixpoint aggregation_helper (key : nat)(val : nat)(l : list (nat * (list nat))):
+    list (nat * (list nat)) :=
+    match l with
+    | [] => [(key, [val])]
+    | (n, al) :: t => if Nat.eqb n key
+                  then (key, val :: al) :: t 
+                  else (n, al) :: aggregation_helper key val t
+    end.
+
+(*   defaultdict(<class 'int'>, 
+{1: 7, 2: 13, 3: 8, 4: 13, 5: 14, 6: 12, 7: 7, 8: 7, 9: 8, 10: 13, 11: 9, 12: 3, 13: 2, 14: 12, 15: 8, 16: 7, 17: 10, 18: 9, 19: 12, 20: 2, 21: 1, 22: 7, 23: 4, 24: 2, 25: 1, 26: 8, 27: 12, 28: 14}) *)
 
 
-  Fixpoint takeN {A} (l : list A) (n : nat) 
-
+(* defaultdict(<class 'list'>, 
+{7: [1, 7, 8, 16, 22], 13: [2, 4, 10], 8: [3, 9, 15, 26], 14: [5, 28], 12: [6, 14, 19, 27], 9: [11, 18], 3: [12], 2: [13, 20, 24], 10: [17], 1: [21, 25], 4: [23]}) *)
            
-  Fixpoint initialize_tree {A} {B} {C}(root : PBTree A) (stsh : list (prod B C)) : PBTree A :=
-    match root with
-      | Leaf idx val => 
+  Fixpoint aggregation (l : list (nat * nat)): list (nat * (list nat)):=
+    match l with
+    | [] =>  []
+    | (b, n) :: t => aggregation_helper n b (aggregation t)
+    end.
+
+  Compute aggregation [(1, 3); (2,3); (8, 3); (4, 4); (5,4)].
+
+  Fixpoint makeNZeros (n : nat) : list nat :=
+    match n with
+    | O => []
+    | S n' => O :: makeNZeros n'
+    end.
+  
+  Check prod.
+  Fixpoint pairGen (l : list(nat * list  nat)) : list (nat * nat) :=
+    match l with 
+    | nil => []
+    | (n, al) :: t => List.combine al (makeNZeros (List.length al))
+    end.
+
+  (* Fixpoint initialize_tree {A} {B} {C}(root : PBTree A) (stsh : list (prod B C)) : PBTree A := *)
+  (*   match root with *)
+  (*   | Leaf idx val =>  *)
+  (*   | Node idx val l r =>  *)
   
 End Tree.
 
@@ -130,7 +201,7 @@ End STASH.
 
 
 Section PathORAM.
-  Definition nodesTotal := 28.
+  Definition nodesTotal := 60.
   Definition nodeCap := 4.
   Definition stashInit := [].
 
