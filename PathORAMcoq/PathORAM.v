@@ -223,26 +223,45 @@ Section Tree.
   Compute takeL 2 (pairGen n_bl_pair (Leaf 3 3)). 
 
   Check writeAtPath.
+
+  Definition initialT A := (PBTree A, list(nat * nat)).
+
+  Print option.
+
+  (* define type of the initialzation function; needs to talk to Big T*)
+  Inductive initialType A : Type :=
+  | TreeStash : PBTree A -> list(nat * nat) -> initialType A.
+    
   
-  Fixpoint initializeTree {A} (rt : PBTree A) (stsh : list (nat * nat))
-           (l : list(nat * list nat)): (PBTree A, list(nat * nat)) :=
+  Fixpoint initializeTree (rt : PBTree (list (nat * nat))) (stsh : list (nat * nat))
+           (l : list(nat * list nat)): option(initialType (list (nat * nat))) :=
     
     match rt with
-    | Leaf idx val => let data := pairGen l rt in
-                     let dataH := takeL data 4 in
-                     let dataT := takeFromIdx data 4 in
-                     let newStsh := stsh ++ dataT in
-                     (writeAtPath rt (getPath rt) dataH, newStsh)
-                       
-    | Node idx val lc rc => let data := pairGen l rt in
-                           match data with
-                           | [] => let dataH := takeL data 4 in
-                                  let dataT := takeFromIdx data 4 in
-                                  let newStsh := stsh ++ dataT in
-                                  (writeAtPath rt (getPath rt) dataH, newStsh)
-                           | _ => initializeTree lc stsh l \/ initializeTree rc stsh l
-                           end
+    | Leaf idx val =>
+        let data := pairGen l rt in
+        match data with
+        | [] => None
+        | h :: t => let dataH := takeL 4 data in
+                  let dataT := takeFromIdx 4 data in
+                  let newStsh := stsh ++ dataT in
+                  Some(TreeStash (list(nat * nat))(writeAtPath rt (getPath idx) dataH) newStsh)
+        end
+    | Node idx val lc rc =>
+        let data := pairGen l rt in
+        match data with
+        | [] => let dataH := takeL 4 data in
+               let dataT := takeFromIdx 4 data in
+               let newStsh := stsh ++ dataT in
+               Some(TreeStash (list (nat * nat))(writeAtPath rt (getPath idx) dataH) newStsh)                          | h :: t => match initializeTree lc stsh l with
+                   | Some x => Some x 
+                   | None => initializeTree rc stsh l
+                                                                                                                             end
+        end
     end.
+
+
+  (* TODO: need some proofs about initializeTree function here *)
+
   
 End Tree.
 
