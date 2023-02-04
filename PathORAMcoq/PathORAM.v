@@ -292,28 +292,11 @@ Section Tree.
   
   Compute writeAtPath PBTree1 (getPath 5) [5;5;5].
   Compute clearPath PBTree1 (rev(getPath' 11)).
-  Compute rev(getPath' 11).
-  (* Fixpoint writeAtPath {A} (root : PBTree A) *)
-  (*          (path : list Dir) (data : A) : PBTree A := *)
-  (*   match root with *)
-  (*   | Leaf idx val => *)
-  (*       match path with *)
-  (*       | [] => Leaf idx data *)
-  (*       | _ => Leaf idx val (* path longer than height of tree*) *)
-  (*       end *)
-  (*   | Node idx val l r => *)
-  (*       match path with *)
-  (*       | [] => Node idx data l r *)
-  (*       | L :: path' => Node idx val (writeAtPath l path' data) r *)
-  (*       | R :: path' => Node idx val l (writeAtPath r path' data) *)
-  (*       end *)
-  (*   end. *)
-  
+  Compute rev(getPath' 11).  
 
-  Inductive  NodeData : Type := Data:(nat * list(nat * nat)) -> NodeData .
+  Inductive  NodeData: Type := Data:(nat * list(nat * nat)) -> NodeData .
 
-
-  Fixpoint getNodeAtLevel (lvl : nat) (l : list nat) (rt: PBTree (list (nat * nat))): option NodeData:=
+  Fixpoint getNodeAtLevel (lvl: nat) (l: list nat) (rt: PBTree (list (nat * nat))): option NodeData:=
     match lvl with
     | O => match l with
           | [] => None
@@ -347,8 +330,29 @@ Section Tree.
             end
     end.
 
+  Fixpoint ReadnPopNodes (rt: PBTree (list (nat * nat))) (l: list nat) (stsh: list (nat * nat)) : list (nat * nat) :=
+    match l with
+    | [] => []
+    | h :: t => match rt with
+              | Leaf idx val => if Nat.eqb h idx
+                               then stsh ++ val 
+                               else stsh 
+              | Node idx val lc rc => if Nat.eqb h idx
+                                     then stsh ++ val 
+                                     else stsh 
+              end
+    end.
+
+  (* Fixpoint getCandidateBlocksHelper (rt: PBTree(list(nat * nat))) (l: list nat) (lvl: nat)  *)
+                                       
+                                                              
+                                       
+                                 
+                                                        
+
   
 End Tree.
+
 
 
 
