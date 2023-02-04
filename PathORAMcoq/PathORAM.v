@@ -117,7 +117,7 @@ Section Tree.
 
   Compute writeAtPath PBTree1 p12 [1;2;3].
   Compute writeAtPath PBTree1 p9 [4;5;6].
-
+  Compute writeAtPath PBTree1 (getPath 4) [5;5;5]. (* 4 and 5 seem to be flipped *)
   
   Definition writeToNode {A} (root : PBTree A) (lfIdx : nat) (tgtl : nat) (data : A) : PBTree A :=
     writeAtPath root (firstn tgtl (getPath lfIdx)) data. 
@@ -252,15 +252,100 @@ Section Tree.
         | [] => let dataH := takeL 4 data in
                let dataT := takeFromIdx 4 data in
                let newStsh := stsh ++ dataT in
-               Some(TreeStash (list (nat * nat))(writeAtPath rt (getPath idx) dataH) newStsh)                          | h :: t => match initializeTree lc stsh l with
-                   | Some x => Some x 
-                   | None => initializeTree rc stsh l
-                                                                                                                             end
+               Some(TreeStash (list (nat * nat))(writeAtPath rt (getPath idx) dataH) newStsh)
+        | h :: t => match initializeTree lc stsh l with
+                  | Some x => Some x 
+                  | None => initializeTree rc stsh l
+                  end
         end
     end.
 
+  Program Fixpoint getPath' (lfIdx : nat) {measure lfIdx} : list nat :=
+    match lfIdx with
+    | 0 => [0]
+    | S idx => if Nat.even idx
+              then [S idx] ++ getPath' (PeanoNat.Nat.div2 idx)
+              else [S idx] ++ getPath' (PeanoNat.Nat.div2 idx)
+    end.
+  Next Obligation.
+    apply div2.
+    Qed.
+  Next Obligation.
+    apply div2.
+    Defined.
 
-  (* TODO: need some proofs about initializeTree function here *)
+  Compute rev(getPath' 11).                
+
+  Fixpoint clearPath (rt: PBTree (list (nat * nat ))) (l : list nat): PBTree (list(nat * nat)) := 
+    match l with
+    | [] => rt
+    | h :: t => match rt with
+              | Leaf idx val => if Nat.eqb h idx
+                             then Leaf idx []
+                             else Leaf idx val
+                                       
+              | Node idx val lc rc => if Nat.eqb h idx
+                                     then Node idx [] (clearPath lc t) (clearPath rc t)
+                                     else Node idx val (clearPath lc t) (clearPath rc t) 
+              end
+    end.
+  
+  Compute writeAtPath PBTree1 (getPath 5) [5;5;5].
+  Compute clearPath PBTree1 (rev(getPath' 11)).
+  Compute rev(getPath' 11).
+  (* Fixpoint writeAtPath {A} (root : PBTree A) *)
+  (*          (path : list Dir) (data : A) : PBTree A := *)
+  (*   match root with *)
+  (*   | Leaf idx val => *)
+  (*       match path with *)
+  (*       | [] => Leaf idx data *)
+  (*       | _ => Leaf idx val (* path longer than height of tree*) *)
+  (*       end *)
+  (*   | Node idx val l r => *)
+  (*       match path with *)
+  (*       | [] => Node idx data l r *)
+  (*       | L :: path' => Node idx val (writeAtPath l path' data) r *)
+  (*       | R :: path' => Node idx val l (writeAtPath r path' data) *)
+  (*       end *)
+  (*   end. *)
+  
+
+  Inductive  NodeData : Type := Data:(nat * list(nat * nat)) -> NodeData .
+
+
+  Fixpoint getNodeAtLevel (lvl : nat) (l : list nat) (rt: PBTree (list (nat * nat))): option NodeData:=
+    match lvl with
+    | O => match l with
+          | [] => None
+          | h :: t => match rt with
+                    | Leaf idx val => if Nat.eqb idx h
+                                     then Some (Data (idx, val))
+                                     else None
+                    | Node idx val lc rc => if Nat.eqb idx h
+                                           then Some (Data (idx, val))
+                                           else
+                                             match getNodeAtLevel lvl t lc with
+                                             | None => getNodeAtLevel lvl t rc
+                                             | Some x => Some x
+                                             end
+                    end
+          end
+    | S m => match l with
+            | [] => None
+            | h :: t => match rt with
+                      |Leaf idx val => if Nat.eqb idx h
+                                      then Some (Data (idx, val))
+                                      else None
+                      |Node idx val lc rc => if Nat.eqb idx h
+                                            then Some (Data(idx, val))
+                                            else
+                                              match getNodeAtLevel lvl t lc with
+                                              | None => getNodeAtLevel lvl t rc
+                                              | Some x => Some x
+                                              end
+                      end
+            end
+    end.
 
   
 End Tree.
@@ -268,12 +353,28 @@ End Tree.
 
 
 
-
+(***************************************)
+(*************** STASH *****************)
+(***************************************)
 
 
 Section STASH.
   Definition concatStash {A} (stsh : list (prod nat A)) (a : list (prod nat A)) := stsh ++ a.
+
+  Print option.
+  Fixpoint readBlockFromStash (stsh : list(nat * nat)) (bID : nat) : option nat :=
+    match stsh with
+    | [] => None
+    | h :: t => if Nat.eqb (fst h) bID
+              then Some(snd h)
+              else readBlockFromStash t bID
+    end.
+      
   
+                
+        
+             
+
   
 End STASH.
 
