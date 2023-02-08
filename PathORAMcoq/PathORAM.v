@@ -20,6 +20,28 @@ Section Utils.
 End Utils.
 
 Section Tree.
+(* (***************************************) *)
+(* (*************** STASH *****************) *)
+(* (***************************************) *)
+
+
+(* Section STASH. *)
+  Definition concatStash {A} (stsh : list (prod nat A)) (a : list (prod nat A)) := stsh ++ a.
+
+  Print option.
+  Fixpoint readBlockFromStash (stsh : list(nat * nat)) (bID : nat) : option nat :=
+    match stsh with
+    | [] => None
+    | h :: t => if Nat.eqb (fst h) bID
+              then Some(snd h)
+              else readBlockFromStash t bID
+    end.
+      
+  
+(* End STASH. *)
+
+
+
   
   Inductive PBTree (A: Type) : Type :=
   | Leaf (idx: nat) (val: A)
@@ -153,7 +175,8 @@ Section Tree.
     end.
 
   Compute indexed_list 0 randSeq.
-
+  Definition position_map := indexed_list 0 randSeq.
+  
   Fixpoint aggregation_helper (key : nat)(val : nat)(l : list (nat * (list nat))):
     list (nat * (list nat)) :=
     match l with
@@ -343,7 +366,65 @@ Section Tree.
               end
     end.
 
-  (* Fixpoint getCandidateBlocksHelper (rt: PBTree(list(nat * nat))) (l: list nat) (lvl: nat)  *)
+  Scheme Equality for list.
+
+  Print list_beq.
+
+  Fixpoint posMapLookUp (bID : nat) (posMap : list(nat * nat)) :option nat :=
+    match posMap with
+    | [] => None
+    | h :: t => if Nat.eqb (fst h) bID
+              then Some (snd h)
+              else posMapLookUp bID t
+    end.
+                
+  Fixpoint retSomeVal (x : option nat) : nat :=
+    match x with
+    | None => 0
+    | Some n => n
+    end.
+
+  Fixpoint eqListPair (l1 : list (nat * nat)) (l2 :  list (nat * nat)) : bool :=
+    match l1 with
+    | [] => match l2 with
+           | [] => true
+           | h :: t => false
+           end
+    | x :: xs => match l2 with
+               | [] => false 
+               | h :: t => if (andb (Nat.eqb (fst x) (fst h)) (Nat.eqb (snd x) (snd h)))
+                         then eqListPair xs t
+                         else false
+               end
+    end.
+               
+      
+  Fixpoint NodeDataEq (n1: NodeData) (n2: NodeData) : bool :=
+    match n1 with
+    | Data (x, y) => match n2 with
+                    | Data (a, b) => if Nat.eqb x a
+                                    then eqListPair y b
+                                    else false
+                    end
+    end.
+    
+  Fixpoint getCandidateBlocksHelper (rt: PBTree(list(nat * nat))) (l: list nat)
+           (lvl: nat)(bID: nat)(stsh: list(nat * nat)): option NodeData :=
+    match getNodeAtLevel lvl l rt with (* P(x, l) *)
+    | None => None
+    | Some val => match getNodeAtLevel lvl (getPath' (retSomeVal(posMapLookUp bID position_map))) rt with (* P(position[a'],l) *)
+                 | None => None
+                 | Some val' => if NodeDataEq val val'
+                               then match readBlockFromStash stsh bID with
+                                    | n => Data n
+                                               | _ => None 
+                               else None
+                 end
+    end.
+      
+                                 
+                                 
+    
                                        
                                                               
                                        
@@ -357,30 +438,6 @@ End Tree.
 
 
 
-(***************************************)
-(*************** STASH *****************)
-(***************************************)
-
-
-Section STASH.
-  Definition concatStash {A} (stsh : list (prod nat A)) (a : list (prod nat A)) := stsh ++ a.
-
-  Print option.
-  Fixpoint readBlockFromStash (stsh : list(nat * nat)) (bID : nat) : option nat :=
-    match stsh with
-    | [] => None
-    | h :: t => if Nat.eqb (fst h) bID
-              then Some(snd h)
-              else readBlockFromStash t bID
-    end.
-      
-  
-                
-        
-             
-
-  
-End STASH.
 
 
 Section PathORAM.
