@@ -401,30 +401,38 @@ Section Tree.
       
   Fixpoint NodeDataEq (n1: NodeData) (n2: NodeData) : bool :=
     match n1 with
-    | Data (x, y) => match n2 with
-                    | Data (a, b) => if Nat.eqb x a
-                                    then eqListPair y b
-                                    else false
-                    end
+    | Data (x, y) =>
+        match n2 with
+        | Data (a, b) => if Nat.eqb x a
+                        then eqListPair y b
+                        else false
+        end
     end.
-    
+  
+  Inductive BlockEntry : Type := BV: (nat * nat) -> BlockEntry.
+
   Fixpoint getCandidateBlocksHelper (rt: PBTree(list(nat * nat))) (l: list nat)
-           (lvl: nat)(bID: nat)(stsh: list(nat * nat)): option NodeData :=
+           (lvl: nat)(bID: nat)(stsh: list(nat * nat)): option BlockEntry:=
     match getNodeAtLevel lvl l rt with (* P(x, l) *)
     | None => None
-    | Some val => match getNodeAtLevel lvl (getPath' (retSomeVal(posMapLookUp bID position_map))) rt with (* P(position[a'],l) *)
-                 | None => None
-                 | Some val' => if NodeDataEq val val'
-                               then match readBlockFromStash stsh bID with
-                                    | n => Data n
-                                               | _ => None 
-                               else None
-                 end
+    | Some val =>
+        match getNodeAtLevel lvl (getPath' (retSomeVal(posMapLookUp bID position_map))) rt with (* P(position[a'],l) *)
+        | None => None
+        | Some val' => if NodeDataEq val val'
+                      then match readBlockFromStash stsh bID with
+                           | Some n => Some(BV(bID, n))
+                           | _ => None
+                           end
+                      else None
+        end
     end.
       
                                  
                                  
-    
+  (* Fixpoint getCandidateBlocks (rt: PBTree(list(nat * nat))) (l: list nat) (lvl: nat) (stsh: list(nat * nat)) : list(nat * nat) := *)
+  (*   match stsh with *)
+  (*   | [] => [] *)
+  (*   | (bid,bdata) :: t => getCandidateBlocksHelper rt lvl bid stsh ++ (getCandidateBlocks rt t lvl  *)
                                        
                                                               
                                        
