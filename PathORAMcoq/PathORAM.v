@@ -35,7 +35,31 @@ Section Tree.
               then Some(snd h)
               else readBlockFromStash t bID
     end.
-     
+  
+  Inductive BlockEntry : Type := BV: (nat * nat) -> BlockEntry.
+  
+  Fixpoint updateStash(bID: nat) (dataN: nat)(stsh: list BlockEntry): list BlockEntry :=
+    match stsh with
+    | [] => []
+    | BV(id, data) :: t => if Nat.eqb bID id
+                       then BV(id, dataN) :: updateStash bID dataN t
+                       else updateStash bID dataN t
+    end.
+      
+  Fixpoint popStash (stsh: list BlockEntry) (sublist: list BlockEntry) : list BlockEntry :=
+    match sublist with
+    | [] => stsh
+    | BV(k, v) :: t =>
+        match stsh with
+        | [] => []
+        | BV(bID, data) :: xs =>
+            if Nat.eqb k bID
+            then xs
+            else popStash stsh t
+        end
+    end.
+
+                         
   
 (* End STASH. *)
 
@@ -71,7 +95,6 @@ Section Tree.
                       (buildPBTlevelOrder def_a (2 * label + 1) ht')
                       (buildPBTlevelOrder def_a (2 * label + 2) ht')
     end.
-
   
   Definition PBTree1 {A} : PBTree (list A) := buildPBTlevelOrder [] 0 3.
 
@@ -145,11 +168,12 @@ Section Tree.
 
   Compute PBTree1.
   Compute writeToNode PBTree1 9 2 [0; 1; 2].
-
+  
   (* Definition of rand comes from Yves Bertot *)
   CoFixpoint rand (seed n1 n2 : Z) : Stream Z :=
     let seed' := Zmod seed n2 in Cons seed' (rand (seed' * n1) n1 n2).           
-
+  (* find a definition of one-way function with unique inputs *)
+  
   Fixpoint takeS {X} n (str : Stream X) : list X :=
     match n with
     | 0 => []
@@ -158,6 +182,7 @@ Section Tree.
             end
     end.
 
+  
   Definition first60 := takeS 60(rand 475 919 953).
 
   Definition md_tot := fun x => Zmod x 15.
@@ -408,7 +433,7 @@ Section Tree.
         end
     end.
   
-  Inductive BlockEntry : Type := BV: (nat * nat) -> BlockEntry.
+
 
   Fixpoint getCandidateBlocksHelper (rt: PBTree(list(nat * nat))) (l: list nat)
            (lvl: nat)(bID: nat)(stsh: list(nat * nat)): option BlockEntry:=
@@ -436,15 +461,7 @@ Section Tree.
         end                     
     end.
 
-                                       
-                                                              
-                                       
-                                 
-                                                        
-
-  
 End Tree.
-
 
 
 
@@ -454,11 +471,36 @@ End Tree.
 Section PathORAM.
   Definition nodesTotal := 60.
   Definition nodeCap := 4.
-  Definition stashInit := [].
+  (* Definition stashInit := []. *)
 
   Inductive Op :=
   | Rd
   | Wr.
+
+  Fixpoint leb (n m : nat) : bool :=
+  match n with
+  | O =>true
+  | S n' =>
+      match m with
+      | O => false
+      | S m' =>leb n' m'
+      end
+  end.
+
+  Fixpoint getWriteBackBlocks (rt : PBTree(list(nat * nat)))(c: nat) (l: list nat) (lvl: nat)(stsh: list(nat * nat)): list BlockEntry :=
+    match List.length(stsh) with
+    | O => let candidateBlocks := @nil BlockEntry in
+          let writeBackSize := O in
+          []
+    | S m => let candidateBlocks := getCandidateBlocks rt l lvl stsh in
+            if  leb c (List.length(candidateBlocks)) 
+            then let writeBackSize := c in
+                 takeL c candidateBlocks
+            else let writeBackSize := List.length(candidateBlocks) in
+                 takeL c candidateBlocks
+    end.
+        
+  (* Fixpoint access(rt: PBTree(list(nat * nat))) (op: Op) (bID: nat)(data:option nat): *)
 
   
 End PathORAM.
@@ -473,11 +515,11 @@ Section PathORAM.
   (* S -> S * X *)
   (*           proj_2 () *)
             
-  Theorem PathORAM_simulates_RAM: forall (data: nat)(blockId: nat),
-    bind (access Wr blockId data) (access Rd blockId dataNone) ->
-    ValEq data getData(access Rd blockId dataNone).
-    
-  Admitted.
+  (* Theorem PathORAM_simulates_RAM: forall (data: nat)(blockId: nat), *)
+  (*   (val2, S2) = bind (access Wr blockId data) (access Rd blockId dataNone) -> *)
+  (*   ValEq data getData(access Rd blockId dataNone). *)
+  (*   (val1, S1) -> (val2, S2) -> (val3, S3) *)
+  (* Admitted. *)
 
   
   
