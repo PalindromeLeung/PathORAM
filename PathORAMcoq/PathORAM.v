@@ -28,7 +28,6 @@ Section Tree.
 (* Section STASH. *)
   Definition concatStash {A} (stsh : list (prod nat A)) (a : list (prod nat A)) := stsh ++ a.
 
-  Print option.
   Fixpoint readBlockFromStash (stsh : list(nat * nat)) (bID : nat) : option nat :=
     match stsh with
     | [] => None
@@ -36,7 +35,7 @@ Section Tree.
               then Some(snd h)
               else readBlockFromStash t bID
     end.
-      
+     
   
 (* End STASH. *)
 
@@ -426,13 +425,17 @@ Section Tree.
                       else None
         end
     end.
-      
                                  
-                                 
-  (* Fixpoint getCandidateBlocks (rt: PBTree(list(nat * nat))) (l: list nat) (lvl: nat) (stsh: list(nat * nat)) : list(nat * nat) := *)
-  (*   match stsh with *)
-  (*   | [] => [] *)
-  (*   | (bid,bdata) :: t => getCandidateBlocksHelper rt lvl bid stsh ++ (getCandidateBlocks rt t lvl  *)
+  Fixpoint getCandidateBlocks (rt: PBTree(list(nat * nat))) (l: list nat) (lvl: nat) (stsh: list(nat * nat)) : list BlockEntry :=
+    match stsh with
+    | [] => []
+    | (bid,bdata) :: t =>
+        match getCandidateBlocksHelper rt l lvl bid stsh with
+        | None =>  (getCandidateBlocks rt l lvl t)
+        | Some v => v :: (getCandidateBlocks rt l lvl t)
+        end                     
+    end.
+
                                        
                                                               
                                        
