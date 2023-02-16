@@ -391,9 +391,10 @@ Section Tree.
     end.
 
   Scheme Equality for list.
+  Scheme Equality for prod.
 
   Print list_beq.
-
+  (* Definition pairEqL A B := TODO *)
   Fixpoint posMapLookUp (bID : nat) (posMap : list(nat * nat)) :option nat :=
     match posMap with
     | [] => None
@@ -487,7 +488,7 @@ Section PathORAM.
       end
   end.
 
-  Fixpoint getWriteBackBlocks (rt : PBTree(list(nat * nat)))(c: nat) (l: list nat) (lvl: nat)(stsh: list(nat * nat)): list BlockEntry :=
+  Definition getWriteBackBlocks (rt : PBTree(list(nat * nat)))(c: nat) (l: list nat) (lvl: nat)(stsh: list(nat * nat)): list BlockEntry :=
     match List.length(stsh) with
     | O => let candidateBlocks := @nil BlockEntry in
           let writeBackSize := O in
@@ -499,9 +500,25 @@ Section PathORAM.
             else let writeBackSize := List.length(candidateBlocks) in
                  takeL c candidateBlocks
     end.
-        
-  (* Fixpoint access(rt: PBTree(list(nat * nat))) (op: Op) (bID: nat)(data:option nat): *)
+  Check Monad_state.
 
+  Import MonadLetNotation.
+  Open Scope monad_scope.
+
+
+  (* Definition incr_counter : state nat unit := *)
+  (*   let* curr := get in *)
+  (*   put (S curr). *)
+
+  (* Definition stateful_bubble : Z -> state nat Z := *)
+  (*   fun x => *)
+  (*     let* _ := incr_counter in *)
+  (*     ret (2 * x)%Z. *)
+
+  Definition access (bID dataN : nat): state (list BlockEntry) unit :=
+    let* StashInit := get in
+    put (updateStash bID dataN StashInit).
+        
   
 End PathORAM.
 
