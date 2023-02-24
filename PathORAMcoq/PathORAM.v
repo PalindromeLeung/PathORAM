@@ -12,8 +12,7 @@ Require Import Streams.
 Require Import Coq.ZArith.Zdiv.
 
 Require Import  ExtLib.Data.Monads.StateMonad ExtLib.Structures.Monads.
-    
-
+Search Monad.
 
 Section Utils.
 
@@ -28,15 +27,19 @@ Section Tree.
 (* Section STASH. *)
   Definition concatStash {A} (stsh : list (prod nat A)) (a : list (prod nat A)) := stsh ++ a.
 
-  Fixpoint readBlockFromStash (stsh : list(nat * nat)) (bID : nat) : option nat :=
+  Inductive BlockEntry : Type := BV: (nat * nat) -> BlockEntry.
+
+  Fixpoint readBlockFromStash (stsh : list BlockEntry) (bID : nat) : option nat :=
     match stsh with
     | [] => None
-    | h :: t => if Nat.eqb (fst h) bID
-              then Some(snd h)
-              else readBlockFromStash t bID
+    | h :: t => match h with
+              | BV pr => if Nat.eqb (fst pr) bID
+                        then Some(snd pr)
+                        else readBlockFromStash t bID
+              end
+                
     end.
   
-  Inductive BlockEntry : Type := BV: (nat * nat) -> BlockEntry.
   
   Fixpoint updateStash(bID: nat) (dataN: nat)(stsh: list BlockEntry): list BlockEntry :=
     match stsh with
@@ -341,9 +344,9 @@ Section Tree.
   Compute clearPath PBTree1 (rev(getPath' 11)).
   Compute rev(getPath' 11).  
 
-  Inductive  NodeData: Type := Data:(nat * list(nat * nat)) -> NodeData .
+  Inductive  NodeData: Type := Data:(nat * list BlockEntry) -> NodeData .
 
-  Fixpoint getNodeAtLevel (lvl: nat) (l: list nat) (rt: PBTree (list (nat * nat))): option NodeData:=
+  Fixpoint getNodeAtLevel (lvl: nat) (l: list nat) (rt: PBTree (list BlockEntry)): option NodeData:=
     match lvl with
     | O => match l with
           | [] => None
@@ -409,19 +412,26 @@ Section Tree.
     | Some n => n
     end.
 
-  Fixpoint eqListPair (l1 : list (nat * nat)) (l2 :  list (nat * nat)) : bool :=
+  Fixpoint eqListPair (l1 : list BlockEntry) (l2 :  list BlockEntry) : bool :=
     match l1 with
     | [] => match l2 with
            | [] => true
            | h :: t => false
            end
-    | x :: xs => match l2 with
-               | [] => false 
-               | h :: t => if (andb (Nat.eqb (fst x) (fst h)) (Nat.eqb (snd x) (snd h)))
-                         then eqListPair xs t
-                         else false
+    | x :: xs => match x with
+               | BV pl => 
+                   match l2 with
+                   | [] => false 
+                   | h :: t => match h with
+                             | BV pr => if (andb (Nat.eqb (fst pl) (fst pr)) (Nat.eqb (snd pl) (snd pr)))
+                                       then eqListPair xs t
+                                       else false
+                             end
+                   end
+                     
                end
     end.
+      
                
       
   Fixpoint NodeDataEq (n1: NodeData) (n2: NodeData) : bool :=
@@ -436,8 +446,8 @@ Section Tree.
   
 
 
-  Fixpoint getCandidateBlocksHelper (rt: PBTree(list(nat * nat))) (l: list nat)
-           (lvl: nat)(bID: nat)(stsh: list(nat * nat)): option BlockEntry:=
+  Fixpoint getCandidateBlocksHelper (rt: PBTree(list BlockEntry)) (l: list nat)
+           (lvl: nat)(bID: nat)(stsh: list BlockEntry): option BlockEntry:=
     match getNodeAtLevel lvl l rt with (* P(x, l) *)
     | None => None
     | Some val =>
@@ -452,10 +462,10 @@ Section Tree.
         end
     end.
                                  
-  Fixpoint getCandidateBlocks (rt: PBTree(list(nat * nat))) (l: list nat) (lvl: nat) (stsh: list(nat * nat)) : list BlockEntry :=
+  Fixpoint getCandidateBlocks (rt: PBTree(list BlockEntry)) (l: list nat) (lvl: nat) (stsh: list BlockEntry) : list BlockEntry :=
     match stsh with
     | [] => []
-    | (bid,bdata) :: t =>
+    | BV (bid,bdata) :: t =>
         match getCandidateBlocksHelper rt l lvl bid stsh with
         | None =>  (getCandidateBlocks rt l lvl t)
         | Some v => v :: (getCandidateBlocks rt l lvl t)
@@ -488,7 +498,7 @@ Section PathORAM.
       end
   end.
 
-  Definition getWriteBackBlocks (rt : PBTree(list(nat * nat)))(c: nat) (l: list nat) (lvl: nat)(stsh: list(nat * nat)): list BlockEntry :=
+  Definition getWriteBackBlocks (rt : PBTree(list BlockEntry))(c: nat) (l: list nat) (lvl: nat)(stsh: list BlockEntry): list BlockEntry :=
     match List.length(stsh) with
     | O => let candidateBlocks := @nil BlockEntry in
           let writeBackSize := O in
@@ -500,6 +510,7 @@ Section PathORAM.
             else let writeBackSize := List.length(candidateBlocks) in
                  takeL c candidateBlocks
     end.
+  
   Check Monad_state.
 
   Import MonadLetNotation.
@@ -515,10 +526,41 @@ Section PathORAM.
   (*     let* _ := incr_counter in *)
   (*     ret (2 * x)%Z. *)
 
-  Definition access (bID dataN : nat): state (list BlockEntry) unit :=
-    let* StashInit := get in
-    put (updateStash bID dataN StashInit).
-        
+
+ (* st--stash:tree pair *)  
+  Definition st := prod(list BlockEntry)(PBTree(list BlockEntry)).
+
+  Check st.
+  
+  Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st unit :=
+    let* (stsh, tr) := get in
+    let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
+    let updateStash := popStash stsh writeBackBlocks in
+    let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
+    put (updateStash, newTree).
+
+  Fixpoint access_rec (leafIdx: nat) (lIDs : list nat) (lvl: nat): state st unit :=
+    match lvl with
+    | O => writeBacks leafIdx lIDs O 
+    | S m => let* _ := writeBacks leafIdx lIDs lvl in
+            access_rec leafIdx lIDs m 
+    end.
+
+
+  Definition LEVEL := 3. 
+  Definition access (op : Op) (bID : nat) (dataN : option nat) : state st nat :=
+    let lfIdx := look_up position_map bID in
+    let position_map' := update position_map (randomness) in
+    let* (stsh, tr) := get in
+    let* _ := put ((ReadnPopNodes tr lfIdx stsh), tr) in
+    let dataOld := readBlockFromStash stsh bID in
+    if op = Wr then 
+      let toPopstsh := updateStash bID dataN stsh in
+      let* _ := put (toPopstsh, tr) in
+      let* _ := access_rec lfIdx LEVEL in
+      ret dataOld.
+      
+     
   
 End PathORAM.
 
@@ -527,7 +569,6 @@ Section PathORAM.
   Fixpoint ValEq (a : nat) (b : nat): Prop := eq_nat a b.
   Definition dataNone := 45.
 
-  Fixpoint access (op : Op) (blockId : nat) (data: nat): nat . Admitted.
 
   (* S -> S * X *)
   (*           proj_2 () *)
