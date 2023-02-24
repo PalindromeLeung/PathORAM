@@ -203,7 +203,16 @@ Section Tree.
 
   Compute indexed_list 0 randSeq.
   Definition position_map := indexed_list 0 randSeq.
-  
+
+  Fixpoint posMpLookUp {X} (psmp: list (nat * X)) (id: nat) : option X :=
+    match psmp with
+    | [] => None
+    | (k, v) :: t => if Nat.eqb k id
+                   then Some v
+                   else posMpLookUp t id
+    end.
+      
+      
   Fixpoint aggregation_helper (key : nat)(val : nat)(l : list (nat * (list nat))):
     list (nat * (list nat)) :=
     match l with
@@ -474,11 +483,6 @@ Section Tree.
 
 End Tree.
 
-
-
-
-
-
 Section PathORAM.
   Definition nodesTotal := 60.
   Definition nodeCap := 4.
@@ -538,6 +542,7 @@ Section PathORAM.
     let updateStash := popStash stsh writeBackBlocks in
     let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
     put (updateStash, newTree).
+  Print state.
 
   Fixpoint access_rec (leafIdx: nat) (lIDs : list nat) (lvl: nat): state st unit :=
     match lvl with
@@ -545,20 +550,37 @@ Section PathORAM.
     | S m => let* _ := writeBacks leafIdx lIDs lvl in
             access_rec leafIdx lIDs m 
     end.
+Set Printing All.
+  Print writeBacks.
+  Print access_rec.
+  Definition LEVEL := 3.
 
+  Definition option_get {T} (o : option T) (defaultT : T) : T :=
+    match o with
+    | Some val => val
+    | None => defaultT
+    end.
 
-  Definition LEVEL := 3. 
+  (* lfIdx is always some val
+   move this to its own section*)
+  
   Definition access (op : Op) (bID : nat) (dataN : option nat) : state st nat :=
-    let lfIdx := look_up position_map bID in
+    let lfIdx_o := posMapLookUp position_map bID in
+    let lfidx := option_get lfIdx_o -1 in
     let position_map' := update position_map (randomness) in
     let* (stsh, tr) := get in
     let* _ := put ((ReadnPopNodes tr lfIdx stsh), tr) in
     let dataOld := readBlockFromStash stsh bID in
-    if op = Wr then 
-      let toPopstsh := updateStash bID dataN stsh in
-      let* _ := put (toPopstsh, tr) in
-      let* _ := access_rec lfIdx LEVEL in
-      ret dataOld.
+    match op with
+    | Wr => let toPopstsh := updateStash bID dataN stsh in
+           let* _ := put (toPopstsh, tr) in
+           let* _ := access_rec lfIdx LEVEL in
+           ret dataOld
+    | Rd => let* _ := access_rec lfIdx LEVEL in
+           ret dataOld
+    end.
+
+      
       
      
   
@@ -567,17 +589,15 @@ End PathORAM.
 
 Section PathORAM.
   Fixpoint ValEq (a : nat) (b : nat): Prop := eq_nat a b.
-  Definition dataNone := 45.
+  Definition dataNone := None.
 
-
-  (* S -> S * X *)
-  (*           proj_2 () *)
             
-  (* Theorem PathORAM_simulates_RAM: forall (data: nat)(blockId: nat), *)
-  (*   (val2, S2) = bind (access Wr blockId data) (access Rd blockId dataNone) -> *)
-  (*   ValEq data getData(access Rd blockId dataNone). *)
-  (*   (val1, S1) -> (val2, S2) -> (val3, S3) *)
-  (* Admitted. *)
+  Theorem PathORAM_simulates_RAM: forall (s0 : st)(data: nat)(blockId: nat),
+      let ReadOut :=
+        (let twoAccesses := (let* _ := (access Wr blockId data) in access Rd blockId dataNone) in
+        fst (runState twoAccesses s0)) in ValEq data ReadOut. 
+
+  Admitted.
 
   
   
