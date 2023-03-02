@@ -13,6 +13,8 @@ Require Import Coq.ZArith.Zdiv.
 
 Require Import  ExtLib.Data.Monads.StateMonad ExtLib.Structures.Monads.
 Search Monad.
+Import MonadLetNotation.
+Open Scope monad_scope.
 
 Section Utils.
 
@@ -185,11 +187,12 @@ Section Tree.
             end
     end.
 
-  
+  Compute  takeS 60(rand 475 919 953).
   Definition first60 := takeS 60(rand 475 919 953).
 
   Definition md_tot := fun x => Zmod x 15.
 
+  Compute List.map Z.to_nat (List.map md_tot first60).
   Definition randSeq := List.map Z.to_nat (List.map md_tot first60).
 
   Fixpoint modNodesTotal (randList : list Z) : list nat :=
@@ -389,12 +392,12 @@ Section Tree.
             end
     end.
 
-  Fixpoint ReadnPopNodes (rt: PBTree (list (nat * nat))) (l: list nat) (stsh: list (nat * nat)) : list (nat * nat) :=
+  Fixpoint ReadnPopNodes (rt: PBTree (list BlockEntry)) (l: list nat) (stsh: list BlockEntry) : list BlockEntry :=
     match l with
     | [] => []
     | h :: t => match rt with
               | Leaf idx val => if Nat.eqb h idx
-                               then stsh ++ val 
+                               then stsh ++ val
                                else stsh 
               | Node idx val lc rc => if Nat.eqb h idx
                                      then stsh ++ val 
@@ -517,8 +520,6 @@ Section PathORAM.
   
   Check Monad_state.
 
-  Import MonadLetNotation.
-  Open Scope monad_scope.
 
 
   (* Definition incr_counter : state nat unit := *)
@@ -532,19 +533,18 @@ Section PathORAM.
 
 
  (* st--stash:tree pair *)  
-  Definition st := prod(list BlockEntry)(PBTree(list BlockEntry)).
 
-  Check st.
-  
-  Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st unit :=
-    let* (stsh, tr) := get in
+  Definition st_rand := prod (Stream Z)(prod(list BlockEntry)(PBTree(list BlockEntry))).
+
+  Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st_rand unit :=
+    let* (stream, (stsh, tr)) := get in
     let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
     let updateStash := popStash stsh writeBackBlocks in
     let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
-    put (updateStash, newTree).
+    put (stream, (updateStash, newTree)).
   Print state.
 
-  Fixpoint access_rec (leafIdx: nat) (lIDs : list nat) (lvl: nat): state st unit :=
+  Fixpoint access_rec (leafIdx: nat) (lIDs : list nat) (lvl: nat): state st_rand unit :=
     match lvl with
     | O => writeBacks leafIdx lIDs O 
     | S m => let* _ := writeBacks leafIdx lIDs lvl in
@@ -561,42 +561,64 @@ Set Printing All.
     | None => defaultT
     end.
 
+  Fixpoint posMapUpdate (posMap: list(nat * nat)) (nID: nat) (random: nat) : list(nat * nat) :=
+    match posMap with
+    | [] => []
+    | (b, n) :: t => if Nat.eqb b nID
+                   then (b, random) :: (posMapUpdate t nID random)
+                   else (b, n) :: (posMapUpdate t nID random)
+    end.
+      
+  Definition get_random_nat (_ : unit) : state st_rand nat :=
+    let* (stream, (stsh, tr)) := get in
+    let (random, stream') :=
+      match stream with
+      | Cons r s => (r, s)
+      end
+    in
+    let* _ := put (stream', (stsh, tr)) in
+    ret (Z.to_nat (md_tot random)).
+                     
+                              
   (* lfIdx is always some val
    move this to its own section*)
-  
-  Definition access (op : Op) (bID : nat) (dataN : option nat) : state st nat :=
-    let lfIdx_o := posMapLookUp position_map bID in
-    let lfidx := option_get lfIdx_o -1 in
-    let position_map' := update position_map (randomness) in
-    let* (stsh, tr) := get in
-    let* _ := put ((ReadnPopNodes tr lfIdx stsh), tr) in
+
+    Definition access (op : Op) (bID : nat) (dataN : option nat) : state st_rand nat :=
+    let lfIdx_o := posMapLookUp bID position_map in
+    let lfidx := option_get lfIdx_o 0 in (* prove lfidx will not be None*)
+    let* random_nat := get_random_nat tt in
+    let position_map' := posMapUpdate position_map lfidx random_nat  in
+    let* (stream, (stsh, tr)) := get in
+    let* _ := put(stream, ((ReadnPopNodes tr (getPath' lfidx) stsh), tr)) in
     let dataOld := readBlockFromStash stsh bID in
     match op with
-    | Wr => let toPopstsh := updateStash bID dataN stsh in
-           let* _ := put (toPopstsh, tr) in
-           let* _ := access_rec lfIdx LEVEL in
-           ret dataOld
-    | Rd => let* _ := access_rec lfIdx LEVEL in
-           ret dataOld
+    | Wr => let toPopstsh := updateStash bID (option_get dataN 0) stsh in
+           let* _ := put(stream, (toPopstsh, tr)) in
+           let* _ := access_rec lfidx (getPath' lfidx) LEVEL in
+           ret (option_get dataOld O)
+    | Rd => let* _ := access_rec lfidx (getPath' lfidx) LEVEL in
+           ret (option_get dataOld O)
     end.
-
-      
-      
-     
   
 End PathORAM.
 
 
 Section PathORAM.
   Fixpoint ValEq (a : nat) (b : nat): Prop := eq_nat a b.
-  Definition dataNone := None.
 
-            
-  Theorem PathORAM_simulates_RAM: forall (s0 : st)(data: nat)(blockId: nat),
+  Definition twoAccesses(blockId: nat ) (data: nat) : state st_rand nat :=
+    let* (stream, (stsh, tr)) := get in
+    let* _ := access Wr blockId (Some data) in
+    access Rd blockId None.
+
+           
+  Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
-        (let twoAccesses := (let* _ := (access Wr blockId data) in access Rd blockId dataNone) in
+        (let twoAccesses := (let* _ := (access Wr blockId (Some data)) in access Rd blockId None) in
         fst (runState twoAccesses s0)) in ValEq data ReadOut. 
-
+  Proof.
+    intros.
+    
   Admitted.
 
   
@@ -604,15 +626,5 @@ Section PathORAM.
   Theorem PathORAMIsSecure :
     forall (y : list Access) (z : list Access), 
      comp_indistinguish (getPos(fold_LM y)) (getPos(fold_LM z)). 
-
-
-    
-    forall (i: nat) (oplista: list Operation)(oplistb: list Operation)
-      (datalista: list nat) (datalistb: list nat) 
-      (blocklista: list nat) (blocklistb list nat)
-      (a : list (access (fetchlist oplista i) (fetchlist blocklista i ) (fetchlist datalista i)))
-      (b : list (access (fetchlist oplistb i) (fetchlist blocklistb i ) (fetchlist datalistb i))), comp_indistinguish a b.
-
-    
   
 End PathORAM.
