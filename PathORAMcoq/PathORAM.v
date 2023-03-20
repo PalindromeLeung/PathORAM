@@ -604,20 +604,66 @@ End PathORAM.
 
 
 Section PathORAM.
-  Fixpoint ValEq (a : nat) (b : nat): Prop := eq_nat a b.
+  Definition ValEq (a : nat) (b : nat): Prop := eq_nat a b.
 
   Definition twoAccesses(blockId: nat ) (data: nat) : state st_rand nat :=
     let* (stream, (stsh, tr)) := get in
     let* _ := access Wr blockId (Some data) in
     access Rd blockId None.
+  Unset Printing All.
 
-           
+
+  From QuickChick Require Import QuickChick.
+  Import QcDefaultNotation. Open Scope qc_scope.
+
+  
+  Lemma posMapLookUp_some: forall (posMap: list(nat * nat)) (bID: nat) (kv: (nat * nat)),
+      eq_nat (fst kv) bID -> In kv posMap ->
+      exists v, posMapLookUp bID posMap = Some v.
+  Proof.
+    intros.
+    destruct kv. simpl in *. revert bID n n0 H H0.
+    induction posMap; intros.
+    - inversion H0.
+    - simpl in H0.
+      destruct H0 eqn:separate.
+      + subst. simpl. destruct (n =? bID) eqn: cond.
+        * exists n0. reflexivity. 
+        * apply EqNat.beq_nat_false_stt in cond.  
+        eapply eq_nat_is_eq in H.
+        rewrite H in cond. contradiction.
+      + simpl. destruct (n =? bID) eqn: cond; subst; simpl. 
+        * exists n0. apply EqNat.beq_nat_true_stt in cond.
+        (* information about a was lost *)
+        *
+        
+  Admitted.
+
+  Lemma readBlockFromStash_some: forall (stsh : list BlockEntry) (bID: nat),
+            
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
         (let twoAccesses := (let* _ := (access Wr blockId (Some data)) in access Rd blockId None) in
         fst (runState twoAccesses s0)) in ValEq data ReadOut. 
   Proof.
-    intros.
+    unfold ValEq.
+    intros. remember  (access Wr blockId (@Some nat data)) as wrAcc. 
+    unfold bind.
+    Unset Printing All.
+    destruct s0.
+    destruct p.
+    remember (access Rd blockId None) as rdAcc.
+    simpl.
+    unfold access in HeqwrAcc.
+    Check List.Exists.
+    (* TODO: prove option_get will always return Some val 
+       1. posMaplookup 
+       2. readBlockFromStash
+       The goal is to simplify option type and know exactly what we should replace it with.
+     *)
+
+    
+    
     
   Admitted.
 
