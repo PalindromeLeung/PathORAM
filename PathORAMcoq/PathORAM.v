@@ -613,10 +613,17 @@ Section PathORAM.
   Unset Printing All.
 
 
-  From QuickChick Require Import QuickChick.
-  Import QcDefaultNotation. Open Scope qc_scope.
-
+  (* From QuickChick Require Import QuickChick. *)
+  (* Import QcDefaultNotation. Open Scope qc_scope. *)
   
+  Lemma reflect_eq: forall (bID: nat), (bID =? bID) = true.
+  Proof.
+    intros.
+    induction bID.
+    - eauto.
+    - simpl. apply IHbID.
+  Qed.
+
   Lemma posMapLookUp_some: forall (posMap: list(nat * nat)) (bID: nat) (kv: (nat * nat)),
       eq_nat (fst kv) bID -> In kv posMap ->
       exists v, posMapLookUp bID posMap = Some v.
@@ -629,15 +636,27 @@ Section PathORAM.
       destruct H0 eqn:separate.
       + subst. simpl. destruct (n =? bID) eqn: cond.
         * exists n0. reflexivity. 
-        * apply EqNat.beq_nat_false_stt in cond.  
+        * apply beq_nat_false in cond.  
         eapply eq_nat_is_eq in H.
         rewrite H in cond. contradiction.
-      + simpl. destruct (n =? bID) eqn: cond; subst; simpl. 
-        * exists n0. apply EqNat.beq_nat_true_stt in cond.
-        (* information about a was lost *)
-        *
-        
-  Admitted.
+      + (* assert {Ha: a <> (n, n0)} *)
+        simpl. destruct (n =? bID) eqn: cond.
+        subst; simpl. 
+        * apply beq_nat_true in cond. 
+          destruct a. simpl. destruct ( Nat.eq_dec n1 bID).
+          rewrite e.
+          pose proof (reflect_eq bID).
+          rewrite H0. exists n2. auto.
+          destruct_with_eqn (n1 =? bID). exists n2. auto.
+          specialize (IHposMap bID n n0 H i).  apply IHposMap.
+        * apply beq_nat_false in cond. 
+          destruct a. simpl. destruct ( Nat.eq_dec n1 bID).
+          rewrite e.
+          pose proof (reflect_eq bID).
+          rewrite H1. exists n2. auto.
+          destruct_with_eqn (n1 =? bID). exists n2. auto.
+          specialize (IHposMap bID n n0 H i).  apply IHposMap.
+  Qed.          
 
   Lemma readBlockFromStash_some: forall (stsh : list BlockEntry) (bID: nat),
             
