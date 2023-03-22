@@ -669,11 +669,8 @@ Section PathORAM.
       eq_nat (BlockEntry_fst kv) bID -> In kv stsh ->
       exists v, readBlockFromStash stsh bID = Some v.
    Proof.
-
    Admitted.
 
-
-  
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
         (let twoAccesses := (let* _ := (access Wr blockId (Some data)) in access Rd blockId None) in
@@ -688,21 +685,10 @@ Section PathORAM.
     remember (access Rd blockId None) as rdAcc.
     simpl.
     unfold access in HeqwrAcc.
-
-    
-    Check List.Exists.
-    (* TODO: prove option_get will always return Some val 
-       1. posMaplookup 
-       2. readBlockFromStash
-       The goal is to simplify option type and know exactly what we should replace it with.
-     *)
-
-    
-    
     
   Admitted.
 
-  
+  (* Branching off: Take Chris suggestion and show that the sequence tokens are unique from each other.  *)
   
   (* Theorem PathORAMIsSecure : *)
   (*   forall (y : list Access) (z : list Access),  *)
