@@ -29,14 +29,19 @@ Section Tree.
 (* Section STASH. *)
   Definition concatStash {A} (stsh : list (prod nat A)) (a : list (prod nat A)) := stsh ++ a.
 
-  Inductive BlockEntry : Type := BV: (nat * nat) -> BlockEntry.
+  Inductive BlockEntry : Type := BV(f s: nat).
 
+  Definition BlockEntry_fst (be : BlockEntry) : nat :=
+    match be with
+    | BV f _ => f
+    end.
+      
   Fixpoint readBlockFromStash (stsh : list BlockEntry) (bID : nat) : option nat :=
     match stsh with
     | [] => None
     | h :: t => match h with
-              | BV pr => if Nat.eqb (fst pr) bID
-                        then Some(snd pr)
+              | BV f s => if Nat.eqb f bID
+                        then Some s
                         else readBlockFromStash t bID
               end
                 
@@ -46,18 +51,18 @@ Section Tree.
   Fixpoint updateStash(bID: nat) (dataN: nat)(stsh: list BlockEntry): list BlockEntry :=
     match stsh with
     | [] => []
-    | BV(id, data) :: t => if Nat.eqb bID id
-                       then BV(id, dataN) :: updateStash bID dataN t
+    | (BV id data) :: t => if Nat.eqb bID id
+                       then (BV id dataN) :: updateStash bID dataN t
                        else updateStash bID dataN t
     end.
       
   Fixpoint popStash (stsh: list BlockEntry) (sublist: list BlockEntry) : list BlockEntry :=
     match sublist with
     | [] => stsh
-    | BV(k, v) :: t =>
+    | (BV k v) :: t =>
         match stsh with
         | [] => []
-        | BV(bID, data) :: xs =>
+        | (BV bID data) :: xs =>
             if Nat.eqb k bID
             then xs
             else popStash stsh t
@@ -431,11 +436,11 @@ Section Tree.
            | h :: t => false
            end
     | x :: xs => match x with
-               | BV pl => 
+               | (BV f s) => 
                    match l2 with
                    | [] => false 
                    | h :: t => match h with
-                             | BV pr => if (andb (Nat.eqb (fst pl) (fst pr)) (Nat.eqb (snd pl) (snd pr)))
+                             | (BV f' s') => if (andb (Nat.eqb f f') (Nat.eqb s s'))
                                        then eqListPair xs t
                                        else false
                              end
@@ -467,7 +472,7 @@ Section Tree.
         | None => None
         | Some val' => if NodeDataEq val val'
                       then match readBlockFromStash stsh bID with
-                           | Some n => Some(BV(bID, n))
+                           | Some n => Some(BV bID n)
                            | _ => None
                            end
                       else None
@@ -477,7 +482,7 @@ Section Tree.
   Fixpoint getCandidateBlocks (rt: PBTree(list BlockEntry)) (l: list nat) (lvl: nat) (stsh: list BlockEntry) : list BlockEntry :=
     match stsh with
     | [] => []
-    | BV (bid,bdata) :: t =>
+    | (BV bid bdata) :: t =>
         match getCandidateBlocksHelper rt l lvl bid stsh with
         | None =>  (getCandidateBlocks rt l lvl t)
         | Some v => v :: (getCandidateBlocks rt l lvl t)
@@ -639,8 +644,7 @@ Section PathORAM.
         * apply beq_nat_false in cond.  
         eapply eq_nat_is_eq in H.
         rewrite H in cond. contradiction.
-      + (* assert {Ha: a <> (n, n0)} *)
-        simpl. destruct (n =? bID) eqn: cond.
+      + simpl. destruct (n =? bID) eqn: cond.
         subst; simpl. 
         * apply beq_nat_true in cond. 
           destruct a. simpl. destruct ( Nat.eq_dec n1 bID).
@@ -648,18 +652,28 @@ Section PathORAM.
           pose proof (reflect_eq bID).
           rewrite H0. exists n2. auto.
           destruct_with_eqn (n1 =? bID). exists n2. auto.
-          specialize (IHposMap bID n n0 H i).  apply IHposMap.
+          specialize (IHposMap bID n n0 H i). apply IHposMap.
         * apply beq_nat_false in cond. 
           destruct a. simpl. destruct ( Nat.eq_dec n1 bID).
           rewrite e.
           pose proof (reflect_eq bID).
           rewrite H1. exists n2. auto.
           destruct_with_eqn (n1 =? bID). exists n2. auto.
-          specialize (IHposMap bID n n0 H i).  apply IHposMap.
+          specialize (IHposMap bID n n0 H i). apply IHposMap.
   Qed.          
-
-  Lemma readBlockFromStash_some: forall (stsh : list BlockEntry) (bID: nat),
+      
+             
             
+  Lemma readBlockFromStash_some:
+    forall (stsh : list BlockEntry) (bID: nat) (kv : BlockEntry), 
+      eq_nat (BlockEntry_fst kv) bID -> In kv stsh ->
+      exists v, readBlockFromStash stsh bID = Some v.
+   Proof.
+
+   Admitted.
+
+
+  
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
         (let twoAccesses := (let* _ := (access Wr blockId (Some data)) in access Rd blockId None) in
@@ -674,6 +688,8 @@ Section PathORAM.
     remember (access Rd blockId None) as rdAcc.
     simpl.
     unfold access in HeqwrAcc.
+
+    
     Check List.Exists.
     (* TODO: prove option_get will always return Some val 
        1. posMaplookup 
@@ -688,8 +704,8 @@ Section PathORAM.
 
   
   
-  Theorem PathORAMIsSecure :
-    forall (y : list Access) (z : list Access), 
-     comp_indistinguish (getPos(fold_LM y)) (getPos(fold_LM z)). 
+  (* Theorem PathORAMIsSecure : *)
+  (*   forall (y : list Access) (z : list Access),  *)
+  (*    comp_indistinguish (getPos(fold_LM y)) (getPos(fold_LM z)).  *)
   
 End PathORAM.
