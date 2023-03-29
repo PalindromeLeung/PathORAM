@@ -11,6 +11,7 @@ Require Import Coq.Program.Wf.
 Require Import Streams.
 Require Import Coq.ZArith.Zdiv.
 
+
 Require Import  ExtLib.Data.Monads.StateMonad ExtLib.Structures.Monads.
 Search Monad.
 Import MonadLetNotation.
@@ -594,6 +595,7 @@ Set Printing All.
     let* random_nat := get_random_nat tt in
     let position_map' := posMapUpdate position_map lfidx random_nat  in
     let* (stream, (stsh, tr)) := get in
+
     let* _ := put(stream, ((ReadnPopNodes tr (getPath' lfidx) stsh), tr)) in
     let dataOld := readBlockFromStash stsh bID in
     match op with
@@ -668,13 +670,16 @@ Section PathORAM.
     forall (stsh : list BlockEntry) (bID: nat) (kv : BlockEntry), 
       eq_nat (BlockEntry_fst kv) bID -> In kv stsh ->
       exists v, readBlockFromStash stsh bID = Some v.
-   Proof.
-   Admitted.
+  Proof.
+  Admitted.
 
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
-        (let twoAccesses := (let* _ := (access Wr blockId (Some data)) in access Rd blockId None) in
-        fst (runState twoAccesses s0)) in ValEq data ReadOut. 
+        (let twoAccesses :=
+           (let* _ := (access Wr blockId (Some data)) in
+            access Rd blockId None) in
+         fst (runState twoAccesses s0)
+        ) in ValEq data ReadOut. 
   Proof.
     unfold ValEq.
     intros. remember  (access Wr blockId (@Some nat data)) as wrAcc. 
