@@ -43,4 +43,6 @@ Lemma counter_simple: forall (init_counter: nat) (int_l : list Z),
 Proof.
   intros.
   simpl in *.
+  induction int_l; simpl in *; auto.
+  - 
   
