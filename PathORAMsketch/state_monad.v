@@ -32,17 +32,21 @@ Definition stateful_add : Z -> Z -> state nat Z :=
     let* _ := incr_counter in
     ret (x + y)%Z.
 
-Lemma counter_simple: forall (init_counter: nat) (int_l : list Z),
+Lemma counter_simple: forall (init_counter : nat) (int_l : list Z) (z : Z),
     let res_counter :=
       (let st_add :=
          (let* curr_counter := get in
-          fold_left_state stateful_add (0%Z) int_l) in
+          fold_left_state stateful_add (z%Z) int_l) in
        snd (runState st_add init_counter)
       ) in 
     res_counter = init_counter + length(int_l).
 Proof.
   intros.
-  simpl in *.
-  induction int_l; simpl in *; auto.
-  - 
-  
+  generalize dependent z.
+  generalize dependent init_counter.
+  induction int_l; intros; simpl in *; auto.
+  - unfold res_counter.
+    unfold fold_left_state in IHint_l.
+    rewrite IHint_l.
+    apply plus_n_Sm.
+Qed.
