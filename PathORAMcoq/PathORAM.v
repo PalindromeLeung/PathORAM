@@ -664,15 +664,37 @@ Section PathORAM.
           specialize (IHposMap bID n n0 H i). apply IHposMap.
   Qed.          
       
-             
+  
             
   Lemma readBlockFromStash_some:
     forall (stsh : list BlockEntry) (bID: nat) (kv : BlockEntry), 
       eq_nat (BlockEntry_fst kv) bID -> In kv stsh ->
       exists v, readBlockFromStash stsh bID = Some v.
   Proof.
-  Admitted.
+    intros.
+    destruct kv. simpl in *. revert bID f s H H0.
+    induction stsh; intros.
+    - inversion H0.
+    - simpl in H0.
+      destruct H0 eqn:separate.
+      + subst. simpl. destruct (f =? bID) eqn: cond.
+        * exists s. reflexivity. 
+        * apply beq_nat_false in cond.  
+        eapply eq_nat_is_eq in H.
+        rewrite H in cond. contradiction.
+      + simpl. destruct a.
+        destruct (f0 =? bID) eqn: cond.
+        subst; simpl. 
+        * apply beq_nat_true in cond.
+          exists s0. auto.
+        * apply beq_nat_false in cond.
+          
+          destruct ( Nat.eq_dec f0 bID). contradiction.
+          specialize (IHstsh bID f s H i).
+          auto.
+  Qed.          
 
+  
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
         (let twoAccesses :=
