@@ -1,0 +1,7 @@
+*.vo
+*.vok
+*.vos
+*.glob
+*.aux
+_CoqProject
+*.lia.cache

@@ -11,6 +11,7 @@ Require Import Coq.Program.Wf.
 Require Import Streams.
 Require Import Coq.ZArith.Zdiv.
 
+
 Require Import  ExtLib.Data.Monads.StateMonad ExtLib.Structures.Monads.
 Search Monad.
 Import MonadLetNotation.
@@ -594,6 +595,7 @@ Set Printing All.
     let* random_nat := get_random_nat tt in
     let position_map' := posMapUpdate position_map lfidx random_nat  in
     let* (stream, (stsh, tr)) := get in
+
     let* _ := put(stream, ((ReadnPopNodes tr (getPath' lfidx) stsh), tr)) in
     let dataOld := readBlockFromStash stsh bID in
     match op with
@@ -662,22 +664,44 @@ Section PathORAM.
           specialize (IHposMap bID n n0 H i). apply IHposMap.
   Qed.          
       
-             
+  
             
   Lemma readBlockFromStash_some:
     forall (stsh : list BlockEntry) (bID: nat) (kv : BlockEntry), 
       eq_nat (BlockEntry_fst kv) bID -> In kv stsh ->
       exists v, readBlockFromStash stsh bID = Some v.
-   Proof.
-
-   Admitted.
-
+  Proof.
+    intros.
+    destruct kv. simpl in *. revert bID f s H H0.
+    induction stsh; intros.
+    - inversion H0.
+    - simpl in H0.
+      destruct H0 eqn:separate.
+      + subst. simpl. destruct (f =? bID) eqn: cond.
+        * exists s. reflexivity. 
+        * apply beq_nat_false in cond.  
+        eapply eq_nat_is_eq in H.
+        rewrite H in cond. contradiction.
+      + simpl. destruct a.
+        destruct (f0 =? bID) eqn: cond.
+        subst; simpl. 
+        * apply beq_nat_true in cond.
+          exists s0. auto.
+        * apply beq_nat_false in cond.
+          
+          destruct ( Nat.eq_dec f0 bID). contradiction.
+          specialize (IHstsh bID f s H i).
+          auto.
+  Qed.          
 
   
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
-        (let twoAccesses := (let* _ := (access Wr blockId (Some data)) in access Rd blockId None) in
-        fst (runState twoAccesses s0)) in ValEq data ReadOut. 
+        (let twoAccesses :=
+           (let* _ := (access Wr blockId (Some data)) in
+            access Rd blockId None) in
+         fst (runState twoAccesses s0)
+        ) in ValEq data ReadOut. 
   Proof.
     unfold ValEq.
     intros. remember  (access Wr blockId (@Some nat data)) as wrAcc. 
@@ -688,21 +712,10 @@ Section PathORAM.
     remember (access Rd blockId None) as rdAcc.
     simpl.
     unfold access in HeqwrAcc.
-
-    
-    Check List.Exists.
-    (* TODO: prove option_get will always return Some val 
-       1. posMaplookup 
-       2. readBlockFromStash
-       The goal is to simplify option type and know exactly what we should replace it with.
-     *)
-
-    
-    
     
   Admitted.
 
-  
+  (* Branching off: Take Chris suggestion and show that the sequence tokens are unique from each other.  *)
   
   (* Theorem PathORAMIsSecure : *)
   (*   forall (y : list Access) (z : list Access),  *)
