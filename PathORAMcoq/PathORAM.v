@@ -524,22 +524,6 @@ Section PathORAM.
                  takeL c candidateBlocks
     end.
   
-  Check Monad_state.
-
-
-
-  (* Definition incr_counter : state nat unit := *)
-  (*   let* curr := get in *)
-  (*   put (S curr). *)
-
-  (* Definition stateful_bubble : Z -> state nat Z := *)
-  (*   fun x => *)
-  (*     let* _ := incr_counter in *)
-  (*     ret (2 * x)%Z. *)
-
-
- (* st--stash:tree pair *)  
-
   Definition st_rand := prod (Stream Z)(prod(list BlockEntry)(PBTree(list BlockEntry))).
 
   Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st_rand unit :=
@@ -693,6 +677,65 @@ Section PathORAM.
           specialize (IHstsh bID f s H i).
           auto.
   Qed.          
+
+  (* Since posMap is a dictionary, we need to have a sortedness notation over a dictionary  *)
+  Definition sortedDict (dict: list (nat * nat)) := forall i j k1 v1 k2 v2,
+      i < j ->
+      nth_error dict i = Some (k1, v1) ->
+      nth_error dict j = Some (k2, v2) ->
+      k1 = i /\ k2 = j.
+
+  Fixpoint fixedSlots (rt: PBTree (list BlockEntry)) (sz : nat) : Prop :=
+    match rt with
+    | Leaf _  idx val  => (List.length val) = sz
+    | Node _ idx val lc rc => (List.length val) = sz /\
+                               (fixedSlots lc sz) /\
+                               (fixedSlots rc sz)
+    end.
+                                                    
+  Definition posMapSimplInit (posMap : list(nat * nat)) (memSize : nat) := Nat.eqb(List.length(posMap)) memSize = true /\ (sortedDict posMap).
+
+  (* TODO: show PathORAM satisfies the invariant before an access and also show that it satisfies the invariant after an access.  *)
+
+  Fixpoint In_BlEntry (lbe : list BlockEntry) (key : nat) : Prop :=
+    match lbe with
+    | [] => False
+    | BV k v :: t => k = key \/ In_BlEntry t key 
+    end.
+  
+  Fixpoint In_PBTree (rt : PBTree(list BlockEntry)) (key : nat) : Prop :=
+    match rt with
+    | Leaf _ idx val => idx = key \/ False
+    | Node _ idx val lc rc =>
+        idx = key \/ In_PBTree lc key \/
+          In_PBTree rc key
+    end.
+
+  Print xorb.
+
+  Inductive xxor : Prop -> Prop -> Prop :=
+  | f_f (x y : Prop): ~x -> ~y -> xxor x y
+  | f_t (x y : Prop): ~x -> y -> xxor x y
+  | t_f(x y : Prop): x -> ~y -> xxor x y
+  | t_t (x y : Prop): x -> y -> xxor x y.
+                                 
+  Definition invariant (stsh: list BlockEntry) (rt: PBTree (list BlockEntry)) (memSz : nat) :=
+    forall i, O <= i < memSz -> xxor (In_BlEntry stsh i) (In_PBTree rt i).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
