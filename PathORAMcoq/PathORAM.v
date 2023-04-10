@@ -540,7 +540,7 @@ Section PathORAM.
     | S m => let* _ := writeBacks leafIdx lIDs lvl in
             access_rec leafIdx lIDs m 
     end.
-Set Printing All.
+
   Print writeBacks.
   Print access_rec.
   Definition LEVEL := 3.
@@ -601,8 +601,6 @@ Section PathORAM.
     let* (stream, (stsh, tr)) := get in
     let* _ := access Wr blockId (Some data) in
     access Rd blockId None.
-  Unset Printing All.
-
 
   (* From QuickChick Require Import QuickChick. *)
   (* Import QcDefaultNotation. Open Scope qc_scope. *)
@@ -746,12 +744,30 @@ Section PathORAM.
 
   (* get the list of block ids that live in the stash or a given path *) 
   
-  Definition getBlckStsh (stsh : list BlockEntry) : list nat :=
-    List.map BlockEntry_fst stsh.
+  Definition getBlockIdsFromBELst (belst : list BlockEntry) : list nat :=
+    List.map BlockEntry_fst belst.
 
-  Definition getBlckPath (rt : PBTree(list BlockEntry)) (lf : nat): list nat :=
-    
-    
+  
+  Fixpoint getBlockIdsFromPath (rt: PBTree (list BlockEntry)) (l : list nat) : list nat := 
+    match l with
+    | [] => []
+    | h :: t => match rt with
+              | Leaf _ idx val => if Nat.eqb h idx
+                                 then getBlockIdsFromBELst val
+                                 else getBlockIdsFromPath rt t
+                                           
+              | Node _ idx val lc rc => if Nat.eqb h idx
+                                       then (getBlockIdsFromBELst val) ++ (getBlockIdsFromPath lc t) ++
+                                                                       (getBlockIdsFromPath rc t)
+
+                                       else (getBlockIdsFromPath lc t) ++ (getBlockIdsFromPath rc t)
+              end
+    end.
+
+  Definition caterpillar (BId_stsh : list nat) (BId_path : list nat) : Prop :=
+    NoDup (NatSort.sort (BId_stsh ++ BId_path)).
+
+  
 
 
 
@@ -760,6 +776,25 @@ Section PathORAM.
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+  
   
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
