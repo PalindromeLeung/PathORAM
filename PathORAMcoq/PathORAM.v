@@ -342,7 +342,7 @@ Section Tree.
     apply div2.
     Defined.
 
-  Compute rev(getPath' 11).                
+  Compute rev(getPath' 11).
 
   Fixpoint clearPath (rt: PBTree (list (nat * nat ))) (l : list nat): PBTree (list(nat * nat)) := 
     match l with
@@ -693,7 +693,7 @@ Section PathORAM.
                                (fixedSlots rc sz)
     end.
                                                     
-  Definition posMapSimplInit (posMap : list(nat * nat)) (memSize : nat) := Nat.eqb(List.length(posMap)) memSize = true /\ (sortedDict posMap).
+  Definition posMapSimplInit (posMap : list(nat * nat)) (memSize : nat) := List.length(posMap) = memSize /\ (sortedDict posMap).
 
   (* TODO: show PathORAM satisfies the invariant before an access and also show that it satisfies the invariant after an access.  *)
 
@@ -711,24 +711,47 @@ Section PathORAM.
           In_PBTree rc key
     end.
 
-  Print xorb.
+  (* Print xorb. *)
 
-  Inductive xxor : Prop -> Prop -> Prop :=
-  | f_f (x y : Prop): ~x -> ~y -> xxor x y
-  | f_t (x y : Prop): ~x -> y -> xxor x y
-  | t_f(x y : Prop): x -> ~y -> xxor x y
-  | t_t (x y : Prop): x -> y -> xxor x y.
+  (* Inductive xxor : Prop -> Prop -> Prop := *)
+  (* | f_f (x y : Prop): ~x -> ~y -> xxor x y *)
+  (* | f_t (x y : Prop): ~x -> y -> xxor x y *)
+  (* | t_f(x y : Prop): x -> ~y -> xxor x y *)
+  (* | t_t (x y : Prop): x -> y -> xxor x y. *)
                                  
-  Definition invariant (stsh: list BlockEntry) (rt: PBTree (list BlockEntry)) (memSz : nat) :=
-    forall i, O <= i < memSz -> xxor (In_BlEntry stsh i) (In_PBTree rt i).
+  (* Definition invariant (stsh: list BlockEntry) (rt: PBTree (list BlockEntry)) (memSz : nat) := *)
+  (*   forall i, O <= i < memSz -> xxor (In_BlEntry stsh i) (In_PBTree rt i). *)
 
 
+  Fixpoint counting_begin (begin : nat) (lnat : list nat) : bool :=
+    match lnat with
+    | [] => true
+    | h :: t => if Nat.eqb begin h
+              then (counting_begin (S begin) t)
+              else false 
+    end.
+ 
+  Fixpoint count_lst (lnat : list nat) : bool :=
+    match lnat with
+    | [] => true
+    | h :: t => (counting_begin h lnat)
+    end.
 
+  Compute count_lst [109;110;111].
 
+  Check fst.
 
+  Require Import Sorting.
+  Compute NatSort.sort [1;3;2].
 
+  (* get the list of block ids that live in the stash or a given path *) 
+  
+  Definition getBlckStsh (stsh : list BlockEntry) : list nat :=
+    List.map BlockEntry_fst stsh.
 
-
+  Definition getBlckPath (rt : PBTree(list BlockEntry)) (lf : nat): list nat :=
+    
+    
 
 
 
