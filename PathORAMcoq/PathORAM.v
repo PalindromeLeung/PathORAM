@@ -676,6 +676,9 @@ Section PathORAM.
           auto.
   Qed.          
 
+
+
+  
   (* Since posMap is a dictionary, we need to have a sortedness notation over a dictionary  *)
   Definition sortedDict (dict: list (nat * nat)) := forall i j k1 v1 k2 v2,
       i < j ->
@@ -767,42 +770,39 @@ Section PathORAM.
   Definition caterpillar (BId_stsh : list nat) (BId_path : list nat) : Prop :=
     NoDup (NatSort.sort (BId_stsh ++ BId_path)).
 
-  
 
 
+  Definition isLeafNode (n : nat) (rt : PBTree (list BlockEntry)) : Prop := True (* TODO: define leaf nodes.  *). 
+    
+  Definition init_invariant (rt : PBTree (list BlockEntry)) (stsh : list BlockEntry) (memSz : nat): Prop :=
+    forall bId, bId < memSz ->
+           (exists x, isLeafNode x rt -> In bId (getBlockIdsFromPath rt (getPath' x))) \/
+             (In bId (getBlockIdsFromBELst stsh)).
+  Print init_invariant.
+Print  access.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
+  Lemma invariantholds: forall (rt : PBTree (list BlockEntry)) (stsh : list BlockEntry) (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
+      init_invariant rt stsh memSz ->
+      let (_, s) := runState (access op bID dataN) s0 in
+      let (stsh', tr') := snd s in
+      init_invariant tr' stsh' memSz.
+  Proof.
+    (* idk *)
+  Abort.
 
 
   
   
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
+
         (let twoAccesses :=
            (let* _ := (access Wr blockId (Some data)) in
             access Rd blockId None) in
          fst (runState twoAccesses s0)
-        ) in ValEq data ReadOut. 
+        )
+
+      in ValEq data ReadOut. 
   Proof.
     unfold ValEq.
     intros. remember  (access Wr blockId (@Some nat data)) as wrAcc. 
