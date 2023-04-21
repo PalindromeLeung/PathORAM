@@ -590,7 +590,8 @@ Section PathORAM.
     | Rd => let* _ := access_rec lfidx (getPath' lfidx) LEVEL in
            ret (option_get dataOld O)
     end.
-  
+
+  (* pos map was not recorded in the global state  *)
 End PathORAM.
 
 
@@ -755,38 +756,48 @@ Section PathORAM.
     match l with
     | [] => []
     | h :: t => match rt with
-              | Leaf _ idx val => if Nat.eqb h idx
-                                 then getBlockIdsFromBELst val
-                                 else getBlockIdsFromPath rt t
-                                           
-              | Node _ idx val lc rc => if Nat.eqb h idx
-                                       then (getBlockIdsFromBELst val) ++ (getBlockIdsFromPath lc t) ++
-                                                                       (getBlockIdsFromPath rc t)
-
-                                       else (getBlockIdsFromPath lc t) ++ (getBlockIdsFromPath rc t)
+              | Leaf _ idx val =>
+                  if Nat.eqb h idx
+                  then getBlockIdsFromBELst val
+                  else getBlockIdsFromPath rt t
+              | Node _ idx val lc rc =>
+                  if Nat.eqb h idx
+                  then (getBlockIdsFromBELst val) ++ (getBlockIdsFromPath lc t) ++
+                                                  (getBlockIdsFromPath rc t)
+                  else (getBlockIdsFromPath lc t) ++ (getBlockIdsFromPath rc t)
               end
     end.
 
   Definition caterpillar (BId_stsh : list nat) (BId_path : list nat) : Prop :=
     NoDup (NatSort.sort (BId_stsh ++ BId_path)).
 
-
-
-  Definition isLeafNode (n : nat) (rt : PBTree (list BlockEntry)) : Prop := True (* TODO: define leaf nodes.  *). 
     
-  Definition init_invariant (rt : PBTree (list BlockEntry)) (stsh : list BlockEntry) (memSz : nat): Prop :=
-    forall bId, bId < memSz ->
-           (exists x, isLeafNode x rt -> In bId (getBlockIdsFromPath rt (getPath' x))) \/
-             (In bId (getBlockIdsFromBELst stsh)).
-  Print init_invariant.
-Print  access.
+  Definition isLeafNode (n : nat) (rt : PBTree (list BlockEntry)) : Prop :=
+    let l := (getHeight rt) in
+    (ge n (2^(l - 1))) /\ (le n (2^l - 1)).
 
-  Lemma invariantholds: forall (rt : PBTree (list BlockEntry)) (stsh : list BlockEntry) (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
-      init_invariant rt stsh memSz ->
-      let (_, s) := runState (access op bID dataN) s0 in
-      let (stsh', tr') := snd s in
-      init_invariant tr' stsh' memSz.
+  
+  Definition init_invariant (rt : PBTree (list BlockEntry))
+             (stsh : list BlockEntry) (memSz : nat): Prop :=
+    forall bId posMap, bId < memSz ->
+                  (exists x, (isLeafNode x rt ->
+                         In bId (getBlockIdsFromPath rt (getPath' x)) \/
+                           (In bId (getBlockIdsFromBELst stsh))) /\
+                          (posMapLookUp bId posMap = (Some x))).
+  Lemma invariantholds:
+    forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
+      match s0 with
+      | (strm, (stsh, rt)) =>
+          init_invariant rt stsh memSz ->
+          let (_, s) := runState (access op bID dataN) s0 in
+          let (stsh', tr') := snd s in
+          init_invariant tr' stsh' memSz
+      end.
   Proof.
+    intros.
+    unfold access. 
+           
+    simpl. 
     (* idk *)
   Abort.
 
