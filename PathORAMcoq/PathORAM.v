@@ -776,29 +776,32 @@ Section PathORAM.
     let l := (getHeight rt) in
     (ge n (2^(l - 1))) /\ (le n (2^l - 1)).
 
-  
-  Definition init_invariant (rt : PBTree (list BlockEntry))
-             (stsh : list BlockEntry) (memSz : nat): Prop :=
+  Definition init_invariant'
+             (s: st_rand) (memSz : nat): Prop :=
+    let (stsh, rt) := snd s in
     forall bId posMap, bId < memSz ->
                   (exists x, (isLeafNode x rt ->
                          In bId (getBlockIdsFromPath rt (getPath' x)) \/
                            (In bId (getBlockIdsFromBELst stsh))) /\
                           (posMapLookUp bId posMap = (Some x))).
+(* access_rec =  *)
+(* fix access_rec (leafIdx : nat) (lIDs : list nat) (lvl : nat) *)
+
+  Lemma access_rec_invariant_holds: forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
+      init_invariant'
+                                      
   Lemma invariantholds:
     forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
-      match s0 with
-      | (strm, (stsh, rt)) =>
-          init_invariant rt stsh memSz ->
-          let (_, s) := runState (access op bID dataN) s0 in
-          let (stsh', tr') := snd s in
-          init_invariant tr' stsh' memSz
-      end.
+      init_invariant' s0 memSz ->
+      let (_, s) := runState (access op bID dataN) s0 in
+      init_invariant' s memSz.
   Proof.
-    intros.
-    unfold access. 
+    intros. induction s0.
+    Print access.
+    
+    (* find all functions that mod the states in access  *)
+    
            
-    simpl. 
-    (* idk *)
   Abort.
 
 
