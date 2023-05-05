@@ -70,7 +70,7 @@ Section Tree.
         end
     end.
 
-                         
+                       
   
 (* End STASH. *)
 
@@ -784,93 +784,97 @@ Section PathORAM.
                          In bId (getBlockIdsFromPath rt (getPath' x)) \/
                            (In bId (getBlockIdsFromBELst stsh))) /\
                           (posMapLookUp bId posMap = (Some x))).
-  
-
+                            
   Lemma writeBacks_invariant_holds:
     forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
       init_invariant s memSz ->
-      let (_, s') := runState (writeBacks leafIdx lIDs lvl) s in
+      forall u s', (u, s') = runState (writeBacks leafIdx lIDs lvl) s -> 
       init_invariant s' memSz.
-  Admitted.
+  Proof.
+    induction lvl; intros.
+    -              
+      Admitted.
 
 
+  Lemma access_rec_simpl: forall leafIdx lIDs lvl, 
+      (access_rec leafIdx lIDs (S lvl)) =
+        let* _ := writeBacks leafIdx lIDs (S lvl)
+      in access_rec leafIdx lIDs lvl.
+  Proof.
+    intros.
+    reflexivity.
+  Qed.
 
-  
+  Lemma runStateLemma:  forall s (arSt wbSt: state st_rand unit), 
+      runState (let* _ := wbSt in arSt) s =
+        let (u', s') := runState wbSt s in runState arSt s'. 
+  Proof.
+    intros.
+    simpl.
+    reflexivity.
+Qed.
+
+               
   Lemma access_rec_invariant_holds:
     forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
       init_invariant s memSz ->
-      let (_, s') := runState (access_rec leafIdx lIDs lvl) s in
+      forall u s', (u, s') = runState (access_rec leafIdx lIDs lvl) s -> 
       init_invariant s' memSz.
   
   Proof.
     induction lvl; intros.
-    - unfold access_rec.        (* get a lemma about writeBacks *)
-      apply writeBacks_invariant_holds. auto.
-    - pose proof (writeBacks_invariant_holds leafIdx lIDs lvl s memSz H).
-      remember (runState (writeBacks leafIdx lIDs lvl) s) as wbSt.
-      destruct wbSt. 
-      specialize (IHlvl s0 memSz H0).
-      
-      (* s --writeBacks --> s0 --access_rec --> s' *)
-      (* rewrite  access_rec with Sm case definition, manual simpl. *)
-      assert(HpredSt: forall leafIdx lIDs lvl s,
-                runState (access_rec leafIdx lIDs (S lvl)) s  =
-                  runState (let* _ := writeBacks leafIdx lIDs lvl in
-                            access_rec leafIdx lIDs lvl) s).
-      {admit.}
-      
-      specialize (HpredSt leafIdx lIDs lvl s).
-      rewrite HpredSt. 
-      remember (runState (let* _ := writeBacks leafIdx lIDs lvl in access_rec leafIdx lIDs lvl) s) as cbSt.
-      destruct cbSt.
+    - unfold access_rec in H0.
+      eapply writeBacks_invariant_holds; eauto.
+    - rewrite access_rec_simpl in H0.
+      rewrite runStateLemma in H0.
+      remember  (runState (writeBacks leafIdx lIDs (S lvl)) s) as irSt.
+      destruct irSt.
+      apply (IHlvl s0 ) with (u := u).
+      + eapply writeBacks_invariant_holds; eauto.
+      + eauto. 
+  Qed.    
 
-      assert(HoneStProg : forall leafIdx lIDs lvl s s_next,
-                (u, s_next) = runState (writeBacks leafIdx lIDs lvl) s
-                -> runState (let* _ := writeBacks leafIdx lIDs lvl in
-                           access_rec leafIdx lIDs lvl) s =
-                   runState (access_rec leafIdx lIDs lvl) s_next).
-      {admit.}
-      specialize (HoneStProg leafIdx lIDs lvl s s0 HeqwbSt).
-      rewrite HoneStProg in HeqcbSt.
-      remember (runState (access_rec leafIdx lIDs lvl) s0) as irSt. destruct irSt.
-      inversion HeqcbSt.
-      auto.
-  Admitted.
-
-
-  (* get_random_nat  *)
   Lemma get_random_nat_invariant_holds:
     forall s memSz,
       init_invariant s memSz -> 
       let (_, oldTsPair) := runState (get_random_nat tt) s in
       init_invariant oldTsPair memSz.
   Proof.
-    intros.
-    destruct s.
-    destruct p.
-    
-  Admitted.
+    intros. 
+    destruct s as [[first_nat s] [l pb]].
+    exact H.
+  Qed.
 
-
-
-
-
-
+  Lemma access_chaining_states_invariant_hold: forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
+      init_invariant s0 memSz ->
+      let (_, s1) := runState (get_random_nat tt) s0 in
+      init_invariant s1 memSz ->
+      let (_, s2) := runState ()
 
 
       
-      Lemma invariantholds:
+  Lemma invariantholds:
     forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
-      init_invariant' s0 memSz ->
+      init_invariant s0 memSz ->
       let (_, s) := runState (access op bID dataN) s0 in
-      init_invariant' s memSz.
+      init_invariant s memSz.
   Proof.
-    intros. induction s0.
-    Print access.
-    
-    (* find all functions that mod the states in access  *)
-    
-           
+    intros.
+    destruct s0 as [stm [sl pb]].
+    destruct op.
+    induction pb.
+    - unfold access.
+      remember ( runState
+      (let* _ := get_random_nat tt
+       in let* (stream, (stsh, tr)) := get
+          in let* _ := put (stream, (ReadnPopNodes tr (getPath' (option_get (posMapLookUp bID position_map) 0)) stsh, tr))
+             in let* _ := access_rec (option_get (posMapLookUp bID position_map) 0) (getPath' (option_get (posMapLookUp bID position_map) 0)) LEVEL
+                in ret (option_get (readBlockFromStash stsh bID) 0)) (stm, (sl, Leaf (list BlockEntry) idx val))) as oneOnion.
+      destruct oneOnion.
+      
+
+      
+    (* TODO: find all functions that mod the states in access  *)
   Abort.
 
 
