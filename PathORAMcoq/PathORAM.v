@@ -785,16 +785,6 @@ Section PathORAM.
                            (In bId (getBlockIdsFromBELst stsh))) /\
                           (posMapLookUp bId posMap = (Some x))).
                             
-  Lemma writeBacks_invariant_holds:
-    forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
-      init_invariant s memSz ->
-      forall u s', (u, s') = runState (writeBacks leafIdx lIDs lvl) s -> 
-      init_invariant s' memSz.
-  Proof.
-    induction lvl; intros.
-    -              
-      Admitted.
-
 
   Lemma access_rec_simpl: forall leafIdx lIDs lvl, 
       (access_rec leafIdx lIDs (S lvl)) =
@@ -805,14 +795,45 @@ Section PathORAM.
     reflexivity.
   Qed.
 
-  Lemma runStateLemma:  forall s (arSt wbSt: state st_rand unit), 
+  Lemma runStateLemma: forall s (arSt wbSt: state st_rand unit), 
       runState (let* _ := wbSt in arSt) s =
         let (u', s') := runState wbSt s in runState arSt s'. 
   Proof.
     intros.
     simpl.
     reflexivity.
-Qed.
+  Qed.
+
+
+  
+  Lemma writeBacks_transform:
+    forall s (leafIdx lvl : nat) (lIDs : list nat),
+      runState (writeBacks leafIdx lIDs lvl) s = runState 
+        (let* (stream, (stsh, tr)) := get in
+         (let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
+          let updateStash := popStash stsh writeBackBlocks in
+          let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
+          put (stream, (updateStash, newTree)))) s .
+
+    Proof.
+      intros.
+      simpl.
+      reflexivity.
+    Qed.
+
+
+
+
+  Lemma writeBacks_invariant_holds:
+    forall (leafIdx: nat) (lIDs: list nat) (lvl: nat) (s : st_rand) (memSz: nat),
+      init_invariant s memSz ->
+      forall u s', (u, s') = runState (writeBacks leafIdx lIDs lvl) s -> 
+      init_invariant s' memSz.
+  Proof.
+    induction lvl; intros.
+    - rewrite writeBacks_transform in H0.
+      
+  Admitted.
 
                
   Lemma access_rec_invariant_holds:
@@ -827,7 +848,7 @@ Qed.
       eapply writeBacks_invariant_holds; eauto.
     - rewrite access_rec_simpl in H0.
       rewrite runStateLemma in H0.
-      remember  (runState (writeBacks leafIdx lIDs (S lvl)) s) as irSt.
+      remember (runState (writeBacks leafIdx lIDs (S lvl)) s) as irSt.
       destruct irSt.
       apply (IHlvl s0 ) with (u := u).
       + eapply writeBacks_invariant_holds; eauto.
@@ -845,13 +866,15 @@ Qed.
     exact H.
   Qed.
 
-  Lemma access_chaining_states_invariant_hold: forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
-      init_invariant s0 memSz ->
-      let (_, s1) := runState (get_random_nat tt) s0 in
-      init_invariant s1 memSz ->
-      let (_, s2) := runState ()
 
 
+
+
+
+
+
+
+  
       
   Lemma invariantholds:
     forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
