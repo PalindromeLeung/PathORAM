@@ -741,8 +741,6 @@ Section PathORAM.
 
   Compute count_lst [109;110;111].
 
-  Check fst.
-
   Require Import Sorting.
   Compute NatSort.sort [1;3;2].
 
@@ -804,8 +802,21 @@ Section PathORAM.
     reflexivity.
   Qed.
 
+  Print mkState.
+  Print put.
 
-  
+  Lemma runStateGet: forall (init_s:st_rand) (f: st_rand -> st_rand ),
+      runState (let* s := get in
+                let s' := f s in
+                put s') init_s =
+        runState (put (f init_s)) init_s. 
+  Proof.
+    intros.
+    simpl.
+    reflexivity.
+  Qed.
+
+    
   Lemma writeBacks_transform:
     forall s (leafIdx lvl : nat) (lIDs : list nat),
       runState (writeBacks leafIdx lIDs lvl) s = runState 
@@ -821,19 +832,36 @@ Section PathORAM.
       reflexivity.
     Qed.
 
-
-
-
+  Definition triFunction leafIdx lIDs s : st_rand :=
+    match s with
+    | (stream,(stsh, tr)) =>
+        let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs 0 stsh in
+        let updateStash := popStash stsh writeBackBlocks in
+        let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
+        (stream, (updateStash, newTree))
+    end.
+  
   Lemma writeBacks_invariant_holds:
     forall (leafIdx: nat) (lIDs: list nat) (lvl: nat) (s : st_rand) (memSz: nat),
       init_invariant s memSz ->
       forall u s', (u, s') = runState (writeBacks leafIdx lIDs lvl) s -> 
-      init_invariant s' memSz.
+      init_invariant s'  memSz.
   Proof.
     induction lvl; intros.
     - rewrite writeBacks_transform in H0.
+      remember (runState
+                  (let* (stream, (stsh, tr)) := get in
+                   (let writeBackBlocks :=
+                      getWriteBackBlocks tr leafIdx lIDs 0 stsh in
+                    let updateStash := popStash stsh writeBackBlocks in
+                    let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
+                    put (stream, (updateStash, newTree)))) s) as brkSt.
+      pose proof (runStateGet s (triFunction leafIdx lIDs)). 
+      unfold triFunction in H1.
+
       
   Admitted.
+  
 
                
   Lemma access_rec_invariant_holds:
@@ -850,7 +878,7 @@ Section PathORAM.
       rewrite runStateLemma in H0.
       remember (runState (writeBacks leafIdx lIDs (S lvl)) s) as irSt.
       destruct irSt.
-      apply (IHlvl s0 ) with (u := u).
+      apply (IHlvl s0) with (u := u).
       + eapply writeBacks_invariant_holds; eauto.
       + eauto. 
   Qed.    
