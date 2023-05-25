@@ -526,14 +526,26 @@ Section PathORAM.
   
   Definition st_rand := prod (Stream Z)(prod(list BlockEntry)(PBTree(list BlockEntry))).
 
-  Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st_rand unit :=
-    let* (stream, (stsh, tr)) := get in
-    let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
-    let updateStash := popStash stsh writeBackBlocks in
-    let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
-    put (stream, (updateStash, newTree)).
-  Print state.
+  Definition triFunction leafIdx lIDs s : st_rand :=
+    match s with
+    | (stream,(stsh, tr)) =>
+        let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs 0 stsh in
+        let updateStash := popStash stsh writeBackBlocks in
+        let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
+        (stream, (updateStash, newTree))
+    end.
 
+  (* Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st_rand unit := *)
+  (*   let* (stream, (stsh, tr)) := get in *)
+  (*   let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in *)
+  (*   let updateStash := popStash stsh writeBackBlocks in *)
+  (*   let newTree := writeToNode tr leafIdx lvl writeBackBlocks in *)
+  (*   put (stream, (updateStash, newTree)). *)
+
+  Definition writeBacks leafIdx lIDs (lvl:nat) : state st_rand unit :=
+    let* (stream, (stsh, tr)) := get in
+    put (triFunction leafIdx lIDs (stream, (stsh, tr))).
+  
   Fixpoint access_rec (leafIdx: nat) (lIDs : list nat) (lvl: nat): state st_rand unit :=
     match lvl with
     | O => writeBacks leafIdx lIDs O 
