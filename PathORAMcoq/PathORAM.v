@@ -827,56 +827,72 @@ Section PathORAM.
     reflexivity.
   Qed.
 
-  
-  Lemma writeBacks_invariant_holds:
-    forall (leafIdx: nat) (lIDs: list nat) (lvl: nat) (s : st_rand) (memSz: nat),
-      init_invariant s memSz ->
-      forall u strm stsh ttr, (u, (strm, (stsh, ttr))) =
-                           runState (writeBacks leafIdx lIDs lvl) s -> 
-      init_invariant (strm, (stsh, ttr))  memSz.
-  Proof.
-    induction lvl.
-    - intros.
-      simpl in H0.
-      inversion H0; subst.
-      destruct s.
-      destruct p.
-      simpl in H3.
-      inversion H3; subst.
-      unfold init_invariant in *.
-      
-
-      
-
-
-
-
-
-
-
-
-      
-      
+  Lemma zero_sum: forall s memSz leafIdx lvl lIDs,
+      match s with
+      |(s', (l, p)) =>
+         init_invariant s memSz ->
+         init_invariant
+           (s',
+             (popStash l (getWriteBackBlocks p leafIdx lIDs lvl l),
+               writeToNode p leafIdx lvl
+                          (getWriteBackBlocks p leafIdx lIDs lvl l)
+             )
+           ) memSz
+      end.
+        
   Admitted.
-  
+
+
+
+
+
+
+
+                
+
+  Lemma writeBacks_invariant_holds:
+    forall leafIdx lvl memSz lIDs s, 
+      init_invariant s memSz ->
+      forall u strm stsh ttr,
+        (u, (strm, (stsh, ttr))) =
+          runState (writeBacks leafIdx lIDs lvl) s -> 
+        init_invariant (strm, (stsh, ttr))  memSz.
+  Proof.
+    induction lvl; intros; destruct s; destruct p.
+    - simpl in H0.
+      inversion H0; subst.
+      pose proof ( zero_sum (s, (l, p)) memSz leafIdx 0 lIDs).
+      apply H1.
+      auto.
+    - simpl in H0; inversion H0; subst.
+      pose proof (zero_sum (s, (l, p)) memSz leafIdx (S lvl) lIDs).
+      apply H1.
+      auto.
+Qed.  
 
                
   Lemma access_rec_invariant_holds:
     forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
       init_invariant s memSz ->
-      forall u s', (u, s') = runState (access_rec leafIdx lIDs lvl) s -> 
-      init_invariant s' memSz.
+      forall u strm stsh ttr,  (u, (strm, (stsh, ttr))) = runState (access_rec leafIdx lIDs lvl) s -> 
+      init_invariant (strm, (stsh, ttr)) memSz.
   
   Proof.
     induction lvl; intros.
     - unfold access_rec in H0.
-      eapply writeBacks_invariant_holds; eauto.
+      simpl in H0.
+      pose proof (writeBacks_invariant_holds leafIdx 0 memSz lIDs s H u).
+      inversion H0; subst.
+      apply H1.
+      rewrite H4. simpl. auto.
     - rewrite access_rec_simpl in H0.
       rewrite runStateLemma in H0.
       remember (runState (writeBacks leafIdx lIDs (S lvl)) s) as irSt.
       destruct irSt.
       apply (IHlvl s0) with (u := u).
-      + eapply writeBacks_invariant_holds; eauto.
+      + destruct s0. destruct p.
+        pose proof (writeBacks_invariant_holds leafIdx (S lvl) memSz lIDs ).
+        eapply H1; eauto.
       + eauto. 
   Qed.    
 
