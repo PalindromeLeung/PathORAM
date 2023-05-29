@@ -784,12 +784,14 @@ Section PathORAM.
 
   Definition init_invariant
              (s: st_rand) (memSz : nat): Prop :=
-    let (stsh, rt) := snd s in
-    forall bId posMap, bId < memSz ->
-                  (exists x, (isLeafNode x rt ->
-                         In bId (getBlockIdsFromPath rt (getPath' x)) \/
-                           (In bId (getBlockIdsFromBELst stsh))) /\
-                          (posMapLookUp bId posMap = (Some x))).
+    match s with
+    | (strm, (stsh, rt)) => 
+        forall bId posMap, bId < memSz ->
+                      (exists x, (isLeafNode x rt ->
+                             In bId (getBlockIdsFromPath rt (getPath' x)) \/
+                               (In bId (getBlockIdsFromBELst stsh))) /\
+                              (posMapLookUp bId posMap = (Some x)))
+    end.
                             
 
   Lemma access_rec_simpl: forall leafIdx lIDs lvl, 
@@ -841,16 +843,8 @@ Section PathORAM.
       destruct p.
       simpl in H3.
       inversion H3; subst.
-      inversion H0; subst.
+      unfold init_invariant in *.
       
-
-
-
-
-
-
-
-
 
       
 
