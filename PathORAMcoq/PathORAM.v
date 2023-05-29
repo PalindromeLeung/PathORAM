@@ -524,16 +524,24 @@ Section PathORAM.
                  takeL c candidateBlocks
     end.
   
-  Definition st_rand := prod (Stream Z)(prod(list BlockEntry)(PBTree(list BlockEntry))).
+  Definition st_rand := prod(Stream Z)
+                            (prod(list BlockEntry)
+                                 (PBTree(list BlockEntry))).
 
-  Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st_rand unit :=
-    let* (stream, (stsh, tr)) := get in
-    let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
-    let updateStash := popStash stsh writeBackBlocks in
-    let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
-    put (stream, (updateStash, newTree)).
-  Print state.
+  Definition triFunction leafIdx lIDs lvl (s : st_rand) : st_rand :=
+      match s with 
+      | (stream,(stsh, tr)) =>
+          let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
+          let updateStash := popStash stsh writeBackBlocks in
+          let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
+          (stream, (updateStash, newTree))
+      end.
 
+  Definition writeBacks leafIdx lIDs (lvl:nat) : state st_rand unit :=
+    let* s := get in
+    (let s' := triFunction leafIdx lIDs lvl s in
+    put s').
+    
   Fixpoint access_rec (leafIdx: nat) (lIDs : list nat) (lvl: nat): state st_rand unit :=
     match lvl with
     | O => writeBacks leafIdx lIDs O 
@@ -805,60 +813,55 @@ Section PathORAM.
   Print mkState.
   Print put.
 
-  Lemma runStateGet: forall (init_s:st_rand) (f: st_rand -> st_rand ),
+  Lemma runStateGetPut: forall leafIdx lIDs lvl (init_s : st_rand)
+                          (f: nat -> list nat -> nat -> st_rand -> st_rand),
       runState (let* s := get in
-                let s' := f s in
+                let s' := (f leafIdx lIDs lvl s) in
                 put s') init_s =
-        runState (put (f init_s)) init_s. 
+        runState (put (f leafIdx lIDs lvl init_s)) init_s. 
   Proof.
     intros.
     simpl.
     reflexivity.
   Qed.
 
-    
-  Lemma writeBacks_transform:
-    forall s (leafIdx lvl : nat) (lIDs : list nat),
-      runState (writeBacks leafIdx lIDs lvl) s = runState 
-        (let* (stream, (stsh, tr)) := get in
-         (let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
-          let updateStash := popStash stsh writeBackBlocks in
-          let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
-          put (stream, (updateStash, newTree)))) s .
-
-    Proof.
-      intros.
-      simpl.
-      reflexivity.
-    Qed.
-
-  Definition triFunction leafIdx lIDs s : st_rand :=
-    match s with
-    | (stream,(stsh, tr)) =>
-        let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs 0 stsh in
-        let updateStash := popStash stsh writeBackBlocks in
-        let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
-        (stream, (updateStash, newTree))
-    end.
   
   Lemma writeBacks_invariant_holds:
     forall (leafIdx: nat) (lIDs: list nat) (lvl: nat) (s : st_rand) (memSz: nat),
       init_invariant s memSz ->
-      forall u s', (u, s') = runState (writeBacks leafIdx lIDs lvl) s -> 
-      init_invariant s'  memSz.
+      forall u strm stsh ttr, (u, (strm, (stsh, ttr))) =
+                           runState (writeBacks leafIdx lIDs lvl) s -> 
+      init_invariant (strm, (stsh, ttr))  memSz.
   Proof.
-    induction lvl; intros.
-    - rewrite writeBacks_transform in H0.
-      remember (runState
-                  (let* (stream, (stsh, tr)) := get in
-                   (let writeBackBlocks :=
-                      getWriteBackBlocks tr leafIdx lIDs 0 stsh in
-                    let updateStash := popStash stsh writeBackBlocks in
-                    let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
-                    put (stream, (updateStash, newTree)))) s) as brkSt.
-      pose proof (runStateGet s (triFunction leafIdx lIDs)). 
-      unfold triFunction in H1.
+    induction lvl.
+    - intros.
+      simpl in H0.
+      inversion H0; subst.
+      destruct s.
+      destruct p.
+      simpl in H3.
+      inversion H3; subst.
+      inversion H0; subst.
+      
 
+
+
+
+
+
+
+
+
+      
+
+
+
+
+
+
+
+
+      
       
   Admitted.
   
