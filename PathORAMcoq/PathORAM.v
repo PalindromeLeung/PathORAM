@@ -70,7 +70,18 @@ Section Tree.
         end
     end.
 
-                       
+  Fixpoint popList {A} (a s : list A) (f : A -> A -> bool): list A :=
+    match s with
+    | [] => a
+    | h :: t => match a with
+              | [] => []
+              | x :: xs => if f h x
+                         then popList xs t f 
+                         else popList xs s f 
+              end
+    end.
+      
+(* Compute popList [1;2;3;4;5] [1;5;2] Nat.eqb. PROBLEMATIC.*)
   
 (* End STASH. *)
 
@@ -786,11 +797,12 @@ Section PathORAM.
              (s: st_rand) (memSz : nat): Prop :=
     match s with
     | (strm, (stsh, rt)) => 
-        forall bId posMap, bId < memSz ->
-                      (exists x, (isLeafNode x rt ->
-                             In bId (getBlockIdsFromPath rt (getPath' x)) \/
-                               (In bId (getBlockIdsFromBELst stsh))) /\
-                              (posMapLookUp bId posMap = (Some x)))
+        forall bId posMap,
+          bId < memSz ->
+          (exists x, (isLeafNode x rt ->
+                 In bId (getBlockIdsFromPath rt (getPath' x)) \/
+                   (In bId (getBlockIdsFromBELst stsh))) /\
+                  (posMapLookUp bId posMap = (Some x)))
     end.
                             
 
@@ -827,19 +839,41 @@ Section PathORAM.
     reflexivity.
   Qed.
 
-  Lemma zero_sum: forall s memSz leafIdx lvl lIDs,
+  Lemma zero_sum: forall s memSz leafIdx lvl dt,
       match s with
       |(s', (l, p)) =>
          init_invariant s memSz ->
          init_invariant
            (s',
-             (popStash l (getWriteBackBlocks p leafIdx lIDs lvl l),
-               writeToNode p leafIdx lvl
-                          (getWriteBackBlocks p leafIdx lIDs lvl l)
+             (popStash l dt,
+               writeToNode p leafIdx lvl dt
              )
            ) memSz
       end.
-        
+  Proof.
+    intros.
+    destruct s; destruct p.
+    intro.
+    unfold init_invariant in *.
+    intros.
+    pose proof (H bId posMap H0).
+    destruct H1. destruct H1.
+    exists x.
+    split.
+    intro.
+    assert(HleafNodeConst: forall x p leafIdx lvl dt, isLeafNode x (writeToNode p leafIdx lvl dt) -> isLeafNode x p ).
+    {admit.}
+
+    eapply HleafNodeConst in H3.
+    specialize (H1 H3).
+
+    assert(Hdelta: forall a b d x, In x a \/ In x b -> In x (a ++ d)  \/ In x (popList b d Nat.eqb)).
+    
+    {admit.}
+
+    admit.
+    - auto.    
+    
   Admitted.
 
 
@@ -861,11 +895,11 @@ Section PathORAM.
     induction lvl; intros; destruct s; destruct p.
     - simpl in H0.
       inversion H0; subst.
-      pose proof ( zero_sum (s, (l, p)) memSz leafIdx 0 lIDs).
+      pose proof (zero_sum (s, (l, p)) memSz leafIdx 0).
       apply H1.
       auto.
     - simpl in H0; inversion H0; subst.
-      pose proof (zero_sum (s, (l, p)) memSz leafIdx (S lvl) lIDs).
+      pose proof (zero_sum (s, (l, p)) memSz leafIdx (S lvl)).
       apply H1.
       auto.
 Qed.  
@@ -906,15 +940,6 @@ Qed.
     destruct s as [[first_nat s] [l pb]].
     exact H.
   Qed.
-
-
-
-
-
-
-
-
-
   
       
   Lemma invariantholds:
