@@ -839,6 +839,23 @@ Section PathORAM.
     reflexivity.
   Qed.
 
+
+  
+  Lemma inListPartition:
+    forall {A} (a b c: list A) x, In x a \/ In x (b ++ c) -> In x (a ++ b) \/ In x c.
+  Proof.
+    intros.
+    repeat rewrite in_app_iff in *.
+    destruct H.
+    repeat left; auto.
+
+    destruct H.
+    left. right; auto.
+    right; auto.
+  Qed.
+
+
+
   Lemma zero_sum: forall s memSz leafIdx lvl dt,
       match s with
       |(s', (l, p)) =>
@@ -861,15 +878,31 @@ Section PathORAM.
     exists x.
     split.
     intro.
-    assert(HleafNodeConst: forall x p leafIdx lvl dt, isLeafNode x (writeToNode p leafIdx lvl dt) -> isLeafNode x p ).
+    assert(HleafNodeConst: forall x p leafIdx lvl dt,
+              isLeafNode x (writeToNode p leafIdx lvl dt) ->
+              isLeafNode x p ).
     {admit.}
 
     eapply HleafNodeConst in H3.
     specialize (H1 H3).
-
-    assert(Hdelta: forall a b d x, In x a \/ In x b -> In x (a ++ d)  \/ In x (popList b d Nat.eqb)).
     
-    {admit.}
+
+    
+    assert(Hdelta: forall a b c x, In x (a ++ b ++ c) -> In x (a ++ b)).
+    {
+      intros.
+      (* in_elt: forall [A : Type] (x : A) (l1 l2 : list A), In x (l1 ++ x :: l2) *)
+      destruct H4.
+      left.
+      rewrite in_app_iff.
+      left.
+      auto.
+      (* elements_in_partition: *)
+      (*   forall [A : Type] (f : A -> bool) (l : list A) [l1 l2 : list A], *)
+      (*     partition f l = (l1, l2) -> forall x : A, In x l <-> In x l1 \/ In x l2 *)
+
+      Search In.
+      admit.}
 
     admit.
     - auto.    
@@ -892,17 +925,13 @@ Section PathORAM.
           runState (writeBacks leafIdx lIDs lvl) s -> 
         init_invariant (strm, (stsh, ttr))  memSz.
   Proof.
-    induction lvl; intros; destruct s; destruct p.
-    - simpl in H0.
-      inversion H0; subst.
-      pose proof (zero_sum (s, (l, p)) memSz leafIdx 0).
-      apply H1.
-      auto.
-    - simpl in H0; inversion H0; subst.
-      pose proof (zero_sum (s, (l, p)) memSz leafIdx (S lvl)).
-      apply H1.
-      auto.
-Qed.  
+    intros; destruct s; destruct p.
+    simpl in H0. 
+    inversion H0; subst.
+    pose proof (zero_sum (s, (l, p)) memSz leafIdx  lvl).
+    apply H1.
+    auto. 
+  Qed.  
 
                
   Lemma access_rec_invariant_holds:
@@ -942,7 +971,7 @@ Qed.
   Qed.
   
       
-  Lemma invariantholds:
+  Lemma init_invariantholds:
     forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
       init_invariant s0 memSz ->
       let (_, s) := runState (access op bID dataN) s0 in
@@ -967,20 +996,25 @@ Qed.
   Abort.
 
 
-  
+  Lemma blockEntry_in_path_or_stsh: forall memSz s0 bId dataN,
+      init_invariant s0 memSz ->
+      forall oldVal strm stsh pbt,
+        (oldVal, (strm, (stsh, pbt))) := runState (access Wr bId (Some dataN)) s0 ->
+                          readBlockFromStash stsh bId = dataN \/ 
+      
   
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
-
         (let twoAccesses :=
            (let* _ := (access Wr blockId (Some data)) in
             access Rd blockId None) in
          fst (runState twoAccesses s0)
         )
-
       in ValEq data ReadOut. 
   Proof.
-    unfold ValEq.
+    intros. 
+    
+    - simpl.
     intros. remember  (access Wr blockId (@Some nat data)) as wrAcc. 
     unfold bind.
     Unset Printing All.
