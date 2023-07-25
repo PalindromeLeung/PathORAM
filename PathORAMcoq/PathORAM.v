@@ -92,6 +92,29 @@ Section Tree.
   | Leaf (idx: nat) (val: A)
   | Node (idx: nat) (val: A) (l r: PBTree A).
 
+
+  (* Fixpoint RBTree (A: Type) (l : nat): Type := *)
+  (*   match l with *)
+  (*     | O =>  *)
+  
+
+  Fixpoint pb (X : Type) (n : nat) : Type :=
+    match n with
+    | 0 => unit
+    | S m => X * pb X m * pb X m
+    end.
+
+  Definition leaf {X} : pb X 0 := tt.
+
+  Definition node {X} {n} : X -> pb X n -> pb X n -> pb X (S n) :=
+    fun x t1 t2 => (x,t1,t2).
+
+  Definition example : pb nat 2 :=
+    node 0
+         (node 1 leaf leaf)
+         (node 2 leaf leaf).
+
+
   Arguments Leaf {_} _ _.
   Arguments Node {_} _ _ _ _.
 
