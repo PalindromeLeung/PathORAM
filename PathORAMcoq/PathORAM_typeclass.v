@@ -1,5 +1,5 @@
 Require Coq.Bool.Bool.
-
+(* Require Import FCF.FCF. *)
 (*** CLASSES ***)
 
 (* I'm rolling my own version of lots of datatypes and using typeclasses
@@ -118,9 +118,9 @@ Fixpoint concat {A : Type} `{Monoid A} (xs : list A) : A :=
 Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
   match xs with
   | [] => (x , xs)
-  | x' :: xs' => 
-      if p x' 
-      then (x' , xs') 
+  | x' :: xs' =>
+      if p x'
+      then (x' , xs')
       else
         let (x'' , xs'') := remove_list x p xs'
         in (x'' , x' :: xs'')
