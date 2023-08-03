@@ -377,13 +377,13 @@ Fixpoint filter_dist {A} (l: list (A * Q))
       end
   end.
     
-Definition evalDist {A} (x : event A) (d : dist A) : Q :=
+Definition evalDist {A} (x: event A) (d: dist A): Q :=
    sum_dist(Dist(filter_dist (dist_pmf d) x)).
 
-Definition uniform_dist {A} (l : list A) : dist A:=
+Definition uniform_dist {A} (l: list A) :dist A:=
  norm_dist(Dist(map_l (fun x => (x, 1)) l)).
 
-Fixpoint mk_n_list (n: nat) : list nat :=
+Fixpoint mk_n_list (n: nat):list nat :=
   match n with
   | O => []
   | S n' => [n'] ++ mk_n_list n'
@@ -393,7 +393,9 @@ Definition coin_flip' := uniform_dist (mk_n_list 2).
 
 (* How to disply the distribution?  *)
 
-           
+Definition cond_dist {A}(p: event A) (d: dist A) : dist A :=
+  norm_dist (Dist(filter_dist (dist_pmf d) p)).
+
 
 (*** PATH ORAM ***)
 
