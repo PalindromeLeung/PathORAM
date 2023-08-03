@@ -350,7 +350,12 @@ Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
   | [] => []
   | x :: l => if f x then x::(filter l f) else filter l f 
   end.
-
+Fixpoint map_l {X Y} (f: X -> Y) (l: list X) : list Y :=
+  match l with
+  | [] => []
+  | h :: t => (f h) :: (map f t)
+  end.
+    
 (* The goal of evalDist is to evaluate the probability when given an event under a certain distribution.      *)
 
 (* 1. get the list -- dist_pmf *)
@@ -375,10 +380,20 @@ Fixpoint filter_dist {A} (l: list (A * Q))
 Definition evalDist {A} (x : event A) (d : dist A) : Q :=
    sum_dist(Dist(filter_dist (dist_pmf d) x)).
 
+Definition uniform_dist {A} (l : list A) : dist A:=
+ norm_dist(Dist(map_l (fun x => (x, 1)) l)).
 
+Fixpoint mk_n_list (n: nat) : list nat :=
+  match n with
+  | O => []
+  | S n' => [n'] ++ mk_n_list n'
+  end.
 
+Definition coin_flip' := uniform_dist (mk_n_list 2).
 
+(* How to disply the distribution?  *)
 
+           
 
 (*** PATH ORAM ***)
 
