@@ -198,25 +198,25 @@ Fixpoint map_vec {A B : Type} {n : nat} (f : A -> B) (xs : vec A n) : vec B n :=
  * `ratNum` and `ratDen` are greatest-common-denominator-reduced so that
  * semantically equal rationals are syntactically equal (i.e., equal via `=`).
  *)
-(* Require Import Coq.QArith.QArith. *)
+Require Import Coq.QArith.QArith.
 
-Record rat : Type := Rat
-  { rat_num : nat
-  ; rat_den : nat
-  }.
+(* Record rat : Type := Rat *)
+(*   { rat_num : nat *)
+(*   ; rat_den : nat *)
+(*   }. *)
 
-Definition divide_nat_rat (q1 q2 : nat) : rat := Rat q1 q2.
+(* Definition divide_nat_rat (q1 q2 : nat) : rat := Rat q1 q2. *)
 
-Module RatNotation.
-  Infix "//" := divide_nat_rat (at level 40, left associativity).
-End RatNotation.
-Import RatNotation.
+(* Module RatNotation. *)
+(*   Infix "//" := divide_nat_rat (at level 40, left associativity). *)
+(* End RatNotation. *)
+(* Import RatNotation. *)
 
-Definition plus_rat : rat -> rat -> rat. Admitted.
+(* Definition plus_rat : rat -> rat -> rat. Admitted. *)
 
-#[export] Instance Monoid_rat : Monoid rat := { null := 0 // 1 ; append := plus_rat }.
+#[export] Instance Monoid_rat : Monoid Q:= { null := 0 / 1 ; append := Qplus}.
 
-(*** DICTIONARIES ***)
+(* DICTIONARIES *)
 
 (* Probably switch to `Coq.FSets.FMaps` or `ExtLib.Map.FMapAList` in a real
  * development. Rolling your own is easy enough to do, and if you go this route
@@ -302,17 +302,17 @@ Definition update_dict {K V : Type} `{Ord K} (k : K) (v : V) (kvs : dict K V) : 
  *)
 
 Record dist (A : Type) : Type := Dist
-  { dist_pmf : list (A * rat)
+  { dist_pmf : list (A * Q)
   }.
 Arguments Dist {A} _.
 Arguments dist_pmf {A} _.
 
-Definition mreturn_dist {A : Type} (x : A) : dist A := Dist [ (x, 1 // 1) ].
+Definition mreturn_dist {A : Type} (x : A) : dist A := Dist [ (x, 1 / 1) ].
 
 Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B :=
-  Dist (concat (map_on (dist_pmf xM) (fun (xq : A * rat) => 
+  Dist (concat (map_on (dist_pmf xM) (fun (xq : A * Q) => 
     let (x , q) := xq in 
-    map_on (dist_pmf (f x)) (fun (yq' : B * rat) => 
+    map_on (dist_pmf (f x)) (fun (yq' : B * Q) => 
       let (y , q') := yq' in
       (y , q ++ q'))))).
 
@@ -321,7 +321,7 @@ Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B :=
 Definition coin_flip : dist bool := Dist [ (true, 1 // 2) ; (false , 1 // 2) ].
 (* TODO need a way to express the laws that the distribution needs to obey *)
 (* 1. all prob must be greater than 0 *)
-Definition getsupp {A} (d: dist A) : list (A * rat) :=
+Definition getsupp {A} (d: dist A) : list (A * Q) :=
   match d with
   | Dist xs => xs
   end.
@@ -332,14 +332,14 @@ Fixpoint fold_l {X Y: Type} (f : X -> Y -> Y) (b : Y)(l : list X) : Y :=
   | h ::t => f h (fold_l f b t)
   end.
       
-Definition sum_dist {A} (d: dist A) : rat := fold_l plus_rat (O // O) (map snd (getsupp d)).
+Definition sum_dist {A} (d: dist A) : Q := fold_l Qplus (0 / 0) (map snd (getsupp d)).
 
 
-(* How to create a rat using something like rat // nat?  *)
-(* Definition norm_dist {A} (d: dist A) : dist A := *)
-(*   let supp := getsupp d in *)
-(*   let sum_tot := sum_dist d in *)
-(*   concat (map_on supp (fun (x : rat) => ( x // sum_tot))). *)
+Print map_alist.
+Definition norm_dist {A} (d: dist A) : dist A :=
+  let supp := dist_pmf d in
+  let sum_tot := sum_dist d in
+  Dist(map_alist (fun x : Q => x / sum_tot) supp).
 
 Definition event (A : Type) := A -> bool.
 
@@ -359,8 +359,8 @@ Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
 (* 4. sum it up -- sum_dist *)
 
  
-Fixpoint filter_dist {A} (l: list (A * rat))
-  (f: A -> bool): list (A * rat) :=
+Fixpoint filter_dist {A} (l: list (A * Q))
+  (f: A -> bool): list (A * Q) :=
   match l with
   | [] => []
   | h :: t => 
@@ -372,10 +372,8 @@ Fixpoint filter_dist {A} (l: list (A * rat))
       end
   end.
     
-Definition evalDist {A} (x : event A) (d : dist A) : rat :=
+Definition evalDist {A} (x : event A) (d : dist A) : Q :=
    sum_dist(Dist(filter_dist (dist_pmf d) x)).
-
-
 
 
 
