@@ -319,6 +319,33 @@ Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B :=
 #[export] Instance Monad_dist : Monad dist := { mreturn {_} x := mreturn_dist x ; mbind {_ _} := mbind_dist }.
 
 Definition coin_flip : dist bool := Dist [ (true, 1 // 2) ; (false , 1 // 2) ].
+(* TODO need a way to express the laws that the distribution needs to obey *)
+(* 1. all prob must be greater than 0 *)
+Definition getsupp {A} (d: dist A) : list (A * rat) :=
+  match d with
+  | Dist xs => xs
+  end.
+
+Fixpoint fold_l {X Y: Type} (f : X -> Y -> Y) (b : Y)(l : list X) : Y :=
+  match l with
+  | [] => b
+  | h ::t => f h (fold_l f b t)
+  end.
+      
+Definition sum_dist {A} (d: dist A) : rat := fold_l plus_rat (O // O) (map snd (getsupp d)).
+
+
+(* How to create a rat using something like rat // nat?  *)
+(* Definition norm_dist {A} (d: dist A) : dist A := *)
+(*   let supp := getsupp d in *)
+(*   let sum_tot := sum_dist d in *)
+(*   concat (map_on supp (fun (x : rat) => ( x // sum_tot))). *)
+
+Definition event {A} (a : A) : A -> bool. Admitted.
+
+
+
+
 
 (*** PATH ORAM ***)
 
