@@ -341,7 +341,42 @@ Definition sum_dist {A} (d: dist A) : rat := fold_l plus_rat (O // O) (map snd (
 (*   let sum_tot := sum_dist d in *)
 (*   concat (map_on supp (fun (x : rat) => ( x // sum_tot))). *)
 
-Definition event {A} (a : A) : A -> bool. Admitted.
+Definition event (A : Type) := A -> bool.
+
+(* might collide when you import the List Lib. *)
+
+Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
+  match l with
+  | [] => []
+  | x :: l => if f x then x::(filter l f) else filter l f 
+  end.
+
+(* The goal of evalDist is to evaluate the probability when given an event under a certain distribution.      *)
+
+(* 1. get the list -- dist_pmf *)
+(* 2. filter a, construct the new list (A, rat) which satisfies event predicate *)
+(* 3. reconstruct/repack a dist using this one *)
+(* 4. sum it up -- sum_dist *)
+
+ 
+Fixpoint filter_dist {A} (l: list (A * rat))
+  (f: A -> bool): list (A * rat) :=
+  match l with
+  | [] => []
+  | h :: t => 
+      match h with
+        | pair k v => 
+            if f k
+            then h :: (filter_dist t f)
+            else filter_dist t f
+      end
+  end.
+    
+Definition evalDist {A} (x : event A) (d : dist A) : rat :=
+   sum_dist(Dist(filter_dist (dist_pmf d) x)).
+
+
+
 
 
 
