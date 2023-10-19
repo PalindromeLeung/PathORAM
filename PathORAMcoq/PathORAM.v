@@ -70,7 +70,18 @@ Section Tree.
         end
     end.
 
-                       
+  Fixpoint popList {A} (a s : list A) (f : A -> A -> bool): list A :=
+    match s with
+    | [] => a
+    | h :: t => match a with
+              | [] => []
+              | x :: xs => if f h x
+                         then popList xs t f 
+                         else popList xs s f 
+              end
+    end.
+      
+(* Compute popList [1;2;3;4;5] [1;5;2] Nat.eqb. PROBLEMATIC.*)
   
 (* End STASH. *)
 
@@ -80,6 +91,29 @@ Section Tree.
   Inductive PBTree (A: Type) : Type :=
   | Leaf (idx: nat) (val: A)
   | Node (idx: nat) (val: A) (l r: PBTree A).
+
+
+  (* Fixpoint RBTree (A: Type) (l : nat): Type := *)
+  (*   match l with *)
+  (*     | O =>  *)
+  
+
+  Fixpoint pb (X : Type) (n : nat) : Type :=
+    match n with
+    | 0 => unit
+    | S m => X * pb X m * pb X m
+    end.
+
+  Definition leaf {X} : pb X 0 := tt.
+
+  Definition node {X} {n} : X -> pb X n -> pb X n -> pb X (S n) :=
+    fun x t1 t2 => (x,t1,t2).
+
+  Definition example : pb nat 2 :=
+    node 0
+         (node 1 leaf leaf)
+         (node 2 leaf leaf).
+
 
   Arguments Leaf {_} _ _.
   Arguments Node {_} _ _ _ _.
@@ -524,28 +558,24 @@ Section PathORAM.
                  takeL c candidateBlocks
     end.
   
-  Definition st_rand := prod (Stream Z)(prod(list BlockEntry)(PBTree(list BlockEntry))).
+  Definition st_rand := prod(Stream Z)
+                            (prod(list BlockEntry)
+                                 (PBTree(list BlockEntry))).
 
-  Definition triFunction leafIdx lIDs s : st_rand :=
-    match s with
-    | (stream,(stsh, tr)) =>
-        let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs 0 stsh in
-        let updateStash := popStash stsh writeBackBlocks in
-        let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
-        (stream, (updateStash, newTree))
-    end.
-
-  (* Definition writeBacks (leafIdx : nat)(lIDs: list nat) (lvl: nat) : state st_rand unit := *)
-  (*   let* (stream, (stsh, tr)) := get in *)
-  (*   let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in *)
-  (*   let updateStash := popStash stsh writeBackBlocks in *)
-  (*   let newTree := writeToNode tr leafIdx lvl writeBackBlocks in *)
-  (*   put (stream, (updateStash, newTree)). *)
+  Definition triFunction leafIdx lIDs lvl (s : st_rand) : st_rand :=
+      match s with 
+      | (stream,(stsh, tr)) =>
+          let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
+          let updateStash := popStash stsh writeBackBlocks in
+          let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
+          (stream, (updateStash, newTree))
+      end.
 
   Definition writeBacks leafIdx lIDs (lvl:nat) : state st_rand unit :=
-    let* (stream, (stsh, tr)) := get in
-    put (triFunction leafIdx lIDs (stream, (stsh, tr))).
-  
+    let* s := get in
+    (let s' := triFunction leafIdx lIDs lvl s in
+    put s').
+    
   Fixpoint access_rec (leafIdx: nat) (lIDs : list nat) (lvl: nat): state st_rand unit :=
     match lvl with
     | O => writeBacks leafIdx lIDs O 
@@ -788,12 +818,15 @@ Section PathORAM.
 
   Definition init_invariant
              (s: st_rand) (memSz : nat): Prop :=
-    let (stsh, rt) := snd s in
-    forall bId posMap, bId < memSz ->
-                  (exists x, (isLeafNode x rt ->
-                         In bId (getBlockIdsFromPath rt (getPath' x)) \/
-                           (In bId (getBlockIdsFromBELst stsh))) /\
-                          (posMapLookUp bId posMap = (Some x))).
+    match s with
+    | (strm, (stsh, rt)) => 
+        forall bId posMap,
+          bId < memSz ->
+          (exists x, (isLeafNode x rt ->
+                 In bId (getBlockIdsFromPath rt (getPath' x)) \/
+                   (In bId (getBlockIdsFromBELst stsh))) /\
+                  (posMapLookUp bId posMap = (Some x)))
+    end.
                             
 
   Lemma access_rec_simpl: forall leafIdx lIDs lvl, 
@@ -817,81 +850,135 @@ Section PathORAM.
   Print mkState.
   Print put.
 
-  Lemma runStateGet: forall (init_s:st_rand) (f: st_rand -> st_rand ),
+  Lemma runStateGetPut: forall leafIdx lIDs lvl (init_s : st_rand)
+                          (f: nat -> list nat -> nat -> st_rand -> st_rand),
       runState (let* s := get in
-                let s' := f s in
+                let s' := (f leafIdx lIDs lvl s) in
                 put s') init_s =
-        runState (put (f init_s)) init_s. 
+        runState (put (f leafIdx lIDs lvl init_s)) init_s. 
   Proof.
     intros.
     simpl.
     reflexivity.
   Qed.
 
-    
-  Lemma writeBacks_transform:
-    forall s (leafIdx lvl : nat) (lIDs : list nat),
-      runState (writeBacks leafIdx lIDs lvl) s = runState 
-        (let* (stream, (stsh, tr)) := get in
-         (let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs lvl stsh in
-          let updateStash := popStash stsh writeBackBlocks in
-          let newTree := writeToNode tr leafIdx lvl writeBackBlocks in
-          put (stream, (updateStash, newTree)))) s .
 
-    Proof.
-      intros.
-      simpl.
-      reflexivity.
-    Qed.
-
-  Definition triFunction leafIdx lIDs s : st_rand :=
-    match s with
-    | (stream,(stsh, tr)) =>
-        let writeBackBlocks := getWriteBackBlocks tr leafIdx lIDs 0 stsh in
-        let updateStash := popStash stsh writeBackBlocks in
-        let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
-        (stream, (updateStash, newTree))
-    end.
   
-  Lemma writeBacks_invariant_holds:
-    forall (leafIdx: nat) (lIDs: list nat) (lvl: nat) (s : st_rand) (memSz: nat),
-      init_invariant s memSz ->
-      forall u s', (u, s') = runState (writeBacks leafIdx lIDs lvl) s -> 
-      init_invariant s'  memSz.
+  Lemma inListPartition:
+    forall {A} (a b c: list A) x, In x a \/ In x (b ++ c) -> In x (a ++ b) \/ In x c.
   Proof.
-    induction lvl; intros.
-    - rewrite writeBacks_transform in H0.
-      remember (runState
-                  (let* (stream, (stsh, tr)) := get in
-                   (let writeBackBlocks :=
-                      getWriteBackBlocks tr leafIdx lIDs 0 stsh in
-                    let updateStash := popStash stsh writeBackBlocks in
-                    let newTree := writeToNode tr leafIdx 0 writeBackBlocks in
-                    put (stream, (updateStash, newTree)))) s) as brkSt.
-      pose proof (runStateGet s (triFunction leafIdx lIDs)). 
-      unfold triFunction in H1.
+    intros.
+    repeat rewrite in_app_iff in *.
+    destruct H.
+    repeat left; auto.
 
-      
+    destruct H.
+    left. right; auto.
+    right; auto.
+  Qed.
+
+
+
+  Lemma zero_sum: forall s memSz leafIdx lvl dt,
+      match s with
+      |(s', (l, p)) =>
+         init_invariant s memSz ->
+         init_invariant
+           (s',
+             (popStash l dt,
+               writeToNode p leafIdx lvl dt
+             )
+           ) memSz
+      end.
+  Proof.
+    intros.
+    destruct s; destruct p.
+    intro.
+    unfold init_invariant in *.
+    intros.
+    pose proof (H bId posMap H0).
+    destruct H1. destruct H1.
+    exists x.
+    split.
+    intro.
+    assert(HleafNodeConst: forall x p leafIdx lvl dt,
+              isLeafNode x (writeToNode p leafIdx lvl dt) ->
+              isLeafNode x p ).
+    {admit.}
+
+    eapply HleafNodeConst in H3.
+    specialize (H1 H3).
+    
+
+    
+    assert(Hdelta: forall a b c x, In x (a ++ b ++ c) -> In x (a ++ b)).
+    {
+      intros.
+      (* in_elt: forall [A : Type] (x : A) (l1 l2 : list A), In x (l1 ++ x :: l2) *)
+      destruct H4.
+      left.
+      rewrite in_app_iff.
+      left.
+      auto.
+      (* elements_in_partition: *)
+      (*   forall [A : Type] (f : A -> bool) (l : list A) [l1 l2 : list A], *)
+      (*     partition f l = (l1, l2) -> forall x : A, In x l <-> In x l1 \/ In x l2 *)
+
+      Search In.
+      admit.}
+
+    admit.
+    - auto.    
+    
   Admitted.
-  
+
+
+
+
+
+
+
+                
+
+  Lemma writeBacks_invariant_holds:
+    forall leafIdx lvl memSz lIDs s, 
+      init_invariant s memSz ->
+      forall u strm stsh ttr,
+        (u, (strm, (stsh, ttr))) =
+          runState (writeBacks leafIdx lIDs lvl) s -> 
+        init_invariant (strm, (stsh, ttr))  memSz.
+  Proof.
+    intros; destruct s; destruct p.
+    simpl in H0. 
+    inversion H0; subst.
+    pose proof (zero_sum (s, (l, p)) memSz leafIdx  lvl).
+    apply H1.
+    auto. 
+  Qed.  
 
                
   Lemma access_rec_invariant_holds:
     forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
       init_invariant s memSz ->
-      forall u s', (u, s') = runState (access_rec leafIdx lIDs lvl) s -> 
-      init_invariant s' memSz.
+      forall u strm stsh ttr,  (u, (strm, (stsh, ttr))) = runState (access_rec leafIdx lIDs lvl) s -> 
+      init_invariant (strm, (stsh, ttr)) memSz.
   
   Proof.
     induction lvl; intros.
     - unfold access_rec in H0.
-      eapply writeBacks_invariant_holds; eauto.
+      simpl in H0.
+      pose proof (writeBacks_invariant_holds leafIdx 0 memSz lIDs s H u).
+      inversion H0; subst.
+      apply H1.
+      rewrite H4. simpl. auto.
     - rewrite access_rec_simpl in H0.
       rewrite runStateLemma in H0.
       remember (runState (writeBacks leafIdx lIDs (S lvl)) s) as irSt.
       destruct irSt.
       apply (IHlvl s0) with (u := u).
-      + eapply writeBacks_invariant_holds; eauto.
+      + destruct s0. destruct p.
+        pose proof (writeBacks_invariant_holds leafIdx (S lvl) memSz lIDs ).
+        eapply H1; eauto.
       + eauto. 
   Qed.    
 
@@ -905,18 +992,9 @@ Section PathORAM.
     destruct s as [[first_nat s] [l pb]].
     exact H.
   Qed.
-
-
-
-
-
-
-
-
-
   
       
-  Lemma invariantholds:
+  Lemma init_invariantholds:
     forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
       init_invariant s0 memSz ->
       let (_, s) := runState (access op bID dataN) s0 in
@@ -941,20 +1019,25 @@ Section PathORAM.
   Abort.
 
 
-  
+  Lemma blockEntry_in_path_or_stsh: forall memSz s0 bId dataN,
+      init_invariant s0 memSz ->
+      forall oldVal strm stsh pbt,
+        (oldVal, (strm, (stsh, pbt))) := runState (access Wr bId (Some dataN)) s0 ->
+                          readBlockFromStash stsh bId = dataN \/ 
+      
   
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
-
         (let twoAccesses :=
            (let* _ := (access Wr blockId (Some data)) in
             access Rd blockId None) in
          fst (runState twoAccesses s0)
         )
-
       in ValEq data ReadOut. 
   Proof.
-    unfold ValEq.
+    intros. 
+    
+    - simpl.
     intros. remember  (access Wr blockId (@Some nat data)) as wrAcc. 
     unfold bind.
     Unset Printing All.
