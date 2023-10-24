@@ -891,54 +891,30 @@ Section PathORAM.
            ) memSz
       end.
   Proof.
-    intros.
-    destruct s; destruct p.
-    intro.
-    unfold init_invariant in *.
-    intros.
-    pose proof (H bId posMap H0).
-    destruct H1. destruct H1.
-    exists x.
-    split.
-    intro.
-    assert(HleafNodeConst: forall x p leafIdx lvl dt,
-              isLeafNode x (writeToNode p leafIdx lvl dt) ->
-              isLeafNode x p ).
-    {admit.}
+    (* intros. *)
+    (* destruct s; destruct p. *)
+    (* intro. *)
+    (* unfold init_invariant in *. *)
+    (* intros. *)
+    (* pose proof (H bId posMap H0). *)
+    (* destruct H1. destruct H1. *)
+    (* exists x. *)
+    (* split. *)
+    (* intro. *)
+    (* assert(HleafNodeConst: forall x p leafIdx lvl dt, *)
+    (*           isLeafNode x (writeToNode p leafIdx lvl dt) -> *)
+    (*           isLeafNode x p ). *)
+    (* {admit.} *)
 
-    eapply HleafNodeConst in H3.
-    specialize (H1 H3).
+    (* eapply HleafNodeConst in H3. *)
+    (* specialize (H1 H3). *)
     
 
-    
-    assert(Hdelta: forall a b c x, In x (a ++ b ++ c) -> In x (a ++ b)).
-    {
-      intros.
-      (* in_elt: forall [A : Type] (x : A) (l1 l2 : list A), In x (l1 ++ x :: l2) *)
-      destruct H4.
-      left.
-      rewrite in_app_iff.
-      left.
-      auto.
-      (* elements_in_partition: *)
-      (*   forall [A : Type] (f : A -> bool) (l : list A) [l1 l2 : list A], *)
-      (*     partition f l = (l1, l2) -> forall x : A, In x l <-> In x l1 \/ In x l2 *)
-
-      Search In.
-      admit.}
-
-    admit.
-    - auto.    
+    (* admit. *)
+    (* - auto.     *)
     
   Admitted.
 
-
-
-
-
-
-
-                
 
   Lemma writeBacks_invariant_holds:
     forall leafIdx lvl memSz lIDs s, 
@@ -955,7 +931,6 @@ Section PathORAM.
     apply H1.
     auto. 
   Qed.  
-
                
   Lemma access_rec_invariant_holds:
     forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
@@ -993,7 +968,8 @@ Section PathORAM.
     exact H.
   Qed.
   
-      
+  (* in between access_rec_invariant_holds and get_random_nat_invariant_holds there should be similar lemmas about almost every line that invariant holds.  *)
+  
   Lemma init_invariantholds:
     forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
       init_invariant s0 memSz ->
