@@ -5,3 +5,5 @@
 *.aux
 _CoqProject
 *.lia.cache
+_build
+*.v#
