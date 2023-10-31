@@ -1092,17 +1092,40 @@ Section PathORAM.
       auto.
 Qed.
 
+    Definition state_lift' {S} {X} (Pre : S -> Prop)(Post : S -> Prop) (P : X -> Prop) : state S X -> Prop :=
+      fun f => forall s, Pre s -> P (fst(runState f s)) /\ Post (snd (runState f s)).
+  
+  Lemma bind_lift_lemma' {S} {X Y} (Pre: S -> Prop)(Mid : S -> Prop) (Post : S -> Prop) (P : X -> Prop) (Q : Y -> Prop)
+        (sx : state S X) (f : X -> state S Y) :
+    state_lift' Pre Mid P sx ->
+    (forall x, P x -> state_lift' Mid Post Q (f x)) ->
+    state_lift' Pre Post Q (bind sx f).
+  Admitted. 
   
   Definition twoAccesses2 blockId data :=
     let* _ := access Wr blockId (Some data) in
-    access Rd blockId None.
+    access Rd blockId None. 
 
-  Lemma twoAccesses2_correct blockId data {Inv} :
-    state_lift Inv (eq data) (twoAccesses2 blockId data).
+  Lemma twoAccesses2_correct blockId data {Pre}{Mid : st_rand -> Prop} {Post} :
+    state_lift' Pre Post(eq data) (twoAccesses2 blockId data).
   Proof.
     unfold twoAccesses2.
-    Check bind.
+    apply (bind_lift_lemma' Pre Mid Post (fun x => x = x)).
+    -  admit.
+    -  admit. 
+Admitted. 
 
+
+
+
+
+
+
+
+
+
+
+      
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
         (let twoAccesses :=
