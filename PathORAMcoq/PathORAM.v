@@ -173,7 +173,7 @@ Section Tree.
   apply div2.
   Defined.
 
-  Compute getPath 9.
+  Compute getPath 8.
   Definition p9 := getPath 9.
 
   Compute getPath 12.
@@ -203,6 +203,8 @@ Section Tree.
         | R :: path' => Node idx val l (writeAtPath r path' data)
         end
     end.
+
+
 
   Compute writeAtPath PBTree1 p12 [1;2;3].
   Compute writeAtPath PBTree1 p9 [4;5;6].
@@ -378,6 +380,24 @@ Section Tree.
 
   Compute rev(getPath' 11).
 
+  Fixpoint writeatPath {A} (root: PBTree A) (path : list nat) (data: A): PBTree A :=
+    match root with
+    | Leaf idx val =>
+        match path with
+        | [] => Leaf idx data
+        | _ => Leaf idx val (* path longer than height of tree*)
+        end
+    | Node idx val l r =>
+        match path with
+        | [] => Node idx data l r
+        | h :: t => if Nat.even h
+                  then Node idx val l (writeatPath r t data)
+                  else Node idx val (writeatPath l t data) r 
+        end
+    end.
+
+  
+
   Fixpoint clearPath (rt: PBTree (list (nat * nat ))) (l : list nat): PBTree (list(nat * nat)) := 
     match l with
     | [] => rt
@@ -391,8 +411,10 @@ Section Tree.
                                      else Node idx val (clearPath lc t) (clearPath rc t) 
               end
     end.
-  
-  Compute writeAtPath PBTree1 (getPath 5) [5;5;5].
+  Compute getPath' 5.
+  Compute rev(getPath' 5).
+  Compute writeatPath PBTree1 (rev (getPath' 5)) [5;5;5].
+  Compute PBTree1.
   Compute clearPath PBTree1 (rev(getPath' 11)).
   Compute rev(getPath' 11).  
 
@@ -862,8 +884,35 @@ Section PathORAM.
     reflexivity.
   Qed.
 
+  Fixpoint insert {X} (x : X) (xs : list X) (n : nat) :=
+    match xs with
+    | [] => [x]
+    | y :: ys =>
+        match n with
+        | O => x :: xs
+        | S m => y :: insert x ys m
+        end
+    end.
+ 
+  Inductive parts_into {X} : list X -> list X -> list X -> Prop :=
+  | part_nil : parts_into [] [] []
+  | parts_cons_l {xs zs} {x} i ys :
+    parts_into xs ys zs ->
+    parts_into (x :: xs) (insert x ys i) zs
+  | parts_cons_r {xs ys} {x} i zs :
+    parts_into xs ys zs ->
+    parts_into (x :: xs) ys (insert x zs i).
 
-  
+  Goal parts_into [1;2;3;4;5] [5;2] [1;4;3].
+  Proof.
+    apply (parts_cons_r 0 [4;3]).
+    apply (parts_cons_l 1 [5]).
+    apply (parts_cons_r 1 [4]).
+    apply (parts_cons_r 0 []).
+    apply (parts_cons_l 0 []).
+    constructor.
+  Qed.
+    
   Lemma inListPartition:
     forall {A} (a b c: list A) x, In x a \/ In x (b ++ c) -> In x (a ++ b) \/ In x c.
   Proof.
@@ -877,7 +926,9 @@ Section PathORAM.
     right; auto.
   Qed.
 
-
+  Axiom HleafNodeConst: forall x p leafIdx lvl dt,
+              isLeafNode x (writeToNode p leafIdx lvl dt) ->
+              isLeafNode x p.
 
   Lemma zero_sum: forall s memSz leafIdx lvl dt,
       match s with
@@ -901,32 +952,10 @@ Section PathORAM.
     exists x.
     split.
     intro.
-    assert(HleafNodeConst: forall x p leafIdx lvl dt,
-              isLeafNode x (writeToNode p leafIdx lvl dt) ->
-              isLeafNode x p ).
-    {admit.}
-
     eapply HleafNodeConst in H3.
     specialize (H1 H3).
     
-
     
-    assert(Hdelta: forall a b c x, In x (a ++ b ++ c) -> In x (a ++ b)).
-    {
-      intros.
-      (* in_elt: forall [A : Type] (x : A) (l1 l2 : list A), In x (l1 ++ x :: l2) *)
-      destruct H4.
-      left.
-      rewrite in_app_iff.
-      left.
-      auto.
-      (* elements_in_partition: *)
-      (*   forall [A : Type] (f : A -> bool) (l : list A) [l1 l2 : list A], *)
-      (*     partition f l = (l1, l2) -> forall x : A, In x l <-> In x l1 \/ In x l2 *)
-
-      Search In.
-      admit.}
-
     admit.
     - auto.    
     
@@ -1019,13 +1048,61 @@ Section PathORAM.
   Abort.
 
 
-  Lemma blockEntry_in_path_or_stsh: forall memSz s0 bId dataN,
-      init_invariant s0 memSz ->
-      forall oldVal strm stsh pbt,
-        (oldVal, (strm, (stsh, pbt))) := runState (access Wr bId (Some dataN)) s0 ->
-                          readBlockFromStash stsh bId = dataN \/ 
-      
+  (* Lemma blockEntry_in_path_or_stsh: forall memSz s0 bId dataN, *)
+  (*     init_invariant s0 memSz -> *)
+  (*     forall oldVal strm stsh pbt, *)
+  (*       (oldVal, (strm, (stsh, pbt))) := runState (access Wr bId (Some dataN)) s0 -> *)
+  (*                         readBlockFromStash stsh bId = dataN \/  *)
+
+  Definition smonad S X := S -> X * S.
   
+  Definition state_lift {S} {X} (Inv : S -> Prop) (P : X -> Prop) : smonad S X -> Prop :=
+    fun f => forall s, Inv s -> P (fst (f s)) /\ Inv (snd (f s)).
+  
+  Definition sm_bind {S X Y} : smonad S X -> (X -> smonad S Y) -> smonad S Y :=
+    fun m f s => let (x,s') := m s in f x s'.
+    
+  Lemma bind_lift_lemma {S} {X Y} (Inv : S -> Prop) (P : X -> Prop) (Q : Y -> Prop)
+        (sx : smonad S X) (f : X -> smonad S Y) :
+    state_lift Inv P sx ->
+    (forall x, P x -> state_lift Inv Q (f x)) ->
+    state_lift Inv Q (sm_bind sx f).
+  Proof.
+    intros.
+    unfold state_lift in *.
+    simpl.
+    intros s s_inv.
+    split.
+    - unfold sm_bind.
+      destruct (sx s) eqn:Hsx.
+      specialize (H0 x).
+      apply H0.
+      + specialize (H s).
+        rewrite Hsx in H.
+        now apply H.
+      + specialize (H s).
+        rewrite Hsx in H.
+        now apply H.
+    - unfold sm_bind.
+      destruct (sx s) eqn:Hsx.
+      destruct (H s s_inv) as [Px Is0].
+      rewrite Hsx in Px; simpl in Px.
+      rewrite Hsx in Is0; simpl in Is0.
+      destruct (H0 x Px s0 Is0) as [Qx invQ].
+      auto.
+Qed.
+
+  
+  Definition twoAccesses2 blockId data :=
+    let* _ := access Wr blockId (Some data) in
+    access Rd blockId None.
+
+  Lemma twoAccesses2_correct blockId data {Inv} :
+    state_lift Inv (eq data) (twoAccesses2 blockId data).
+  Proof.
+    unfold twoAccesses2.
+    Check bind.
+
   Theorem PathORAM_simulates_RAM: forall (s0 : st_rand)(data: nat)(blockId: nat),
       let ReadOut :=
         (let twoAccesses :=
@@ -1036,20 +1113,23 @@ Section PathORAM.
       in ValEq data ReadOut. 
   Proof.
     intros. 
-    
-    - simpl.
-    intros. remember  (access Wr blockId (@Some nat data)) as wrAcc. 
-    unfold bind.
-    Unset Printing All.
+    simpl.
+    pose (wrAcc := access Wr blockId (@Some nat data)).
     destruct s0.
     destruct p.
-    remember (access Rd blockId None) as rdAcc.
-    simpl.
-    unfold access in HeqwrAcc.
-    
-  Admitted.
-
-  (* Branching off: Take Chris suggestion and show that the sequence tokens are unique from each other.  *)
+    pose proof (rdAcc := access Rd blockId None).
+    unfold ValEq.    
+    unfold ReadOut.
+    unfold bind.
+    unfold Monad_state.
+    unfold runState.
+    fold wrAcc.
+    cbv zeta.
+    destruct wrAcc eqn:HwrAcc.
+    destruct (runState (s,(l,p))) eqn:HrunState.
+    Print runState.
+        
+    (* Branching off: Take Chris suggestion and show that the sequence tokens are unique from each other.  *)
   
   (* Theorem PathORAMIsSecure : *)
   (*   forall (y : list Access) (z : list Access),  *)
