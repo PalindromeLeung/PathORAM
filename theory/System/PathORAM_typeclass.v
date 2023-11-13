@@ -115,7 +115,7 @@ Fixpoint concat {A : Type} `{Monoid A} (xs : list A) : A :=
   | Cons x xs => x ++ concat xs
   end.
 
-Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
+fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
   match xs with
   | [] => (x , xs)
   | x' :: xs' =>

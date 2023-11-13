@@ -954,20 +954,11 @@ Section PathORAM.
     intro.
     eapply HleafNodeConst in H3.
     specialize (H1 H3).
-    
-    
     admit.
     - auto.    
     
   Admitted.
 
-
-
-
-
-
-
-                
 
   Lemma writeBacks_invariant_holds:
     forall leafIdx lvl memSz lIDs s, 
@@ -984,7 +975,6 @@ Section PathORAM.
     apply H1.
     auto. 
   Qed.  
-
                
   Lemma access_rec_invariant_holds:
     forall (leafIdx: nat) (lIDs : list nat) (lvl:nat) (s : st_rand) (memSz : nat),
@@ -1022,7 +1012,8 @@ Section PathORAM.
     exact H.
   Qed.
   
-      
+  (* in between access_rec_invariant_holds and get_random_nat_invariant_holds there should be similar lemmas about almost every line that invariant holds.  *)
+  
   Lemma init_invariantholds:
     forall (memSz : nat) (op : Op) (bID : nat) (dataN : option nat) (s0 : st_rand),
       init_invariant s0 memSz ->
