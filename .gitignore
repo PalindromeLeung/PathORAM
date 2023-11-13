@@ -5,5 +5,8 @@
 *.aux
 _CoqProject
 *.lia.cache
+.DS_Store
+.vscode/
 _build
 *.v#
+
