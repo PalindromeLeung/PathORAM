@@ -52,6 +52,28 @@ Fixpoint compile_expression_tree (e : expression_tree) : expression_list :=
   | Lit_ET n => Plus_EL n Zero_EL
   end.
 
+Require Import Coq.Arith.PeanoNat.
+
+
+Axiom interp_list: forall l1 l2, interp_expression_list l1 + interp_expression_list l2 = interp_expression_list (append_expression_list l1 l2).
+Axiom there_must_be_such_a_theorem: forall n m1 m2, m1 = m2 -> n + m1 = n + m2.
+  
+Theorem compiletree_correct : forall (e : expression_tree),
+    interp_expression_tree e =
+      interp_expression_list (compile_expression_tree e).
+Proof. 
+  intros.
+  induction e. 
+  - destruct e1, e2; simpl in *.
+    + rewrite IHe1. rewrite IHe2. rewrite interp_list. auto.
+    + rewrite <- interp_list. simpl. rewrite <- IHe2. auto.
+    + rewrite IHe2. eapply there_must_be_such_a_theorem. auto.
+    +  rewrite <- IHe2. reflexivity.
+  - induction n.
+    + simpl in *. reflexivity.
+    + simpl. rewrite Nat.add_0_r. reflexivity.
+Qed.
+
 (****************)
 (* COMPUTATIONS *)
 (****************)
