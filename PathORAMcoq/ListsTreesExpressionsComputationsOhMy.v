@@ -183,3 +183,14 @@ Fixpoint compile_computation_tree (e : computation_tree) : computation_list :=
   | Get_CT => Op_CL Get_OP (fun n => Done_CL n)
   | Put_CT n => Op_CL (Put_OP n) (fun n' => Done_CL n')
   end.
+
+Theorem comp_tree_correct: forall e, interp_computation_list(compile_computation_tree e) = interp_computation_tree e.
+Proof.
+  
+  intros.
+  induction e.
+  - admit.
+  - induction n; simpl; auto.
+  - simpl. auto.
+  - induction n; simpl; auto.
+Admitted.  
