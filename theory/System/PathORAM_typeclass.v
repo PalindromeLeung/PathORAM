@@ -115,7 +115,7 @@ Fixpoint concat {A : Type} `{Monoid A} (xs : list A) : A :=
   | Cons x xs => x ++ concat xs
   end.
 
-fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
+Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
   match xs with
   | [] => (x , xs)
   | x' :: xs' =>
@@ -506,7 +506,7 @@ Inductive operation :=
   | Read : operation 
   | Write : nat -> operation.
 
-Definition dummy_block : block := Block 0 0.
+Definition dummy_block : block := Block O O.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
 Definition access {n l : nat} (id : block_id) (op : operation) (s : state n l) : dist (path l * list nat * state n l).
