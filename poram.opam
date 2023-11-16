@@ -1,0 +1,8 @@
+opam-version: "2.1.1"
+build: [dune build]
+
+install: [dune install]
+depends: [
+	 "ocaml" {>= "4.13.0"}
+	 "coq"  {>= "8.17.1"}
+]

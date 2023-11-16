@@ -1,3 +1,6 @@
 (include_subdirs qualified)
+
 (coq.theory
-	(name PthOram))
+	(name PthOram)
+	(theories ExtLib)
+	)
