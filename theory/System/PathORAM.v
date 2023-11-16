@@ -1148,5 +1148,5 @@ Admitted.
   (* Theorem PathORAMIsSecure : *)
   (*   forall (y : list Access) (z : list Access),  *)
   (*    comp_indistinguish (getPos(fold_LM y)) (getPos(fold_LM z)).  *)
-  
+  Admitted.
 End PathORAM.
