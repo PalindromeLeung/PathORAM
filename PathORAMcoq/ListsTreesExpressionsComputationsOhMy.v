@@ -184,12 +184,23 @@ Fixpoint compile_computation_tree (e : computation_tree) : computation_list :=
   | Put_CT n => Op_CL (Put_OP n) (fun n' => Done_CL n')
   end.
 
-Theorem comp_tree_correct: forall e, interp_computation_list(compile_computation_tree e) = interp_computation_tree e.
+
+Axiom interp_comp_list: forall e1 (n:nat) (c : nat -> computation_tree),
+    interp_computation_list
+      (append_computation_list
+         (compile_computation_tree e1)
+         (fun n:nat => compile_computation_tree (c n))
+      ) =
+      (fun state : nat =>
+         let (state', n) := interp_computation_tree e1 state in
+         interp_computation_tree (c n) state').
+
+Theorem comp_tree_correct: forall e , interp_computation_list(compile_computation_tree e) = interp_computation_tree e.
 Proof.
   
   intros.
   induction e.
-  - admit.
+  - simpl. rewrite interp_comp_list. auto. 
   - induction n; simpl; auto.
   - simpl. auto.
   - induction n; simpl; auto.
