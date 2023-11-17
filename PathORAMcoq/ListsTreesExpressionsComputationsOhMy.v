@@ -185,7 +185,7 @@ Fixpoint compile_computation_tree (e : computation_tree) : computation_list :=
   end.
 
 
-Axiom interp_comp_list: forall e1 (n:nat) (c : nat -> computation_tree),
+Axiom interp_comp_list: forall e1 (c : nat -> computation_tree),
     interp_computation_list
       (append_computation_list
          (compile_computation_tree e1)
@@ -197,11 +197,10 @@ Axiom interp_comp_list: forall e1 (n:nat) (c : nat -> computation_tree),
 
 Theorem comp_tree_correct: forall e , interp_computation_list(compile_computation_tree e) = interp_computation_tree e.
 Proof.
-  
-  intros.
+  intros. 
   induction e.
   - simpl. rewrite interp_comp_list. auto. 
   - induction n; simpl; auto.
   - simpl. auto.
   - induction n; simpl; auto.
-Admitted.  
+Qed.
