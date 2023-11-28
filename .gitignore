@@ -9,4 +9,5 @@ _CoqProject
 .vscode/
 _build
 *.v#
+.#*.v
 
