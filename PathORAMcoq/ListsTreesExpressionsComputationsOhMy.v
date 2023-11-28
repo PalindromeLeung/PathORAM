@@ -195,7 +195,20 @@ Axiom interp_comp_list: forall e1 (c : nat -> computation_tree),
          let (state', n) := interp_computation_tree e1 state in
          interp_computation_tree (c n) state').
 
-Theorem comp_tree_correct: forall e , interp_computation_list(compile_computation_tree e) = interp_computation_tree e.
+Lemma interp_comp_list': forall e1 (c : nat -> computation_tree),
+    interp_computation_list
+      (append_computation_list
+         (compile_computation_tree e1)
+         (fun n:nat => compile_computation_tree (c n))
+      ) =
+      (fun state : nat =>
+         let (state', n) := interp_computation_tree e1 state in
+         interp_computation_tree (c n) state').
+Proof.
+Admitted.
+
+
+  Theorem comp_tree_correct: forall e , interp_computation_list(compile_computation_tree e) = interp_computation_tree e.
 Proof.
   intros. 
   induction e.
