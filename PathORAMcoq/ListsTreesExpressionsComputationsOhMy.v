@@ -1,3 +1,5 @@
+Require Import Coq.Arith.PeanoNat.
+
 (***************)
 (* EXPRESSIONS *)
 (***************)
@@ -52,11 +54,14 @@ Fixpoint compile_expression_tree (e : expression_tree) : expression_list :=
   | Lit_ET n => Plus_EL n Zero_EL
   end.
 
-Require Import Coq.Arith.PeanoNat.
+Lemma interp_list': forall l1 l2, interp_expression_list (append_expression_list l1 l2) = interp_expression_list l1 + interp_expression_list l2.
+Proof.
+  intros.
+  induction l1.
+  - simpl. rewrite IHl1. apply Nat.add_assoc.
+  - simpl. auto.
+Qed.
 
-
-Axiom interp_list: forall l1 l2, interp_expression_list l1 + interp_expression_list l2 = interp_expression_list (append_expression_list l1 l2).
-Axiom there_must_be_such_a_theorem: forall n m1 m2, m1 = m2 -> n + m1 = n + m2.
   
 Theorem compiletree_correct : forall (e : expression_tree),
     interp_expression_tree e =
@@ -64,15 +69,10 @@ Theorem compiletree_correct : forall (e : expression_tree),
 Proof. 
   intros.
   induction e. 
-  - destruct e1, e2; simpl in *.
-    + rewrite IHe1. rewrite IHe2. rewrite interp_list. auto.
-    + rewrite <- interp_list. simpl. rewrite <- IHe2. auto.
-    + rewrite IHe2. eapply there_must_be_such_a_theorem. auto.
-    +  rewrite <- IHe2. reflexivity.
-  - induction n.
-    + simpl in *. reflexivity.
-    + simpl. rewrite Nat.add_0_r. reflexivity.
+  - simpl. rewrite interp_list'. auto.
+  - simpl.  rewrite Nat.add_0_r. reflexivity.
 Qed.
+
 
 (****************)
 (* COMPUTATIONS *)
@@ -184,36 +184,23 @@ Fixpoint compile_computation_tree (e : computation_tree) : computation_list :=
   | Put_CT n => Op_CL (Put_OP n) (fun n' => Done_CL n')
   end.
 
-
-Axiom interp_comp_list: forall e1 (c : nat -> computation_tree),
+Lemma interp_comp_list: forall l f st,
     interp_computation_list
-      (append_computation_list
-         (compile_computation_tree e1)
-         (fun n:nat => compile_computation_tree (c n))
-      ) =
-      (fun state : nat =>
-         let (state', n) := interp_computation_tree e1 state in
-         interp_computation_tree (c n) state').
+      (append_computation_list l f) st =
+      let (st',n') := interp_computation_list l st in
+      interp_computation_list (f n') st'.
 
-Lemma interp_comp_list': forall e1 (c : nat -> computation_tree),
-    interp_computation_list
-      (append_computation_list
-         (compile_computation_tree e1)
-         (fun n:nat => compile_computation_tree (c n))
-      ) =
-      (fun state : nat =>
-         let (state', n) := interp_computation_tree e1 state in
-         interp_computation_tree (c n) state').
 Proof.
-Admitted.
+  induction l; simpl.
+  - intros; simpl.
+    destruct c; auto.
+  - intros; simpl; auto.
+Qed.
 
-
-  Theorem comp_tree_correct: forall e , interp_computation_list(compile_computation_tree e) = interp_computation_tree e.
+  Theorem comp_tree_correct: forall e n, interp_computation_list(compile_computation_tree e) n = interp_computation_tree e n.
 Proof.
-  intros. 
-  induction e.
-  - simpl. rewrite interp_comp_list. auto. 
-  - induction n; simpl; auto.
-  - simpl. auto.
-  - induction n; simpl; auto.
+  induction e; simpl; auto.
+  - intros; simpl. rewrite interp_comp_list. rewrite IHe.
+    destruct (interp_computation_tree e n).
+    rewrite H. auto.
 Qed.
