@@ -531,7 +531,7 @@ refine(
   (* write new data to the stash *)
   let h''' := 
     match op with
-    | Read => h''
+    | Read => h'
     | Write d => [Block id d] ++ h''
     end in
   (* update the oram with data along path `p` using data from (and updating) stash `h'''` *)
