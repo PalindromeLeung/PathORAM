@@ -541,10 +541,12 @@ Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : st
 
 Definition remove_list_sub {A} (smL : list A) (p : A -> bool) (toL : list A) : list A := []. (* to be implemented *)
 
+Fixpoint lookup_ret_data (id : block_id) (lb : list block): list nat := [O]. (* to be implemented *)
+
 Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) (cand_bs : list block) (lvl : nat) : oram n l := o.
 (* to be implemented *)
                                                         
-Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (bc : list block) (s : state n l) : state n l :=
+Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list block)*) (s : state n l) : state n l :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
@@ -555,7 +557,11 @@ Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (bc : list b
   let up_o := up_oram_tr o id wbs lvl in
   (State m up_h up_o).
                                     
-        
+Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : state n l :=
+  match lvl with
+  | O => blocks_selection id O s
+  | S m => write_back (blocks_selection id lvl s) id m
+  end.
            
 Definition access {n l : nat} (id : block_id) (op : operation) (s : state n l) : dist (path l * list nat * state n l).
 refine(
@@ -573,6 +579,8 @@ refine(
   let bkts := lookup_path_oram p o in
   (* update the stash to include these blocks *)
   let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
+  (* look up payload inside the stash *)
+  let ret_data := lookup_ret_data id bkt_blocks in 
   let h' := bkt_blocks ++ h in
   (* read the index from the stash *)
   let (blk , h'') := remove_list dummy_block (fun blk => eq_dec (block_blockid blk) id) h' in
@@ -582,13 +590,11 @@ refine(
     | Read => h'
     | Write d => [Block id d] ++ h''
     end in
-  (* update the oram with data along path `p` using data from (and updating) stash `h'''` *)
-  (* TODO *)
-  (* return the path we queried, the data we read from the ORAM, and the next
-   * system state 
-   *)
-  (* TODO *)
-   _
+  let n_st := write_back (State m' h''' o) id l in
+  (* return the path we queried, the data we read from the ORAM, and the next system state *)
+  mreturn_dist (p, ret_data , n_st) 
 ) ; try typeclasses eauto.
 Abort.
+
+
 
