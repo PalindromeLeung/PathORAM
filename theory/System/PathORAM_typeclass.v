@@ -541,7 +541,24 @@ Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : st
 
 Definition remove_list_sub {A} (smL : list A) (p : A -> bool) (toL : list A) : list A := []. (* to be implemented *)
 
-Fixpoint lookup_ret_data (id : block_id) (lb : list block): list nat := [O]. (* to be implemented *)
+Fixpoint lookup_ret_data (id : block_id) (lb : list block): list nat :=
+  match lb with
+  | [] => []
+  | h :: t =>
+      if Nat.eqb (block_blockid h) id then block_payload h :: lookup_ret_data id t
+      else lookup_ret_data id t
+  end.
+Definition example_block_list : list block := [
+  Block (1%nat) 10;
+  Block (2%nat) 15;
+  Block (3%nat) 20;
+  Block (4%nat) 25
+].
+Compute lookup_ret_data (1%nat) example_block_list.
+Compute lookup_ret_data (2%nat) example_block_list.
+Compute lookup_ret_data (3%nat) example_block_list.
+Compute lookup_ret_data (4%nat) example_block_list.
+
 
 Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) (cand_bs : list block) (lvl : nat) : oram n l := o.
 (* to be implemented *)
