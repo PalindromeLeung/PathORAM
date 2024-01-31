@@ -592,9 +592,59 @@ refine(
     end in
   let n_st := write_back (State m' h''' o) id l in
   (* return the path we queried, the data we read from the ORAM, and the next system state *)
-  mreturn_dist (p, ret_data , n_st) 
-) ; try typeclasses eauto.
-Abort.
+  mreturn_dist (p, ret_data , n_st)
+  ) ; try typeclasses eauto.
+
+Admitted.
+
+
+(* Definition state_lift {S X} (Pre Post : S -> Prop) *)
+(*   (P : X -> Prop) : State S X -> Prop := *)
+(*   fun f => forall s, Pre s -> *)
+(*     P (fst (f s)) /\ Post (snd (f s)). *)
+
+Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
+
+Definition get_payload {A B C Q} (al : list (A * B * C * Q)) : option B :=
+  match al with
+  | [] => None
+  | h :: t => match h with
+            | (((a, b), c), q) => Some b 
+            end
+  end.
+
+
+Definition get_oram_st {A B C Q} (al : list (A * B * C * Q)) : option C :=
+  match al with
+  | [] => None
+  | h :: t => match h with
+            | (((a, b), c), q) => Some c 
+            end
+  end.
 
 
 
+Class PredLift M `{Monad M} := {
+  plift {X} : (X -> Prop) -> M X -> Prop;
+  lift_ret {X} : forall x (P : X -> Prop), P x -> plift P (mreturn x);
+  lift_bind {X Y} : forall (P : X -> Prop) (Q : Y -> Prop)
+    (mx : M X) (f : X -> M Y), plift P mx ->
+    (forall x, P x -> plift Q (f x)) ->
+    plift Q (mbind mx f)
+  }.
+
+
+Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Prop) (P : X -> Prop) :=
+  fun mx =>
+    forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
+
+
+
+Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
+  well_formed s ->
+  forall (s' : state n l), 
+    get_oram_st(getsupp (access id (Write v) s )) = Some s' -> 
+    get_payload(getsupp (access id Read s')) = Some [v].
+
+Proof.
+Admitted.
