@@ -539,7 +539,18 @@ Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : st
                takeL wbSz cand_bs
   end.
 
-Definition remove_list_sub {A} (smL : list A) (p : A -> bool) (toL : list A) : list A := []. (* to be implemented *)
+Fixpoint remove_list_sub {A} (subList : list A) (p : A -> A -> bool) (lst : list A) : list A :=
+  match lst with
+  | [] => []
+  | h :: t =>
+    match subList with
+     | [] => lst
+     | h' :: t' =>
+      if p h h' 
+      then remove_list_sub t' p t
+      else remove_list_sub t' p lst
+    end
+end.
 
 Fixpoint lookup_ret_data (id : block_id) (lb : list block): list nat := [O]. (* to be implemented *)
 
