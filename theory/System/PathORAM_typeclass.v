@@ -74,21 +74,8 @@ Inductive option (A : Type) : Type :=
 Arguments None {A}.
 Arguments Some {A} _.
 
-Fixpoint map_list {A B : Type} (f : A -> B) (xs : list A) : list B :=
-  match xs with
-  | nil => nil
-  | cons x xs => cons (f x) (map_list f xs)
-  end.
-
-#[export] Instance Functor_list : Functor list := { map := @map_list }.
-
-Fixpoint append_list {A : Type} (xs ys : list A) : list A :=
-  match xs with
-  | nil => ys
-  | cons x xs' => cons x (append_list xs' ys)
-  end.
-
-#[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := append_list }.
+#[export] Instance Functor_list : Functor list := { map := List.map }.
+#[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
 
 Fixpoint concat {A : Type} `{Monoid A} (xs : list A) : A :=
   match xs with
