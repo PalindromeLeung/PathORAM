@@ -1,6 +1,7 @@
 Require Coq.Bool.Bool.
 Require Import Coq.Vectors.Vector.
 Require Import Coq.Lists.List.
+Require Import Coq.QArith.QArith.
 Import ListNotations.
 (* Require Import FCF.FCF. *)
 (*** CLASSES ***)
@@ -72,8 +73,10 @@ Class WF (A : Type) := { wf : A -> Type }.
 Inductive option (A : Type) : Type :=
   | None : option A
   | Some : A -> option A.
-Arguments None {A}.
-Arguments Some {A} _.
+
+Arguments option A%type_scope.
+Arguments None {A}%type_scope.
+Arguments Some {A}%type_scope a.
 
 #[export] Instance Functor_list : Functor list := { map := List.map }.
 #[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
@@ -140,28 +143,6 @@ Definition map_vec {A B : Type} {n : nat} f := @Vector.map A B f n.
 #[export] Instance Functor_vec {n : nat} : Functor (fun A => Vector.t A n) := { map {_ _} f xs := map_vec f xs }.
 
 (*** RATIONALS ***)
-
-(* Probably switch to `Coq.QArith.QArith` in a real development. If you're going
- * to roll your own, make sure you include a proof in the representation that
- * `ratNum` and `ratDen` are greatest-common-denominator-reduced so that
- * semantically equal rationals are syntactically equal (i.e., equal via `=`).
- *)
-Require Import Coq.QArith.QArith.
-
-(* Record rat : Type := Rat *)
-(*   { rat_num : nat *)
-(*   ; rat_den : nat *)
-(*   }. *)
-
-(* Definition divide_nat_rat (q1 q2 : nat) : rat := Rat q1 q2. *)
-
-(* Module RatNotation. *)
-(*   Infix "//" := divide_nat_rat (at level 40, left associativity). *)
-(* End RatNotation. *)
-(* Import RatNotation. *)
-
-(* Definition plus_rat : rat -> rat -> rat. Admitted. *)
-
 #[export] Instance Monoid_rat : Monoid Q:= { null := 0 / 1 ; append := Qplus}.
 
 (* DICTIONARIES *)
