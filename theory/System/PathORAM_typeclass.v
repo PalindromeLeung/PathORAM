@@ -10,10 +10,10 @@ Import ListNotations.
  * pervasively. Here are the typeclasses that support the hand-rolled datatype
  * definitions.
  *)
-Class Eq (A : Type) := { eq_dec : A -> A -> bool }.
+Class Eq (A : Type) := { eqb : A -> A -> bool }.
 
-#[export] Instance Eq_bool : Eq bool := { eq_dec := Coq.Bool.Bool.eqb }.
-#[export] Instance Eq_nat : Eq nat := { eq_dec := Coq.Init.Nat.eqb }.
+#[export] Instance Eq_bool : Eq bool := { eqb := Coq.Bool.Bool.eqb }.
+#[export] Instance Eq_nat : Eq nat := { eqb := Coq.Init.Nat.eqb }.
 
 Class Ord (A : Type) := { ord_dec : A -> A -> comparison }.
 
@@ -465,8 +465,8 @@ Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks o 4 h id in 
-  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => eq_dec (block_blockid blk) id) h in  *)
-  let up_h := remove_list_sub wbs (fun blk => eq_dec (block_blockid blk) id) h in 
+  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => eqb (block_blockid blk) id) h in  *)
+  let up_h := remove_list_sub wbs (fun blk => eqb (block_blockid blk) id) h in 
   let up_o := up_oram_tr o id wbs lvl in
   (State m up_h up_o).
                                     
@@ -496,7 +496,7 @@ refine(
   let ret_data := lookup_ret_data id bkt_blocks in 
   let h' := bkt_blocks ++ h in
   (* read the index from the stash *)
-  let (blk , h'') := remove_list dummy_block (fun blk => eq_dec (block_blockid blk) id) h' in
+  let (blk , h'') := remove_list dummy_block (fun blk => eqb (block_blockid blk) id) h' in
   (* write new data to the stash *)
   let h''' := 
     match op with
