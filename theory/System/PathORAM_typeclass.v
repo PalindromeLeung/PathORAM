@@ -1,4 +1,6 @@
 Require Coq.Bool.Bool.
+Require Import Coq.Lists.List.
+Import ListNotations.
 (* Require Import FCF.FCF. *)
 (*** CLASSES ***)
 
@@ -72,47 +74,26 @@ Inductive option (A : Type) : Type :=
 Arguments None {A}.
 Arguments Some {A} _.
 
-(*** LISTS ***)
-
-(* Probably switch to using Coq.Lists.List in a real development. Rolling
- * your own is easy enough to do; nothing wrong with doing that either. 
- *)
-(* Require Import Coq.Lists.List. *)
-
-Inductive list (A : Type) : Type :=
-  | Nil : list A
-  | Cons : A -> list A -> list A.
-Arguments Nil {A}.
-Arguments Cons {A} _ _.
-
-Module ListNotation.
-  Infix "::" := Cons.
-  Print "::".
-  Notation "[ ]" := Nil.
-  Notation "[ a ; .. ; b ]" := (a :: .. (b :: []) ..).
-End ListNotation.
-Import ListNotation.
-
 Fixpoint map_list {A B : Type} (f : A -> B) (xs : list A) : list B :=
   match xs with
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (map_list f xs)
+  | nil => nil
+  | cons x xs => cons (f x) (map_list f xs)
   end.
 
 #[export] Instance Functor_list : Functor list := { map := @map_list }.
 
 Fixpoint append_list {A : Type} (xs ys : list A) : list A :=
   match xs with
-  | Nil => ys
-  | Cons x xs' => Cons x (append_list xs' ys)
+  | nil => ys
+  | cons x xs' => cons x (append_list xs' ys)
   end.
 
-#[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := Nil ; append := append_list }.
+#[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := append_list }.
 
 Fixpoint concat {A : Type} `{Monoid A} (xs : list A) : A :=
   match xs with
-  | Nil => null
-  | Cons x xs => x ++ concat xs
+  | nil => null
+  | cons x xs => x ++ concat xs
   end.
 
 Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
@@ -136,57 +117,57 @@ Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list
 (* Require Import Coq.Vectors.Vector. *)
 
 Inductive vec (A : Type) : forall (n : nat), Type :=
-  | Nil_V : vec A 0
-  | Cons_V : forall (n : nat), A -> vec A n -> vec A (S n).
-Arguments Nil_V {A}.
-Arguments Cons_V {A n} _ _.
+  | nil_V : vec A 0
+  | cons_V : forall (n : nat), A -> vec A n -> vec A (S n).
+Arguments nil_V {A}.
+Arguments cons_V {A n} _ _.
 
 Definition head_vec {A : Type} {n : nat} (xs : vec A (S n)) : A :=
   match xs with
-  | Cons_V x _ => x
+  | cons_V x _ => x
   end.
 
 Definition tail_vec {A : Type} {n : nat} (xs : vec A (S n)) : vec A n :=
   match xs with
-  | Cons_V _ xs => xs
+  | cons_V _ xs => xs
   end.
 
 Fixpoint zip_vec {A B : Type} {n : nat} : forall (xs : vec A n) (ys : vec B n), vec (A * B) n :=
   match n with
-  | O => fun _ _ => Nil_V
+  | O => fun _ _ => nil_V
   | S n' => fun xs ys =>
       let x := head_vec xs in
       let xs' := tail_vec xs in
       let y := head_vec ys in
       let ys' := tail_vec ys in
-      Cons_V (x , y) (zip_vec xs' ys')
+      cons_V (x , y) (zip_vec xs' ys')
   end.
 
 Fixpoint const_vec {A : Type} (x : A) (n : nat) : vec A n :=
   match n with
-  | O => Nil_V
-  | S n' => Cons_V x (const_vec x n')
+  | O => nil_V
+  | S n' => cons_V x (const_vec x n')
   end.
 
 Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (vec A n) :=
   match n with
-  | O => mreturn Nil_V
+  | O => mreturn nil_V
   | S n' =>
       x <- xM ;;
       xs <- constm_vec xM n' ;;
-      mreturn (Cons_V x xs)
+      mreturn (cons_V x xs)
   end.
 
 Fixpoint to_list_vec {A : Type} {n : nat} (xs : vec A n) : list A :=
   match xs with
-  | Nil_V => []
-  | Cons_V x xs' => x :: to_list_vec xs'
+  | nil_V => []
+  | cons_V x xs' => x :: to_list_vec xs'
   end.
 
 Fixpoint map_vec {A B : Type} {n : nat} (f : A -> B) (xs : vec A n) : vec B n :=
   match xs with
-  | Nil_V => Nil_V
-  | Cons_V x xs' => Cons_V (f x) (map_vec f xs')
+  | nil_V => nil_V
+  | cons_V x xs' => cons_V (f x) (map_vec f xs')
   end.
 
 #[export] Instance Functor_vec {n : nat} : Functor (fun A => vec A n) := { map {_ _} f xs := map_vec f xs }.
@@ -230,14 +211,14 @@ Arguments dict_elems {K V} _.
 
 Fixpoint map_alist {K V V' : Type} (f : V -> V') (kvs : list (K * V)) : list (K * V') :=
   match kvs with
-  | Nil => Nil
-  | Cons (k , v) kvs' => Cons (k , f v) (map_alist f kvs')
+  | nil => nil
+  | cons (k , v) kvs' => cons (k , f v) (map_alist f kvs')
   end.
 
 Fixpoint lookup_alist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)) :=
   match kvs with
-  | Nil => v
-  | Cons (k' , v') kvs' => match ord_dec k k' with
+  | nil => v
+  | cons (k' , v') kvs' => match ord_dec k k' with
     | LT => lookup_alist v k kvs'
     | EQ => v'
     | GT => lookup_alist v k kvs'
@@ -245,8 +226,8 @@ Fixpoint lookup_alist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V))
   end.
 
 Inductive wf_dict_falist {K V : Type} `{Ord K} : forall (kO : option K) (kvs : list (K * V)), Prop :=
-  | Nil_WFDict : forall {kO : option K}, wf_dict_falist kO []
-  | Cons_WFDict : forall {kO : option K} {k : K} {v : V} {kvs : list (K * V)},
+  | nil_WFDict : forall {kO : option K}, wf_dict_falist kO []
+  | cons_WFDict : forall {kO : option K} {k : K} {v : V} {kvs : list (K * V)},
       match kO with
       | None => unit
       | Some k' => ord_dec k' k = LT
@@ -256,8 +237,8 @@ Inductive wf_dict_falist {K V : Type} `{Ord K} : forall (kO : option K) (kvs : l
 
 Fixpoint lookup_falist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)) :=
   match kvs with
-  | Nil => v
-  | Cons (k' , v') kvs' => match ord_dec k k' with
+  | nil => v
+  | cons (k' , v') kvs' => match ord_dec k k' with
     | LT => v
     | EQ => v'
     | GT => lookup_falist v k kvs'
@@ -266,8 +247,8 @@ Fixpoint lookup_falist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)
 
 Fixpoint update_falist {K V : Type} `{Ord K} (k : K) (v : V) (kvs : list (K * V)) : list (K * V) :=
   match kvs with
-  | Nil => [ (k , v) ]
-  | Cons (k' , v') kvs' => match ord_dec k k' with
+  | nil => [ (k , v) ]
+  | cons (k' , v') kvs' => match ord_dec k k' with
       | LT => (k , v) :: (k' , v') :: kvs'
       | EQ => (k , v) :: kvs'
       | GT => (k' , v') :: update_falist k v kvs'
@@ -296,7 +277,7 @@ Definition update_dict {K V : Type} `{Ord K} (k : K) (v : V) (kvs : dict K V) : 
  * association list, which has the dual trade-offs.
  *
  * These are extensional distributions, which make reasoning about conditional
- * probabilities and distribution independence a pain. Consider moving to
+ * probabilities and distribution independence a pain. consider moving to
  * intensional distributions a la the "A Language for Probabilistically
  * Oblivious Computation" paper (Fig 10). 
  *)
@@ -507,14 +488,14 @@ Arguments state_oram {n l} _.
 
 Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), vec (bucket n) l :=
   match l with
-  | O => fun _ _ => Nil_V
+  | O => fun _ _ => nil_V
   | S l' => fun p o =>
       let b := head_vec p in
       let p' := tail_vec p in
       let bkt := head_oram o in
       let o_l := tail_l_oram o in
       let o_r := tail_r_oram o in
-      Cons_V bkt (lookup_path_oram p' (if b then o_l else o_r))
+      cons_V bkt (lookup_path_oram p' (if b then o_l else o_r))
   end.
 
 Inductive operation := 
