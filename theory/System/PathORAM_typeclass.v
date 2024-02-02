@@ -1,4 +1,5 @@
 Require Coq.Bool.Bool.
+Require Import Coq.Vectors.Vector.
 Require Import Coq.Lists.List.
 Import ListNotations.
 (* Require Import FCF.FCF. *)
@@ -97,67 +98,55 @@ Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list
 
 (*** VECTORS ***)
 
-(* Probably switch to either `Coq.Vectors.Vector` or `ExtLib.Data.Fin` in a real
- * development. Rolling your own is easy enough to do; nothign wrong with doing
- * that either.
- *)
-(* Require Import Coq.Vectors.Vector. *)
-
-Inductive vec (A : Type) : forall (n : nat), Type :=
-  | nil_V : vec A 0
-  | cons_V : forall (n : nat), A -> vec A n -> vec A (S n).
-Arguments nil_V {A}.
-Arguments cons_V {A n} _ _.
-
-Definition head_vec {A : Type} {n : nat} (xs : vec A (S n)) : A :=
+Definition head_vec {A : Type} {n : nat} (xs : Vector.t A (S n)) : A :=
   match xs with
-  | cons_V x _ => x
+  | Vector.cons _ x _ _ => x
   end.
 
-Definition tail_vec {A : Type} {n : nat} (xs : vec A (S n)) : vec A n :=
+Definition tail_vec {A : Type} {n : nat} (xs : Vector.t A (S n)) : Vector.t A n :=
   match xs with
-  | cons_V _ xs => xs
+  | Vector.cons _ _ _ xs => xs
   end.
 
-Fixpoint zip_vec {A B : Type} {n : nat} : forall (xs : vec A n) (ys : vec B n), vec (A * B) n :=
+Fixpoint zip_vec {A B : Type} {n : nat} : forall (xs : Vector.t A n) (ys : Vector.t B n), Vector.t (A * B) n :=
   match n with
-  | O => fun _ _ => nil_V
+  | O => fun _ _ => Vector.nil (A * B)
   | S n' => fun xs ys =>
       let x := head_vec xs in
       let xs' := tail_vec xs in
       let y := head_vec ys in
       let ys' := tail_vec ys in
-      cons_V (x , y) (zip_vec xs' ys')
+      Vector.cons _ (x , y) _ (zip_vec xs' ys')
   end.
 
-Fixpoint const_vec {A : Type} (x : A) (n : nat) : vec A n :=
+Fixpoint const_vec {A : Type} (x : A) (n : nat) : Vector.t A n :=
   match n with
-  | O => nil_V
-  | S n' => cons_V x (const_vec x n')
+  | O => Vector.nil A
+  | S n' => Vector.cons _ x _ (const_vec x n')
   end.
 
-Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (vec A n) :=
+Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (Vector.t A n) :=
   match n with
-  | O => mreturn nil_V
+  | O => mreturn (Vector.nil A)
   | S n' =>
       x <- xM ;;
       xs <- constm_vec xM n' ;;
-      mreturn (cons_V x xs)
+      mreturn (Vector.cons _ x _ xs)
   end.
 
-Fixpoint to_list_vec {A : Type} {n : nat} (xs : vec A n) : list A :=
+Fixpoint to_list_vec {A : Type} {n : nat} (xs : Vector.t A n) : list A :=
   match xs with
-  | nil_V => []
-  | cons_V x xs' => x :: to_list_vec xs'
+  | Vector.nil _ => []
+  | Vector.cons _ x _ xs' => x :: to_list_vec xs'
   end.
 
-Fixpoint map_vec {A B : Type} {n : nat} (f : A -> B) (xs : vec A n) : vec B n :=
+Fixpoint map_vec {A B : Type} {n : nat} (f : A -> B) (xs : Vector.t A n) : Vector.t B n :=
   match xs with
-  | nil_V => nil_V
-  | cons_V x xs' => cons_V (f x) (map_vec f xs')
+  | Vector.nil _ => Vector.nil _
+  | Vector.cons _ x _ xs' => Vector.cons _ (f x) _ (map_vec f xs')
   end.
 
-#[export] Instance Functor_vec {n : nat} : Functor (fun A => vec A n) := { map {_ _} f xs := map_vec f xs }.
+#[export] Instance Functor_vec {n : nat} : Functor (fun A => Vector.t A n) := { map {_ _} f xs := map_vec f xs }.
 
 (*** RATIONALS ***)
 
@@ -438,10 +427,10 @@ Record block : Type := Block
   { block_blockid : block_id
   ; block_payload : nat
   }.
-Definition path (l : nat) := vec bool l.
+Definition path (l : nat) := Vector.t bool l.
 Definition position_map (l : nat) := dict block_id (path l).
 Definition stash (n : nat) := list block.
-Definition bucket (n : nat) := vec block n.
+Definition bucket (n : nat) := Vector.t block n.
 Inductive oram (n : nat) : forall (l : nat), Type :=
   | Leaf_ORAM : oram n 0
   | Node_ORAM : forall {l : nat}, bucket n -> oram n l -> oram n l -> oram n (S l).
@@ -473,16 +462,16 @@ Arguments state_position_map {n l} _.
 Arguments state_stash {n l} _.
 Arguments state_oram {n l} _.
 
-Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), vec (bucket n) l :=
+Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vector.t (bucket n) l :=
   match l with
-  | O => fun _ _ => nil_V
+  | O => fun _ _ => Vector.nil _
   | S l' => fun p o =>
       let b := head_vec p in
       let p' := tail_vec p in
       let bkt := head_oram o in
       let o_l := tail_l_oram o in
       let o_r := tail_r_oram o in
-      cons_V bkt (lookup_path_oram p' (if b then o_l else o_r))
+      Vector.cons _ bkt _ (lookup_path_oram p' (if b then o_l else o_r))
   end.
 
 Inductive operation := 
