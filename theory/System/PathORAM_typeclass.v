@@ -502,7 +502,7 @@ refine(
   (* return the path we queried, the data we read from the ORAM, and the next system state *)
   mreturn_dist (p, ret_data , n_st)
   ) ; try typeclasses eauto.
-
+Defined.
 
 (* Definition state_lift {S X} (Pre Post : S -> Prop) *)
 (*   (P : X -> Prop) : State S X -> Prop := *)
