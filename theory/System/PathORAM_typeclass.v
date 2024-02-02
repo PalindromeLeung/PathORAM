@@ -10,10 +10,10 @@ Import ListNotations.
  * pervasively. Here are the typeclasses that support the hand-rolled datatype
  * definitions.
  *)
-Class Eq (A : Type) := { eqb : A -> A -> bool }.
+Class Eqb (A : Type) := { eqb : A -> A -> bool }.
 
-#[export] Instance Eq_bool : Eq bool := { eqb := Coq.Bool.Bool.eqb }.
-#[export] Instance Eq_nat : Eq nat := { eqb := Coq.Init.Nat.eqb }.
+#[export] Instance Eqb_bool : Eqb bool := { eqb := Coq.Bool.Bool.eqb }.
+#[export] Instance Eqb_nat : Eqb nat := { eqb := Coq.Init.Nat.eqb }.
 
 Class Ord (A : Type) := { ord_dec : A -> A -> comparison }.
 
@@ -54,7 +54,7 @@ Import MonadNotation.
  *)
 Class WF (A : Type) := { wf : A -> Type }.
 
-(* MISSING: correctness criteria, e.g., that `Eq` is an actual equivalence
+(* MISSING: correctness criteria, e.g., that `Eqb` is an actual equivalence
  * relation, that `Ord` is an actual total order, etc.
  *)
 
@@ -150,7 +150,7 @@ Fixpoint lookup_alist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V))
   | nil => v
   | cons (k' , v') kvs' => match ord_dec k k' with
     | Lt => lookup_alist v k kvs'
-    | Datatypes.Eq => v'
+    | Eq => v'
     | Gt => lookup_alist v k kvs'
     end
   end.
@@ -172,7 +172,7 @@ Fixpoint lookup_falist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)
   | nil => v
   | cons (k' , v') kvs' => match ord_dec k k' with
     | Lt => v
-    | Datatypes.Eq => v'
+    | Eq => v'
     | Gt => lookup_falist v k kvs'
     end
   end.
@@ -182,7 +182,7 @@ Fixpoint update_falist {K V : Type} `{Ord K} (k : K) (v : V) (kvs : list (K * V)
   | nil => [ (k , v) ]
   | cons (k' , v') kvs' => match ord_dec k k' with
       | Lt => (k , v) :: (k' , v') :: kvs'
-      | Datatypes.Eq => (k , v) :: kvs'
+      | Eq => (k , v) :: kvs'
       | Gt => (k' , v') :: update_falist k v kvs'
       end
   end.
