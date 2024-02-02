@@ -10,18 +10,12 @@ Import ListNotations.
  * pervasively. Here are the typeclasses that support the hand-rolled datatype
  * definitions.
  *)
-
-Inductive ord := 
-  | LT : ord 
-  | EQ : ord 
-  | GT : ord.
-
 Class Eq (A : Type) := { eq_dec : A -> A -> bool }.
 
 #[export] Instance Eq_bool : Eq bool := { eq_dec := Coq.Bool.Bool.eqb }.
 #[export] Instance Eq_nat : Eq nat := { eq_dec := Coq.Init.Nat.eqb }.
 
-Class Ord (A : Type) := { ord_dec : A -> A -> ord }.
+Class Ord (A : Type) := { ord_dec : A -> A -> comparison }.
 
 Class Monoid (A : Type) :=
   { null : A
@@ -155,9 +149,9 @@ Fixpoint lookup_alist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V))
   match kvs with
   | nil => v
   | cons (k' , v') kvs' => match ord_dec k k' with
-    | LT => lookup_alist v k kvs'
-    | EQ => v'
-    | GT => lookup_alist v k kvs'
+    | Lt => lookup_alist v k kvs'
+    | Datatypes.Eq => v'
+    | Gt => lookup_alist v k kvs'
     end
   end.
 
@@ -166,7 +160,7 @@ Inductive wf_dict_falist {K V : Type} `{Ord K} : forall (kO : option K) (kvs : l
   | cons_WFDict : forall {kO : option K} {k : K} {v : V} {kvs : list (K * V)},
       match kO return Set with
       | None => unit
-      | Some k' => ord_dec k' k = LT
+      | Some k' => ord_dec k' k = Lt
       end
       -> wf_dict_falist (Some k) kvs
       -> wf_dict_falist kO ((k , v) :: kvs).
@@ -177,9 +171,9 @@ Fixpoint lookup_falist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)
   match kvs with
   | nil => v
   | cons (k' , v') kvs' => match ord_dec k k' with
-    | LT => v
-    | EQ => v'
-    | GT => lookup_falist v k kvs'
+    | Lt => v
+    | Datatypes.Eq => v'
+    | Gt => lookup_falist v k kvs'
     end
   end.
 
@@ -187,9 +181,9 @@ Fixpoint update_falist {K V : Type} `{Ord K} (k : K) (v : V) (kvs : list (K * V)
   match kvs with
   | nil => [ (k , v) ]
   | cons (k' , v') kvs' => match ord_dec k k' with
-      | LT => (k , v) :: (k' , v') :: kvs'
-      | EQ => (k , v) :: kvs'
-      | GT => (k' , v') :: update_falist k v kvs'
+      | Lt => (k , v) :: (k' , v') :: kvs'
+      | Datatypes.Eq => (k , v) :: kvs'
+      | Gt => (k' , v') :: update_falist k v kvs'
       end
   end.
 
