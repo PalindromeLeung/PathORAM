@@ -64,19 +64,7 @@ Class WF (A : Type) := { wf : A -> Type }.
  * relation, that `Ord` is an actual total order, etc.
  *)
 
-(*** OPTIONS ***)
-
-(* Probably switch to using `option` from base Coq in a real development.
- * Rolling your own is easy enough to do ; nothing wrong with doing that either.
-*)
-
-Inductive option (A : Type) : Type :=
-  | None : option A
-  | Some : A -> option A.
-
-Arguments option A%type_scope.
-Arguments None {A}%type_scope.
-Arguments Some {A}%type_scope a.
+(*** LISTS ***)
 
 #[export] Instance Functor_list : Functor list := { map := List.map }.
 #[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
@@ -176,12 +164,14 @@ Fixpoint lookup_alist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V))
 Inductive wf_dict_falist {K V : Type} `{Ord K} : forall (kO : option K) (kvs : list (K * V)), Prop :=
   | nil_WFDict : forall {kO : option K}, wf_dict_falist kO []
   | cons_WFDict : forall {kO : option K} {k : K} {v : V} {kvs : list (K * V)},
-      match kO with
+      match kO return Set with
       | None => unit
       | Some k' => ord_dec k' k = LT
       end
       -> wf_dict_falist (Some k) kvs
       -> wf_dict_falist kO ((k , v) :: kvs).
+
+Print wf_dict_falist.
 
 Fixpoint lookup_falist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)) :=
   match kvs with
