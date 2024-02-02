@@ -2,6 +2,7 @@ Require Coq.Bool.Bool.
 Require Import Coq.Vectors.Vector.
 Require Import Coq.Lists.List.
 Require Import Coq.QArith.QArith.
+Require Import Coq.Classes.EquivDec.
 Import ListNotations.
 (* Require Import FCF.FCF. *)
 (*** CLASSES ***)
@@ -10,11 +11,6 @@ Import ListNotations.
  * pervasively. Here are the typeclasses that support the hand-rolled datatype
  * definitions.
  *)
-Class Eqb (A : Type) := { eqb : A -> A -> bool }.
-
-#[export] Instance Eqb_bool : Eqb bool := { eqb := Coq.Bool.Bool.eqb }.
-#[export] Instance Eqb_nat : Eqb nat := { eqb := Coq.Init.Nat.eqb }.
-
 Class Ord (A : Type) := { ord_dec : A -> A -> comparison }.
 
 Class Monoid (A : Type) :=
@@ -54,8 +50,7 @@ Import MonadNotation.
  *)
 Class WF (A : Type) := { wf : A -> Type }.
 
-(* MISSING: correctness criteria, e.g., that `Eqb` is an actual equivalence
- * relation, that `Ord` is an actual total order, etc.
+(* MISSING: correctness criteria, e.g., that `Ord` is an actual total order, etc.
  *)
 
 (*** LISTS ***)
@@ -465,8 +460,8 @@ Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks o 4 h id in 
-  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => eqb (block_blockid blk) id) h in  *)
-  let up_h := remove_list_sub wbs (fun blk => eqb (block_blockid blk) id) h in 
+  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => equiv_dec (block_blockid blk) id) h in  *)
+  let up_h := remove_list_sub wbs (fun blk => equiv_decb (block_blockid blk) id) h in 
   let up_o := up_oram_tr o id wbs lvl in
   (State m up_h up_o).
                                     
@@ -496,7 +491,7 @@ refine(
   let ret_data := lookup_ret_data id bkt_blocks in 
   let h' := bkt_blocks ++ h in
   (* read the index from the stash *)
-  let (blk , h'') := remove_list dummy_block (fun blk => eqb (block_blockid blk) id) h' in
+  let (blk , h'') := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
   (* write new data to the stash *)
   let h''' := 
     match op with
