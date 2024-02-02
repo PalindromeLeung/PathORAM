@@ -4,7 +4,6 @@ Require Import Coq.Lists.List.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Classes.EquivDec.
 Import ListNotations.
-(* Require Import FCF.FCF. *)
 (*** CLASSES ***)
 
 (* I'm rolling my own version of lots of datatypes and using typeclasses
@@ -12,6 +11,7 @@ Import ListNotations.
  * definitions.
  *)
 Class Ord (A : Type) := { ord_dec : A -> A -> comparison }.
+#[export] Instance NatOrd : Ord nat := { ord_dec := Nat.compare }.
 
 Class Monoid (A : Type) :=
   { null : A
@@ -502,8 +502,6 @@ refine(
   (* return the path we queried, the data we read from the ORAM, and the next system state *)
   mreturn_dist (p, ret_data , n_st)
   ) ; try typeclasses eauto.
-
-Admitted.
 
 
 (* Definition state_lift {S X} (Pre Post : S -> Prop) *)
