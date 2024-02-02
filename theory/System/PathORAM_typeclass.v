@@ -134,17 +134,8 @@ Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat
       mreturn (Vector.cons _ x _ xs)
   end.
 
-Fixpoint to_list_vec {A : Type} {n : nat} (xs : Vector.t A n) : list A :=
-  match xs with
-  | Vector.nil _ => []
-  | Vector.cons _ x _ xs' => x :: to_list_vec xs'
-  end.
-
-Fixpoint map_vec {A B : Type} {n : nat} (f : A -> B) (xs : Vector.t A n) : Vector.t B n :=
-  match xs with
-  | Vector.nil _ => Vector.nil _
-  | Vector.cons _ x _ xs' => Vector.cons _ (f x) _ (map_vec f xs')
-  end.
+Definition to_list_vec {A : Type} {n : nat} := @Vector.to_list A n.
+Definition map_vec {A B : Type} {n : nat} f := @Vector.map A B f n.
 
 #[export] Instance Functor_vec {n : nat} : Functor (fun A => Vector.t A n) := { map {_ _} f xs := map_vec f xs }.
 
