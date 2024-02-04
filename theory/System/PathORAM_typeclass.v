@@ -539,18 +539,26 @@ Class PredLift M `{Monad M} := {
   }.
 
 
+#[export] Instance Pred_Dist_Lift : PredLift dist. Admitted.
+
 Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Prop) (P : X -> Prop) :=
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
 
-Definition state_m {n l: nat}: Type := state n l.
+(* Definition poramS {n l: nat}: Type := state n l. *)
 
 Definition read_access {n l : nat} (id : block_id) (s : state n l) : dist (path l * list nat * state n l) := access id Read s.
 
-Definition write_access {n l: nat} (id : block_id) (v : nat)(s : state n l) : dist (path l * list nat * state n l) := access id (Write v) s.
+Definition write_access {n l : nat} (id : block_id) (v : nat) (s : state n l) : dist (path l * list nat * state n l) := access id (Write v) s.
 
-Definition write_and_read_acces {n l v: nat} (id : block_id) (s : state n l) : dist (path l * list nat * state n l) := Dist [ (dummy_path, [1%nat] , s, 1 / 1) ].
-  (* mbind_dist (write_access id v s) (fun st => read_access id (get_oram_st [st])). *)
+Definition write_and_read_access {n l : nat} (id : block_id) (v : nat) (s : state n l) : dist (path l * list nat * state n l) :=
+mbind_dist (write_access id v s) (fun '(_, _, st) => read_access id st).
+
+Definition pred_pair {l : nat}  : path l * list nat -> Prop := fun _ => True.
+
+Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
+  state_prob_lift (@well_formed n l) well_formed pred_pair
+                  (write_and_read_access id v).
 
 
   
