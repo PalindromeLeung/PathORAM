@@ -470,39 +470,6 @@ Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : st
   | O => blocks_selection id O s
   | S m => write_back (blocks_selection id lvl s) id m
   end.
-           
-Definition access {n l : nat} (id : block_id) (op : operation) (s : state n l) : dist (path l * nat * state n l).
-refine(
-  (* unpack the state *)
-  let m := state_position_map s in
-  let h := state_stash s in
-  let o := state_oram s in
-  (* get path for the index we are querying *)
-  let p := lookup_dict dummy_path id m in
-  (* flip a bunch of coins to get the new path *)
-  p_new <- constm_vec coin_flip l;;
-  (* update the position map with the new path *)
-  let m' := update_dict id p_new m in
-  (* read the path for the index from the oram *)
-  let bkts := lookup_path_oram p o in
-  (* update the stash to include these blocks *)
-  let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
-  (* look up payload inside the stash *)
-  let ret_data := lookup_ret_data id bkt_blocks in 
-  let h' := bkt_blocks ++ h in
-  (* read the index from the stash *)
-  let (blk , h'') := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
-  (* write new data to the stash *)
-  let h''' := 
-    match op with
-    | Read => h'
-    | Write d => [Block id d] ++ h''
-    end in
-  let n_st := write_back (State m' h''' o) id l in
-  (* return the path we queried, the data we read from the ORAM, and the next system state *)
-  mreturn_dist (p, ret_data , n_st)
-  ) ; try typeclasses eauto.
-Defined.
 
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
@@ -522,7 +489,7 @@ Proof.
   exact (f x s').
 Defined.
 
-Definition access2 {n l : nat} (id : block_id) (op : operation) : Poram_st (state n l) dist (path l * nat) := fun s => 
+Definition access {n l : nat} (id : block_id) (op : operation) : Poram_st (state n l) dist (path l * nat) := fun s => 
   (* unpack the state *)
   let m := state_position_map s in
   let h := state_stash s in
@@ -591,9 +558,9 @@ Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S ->
 
 (* Definition poramS {n l: nat}: Type := state n l. *)
 
-Definition read_access {n l : nat} (id : block_id) : Poram_st (state n l) dist (path l * nat) := access2 id Read.
+Definition read_access {n l : nat} (id : block_id) : Poram_st (state n l) dist (path l * nat) := access id Read.
 
-Definition write_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) := access2 id (Write v).
+Definition write_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) := access id (Write v).
 
 Definition write_and_read_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) :=
 bindT (write_access id v ) (fun '( _, st) => read_access id).
