@@ -583,20 +583,41 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
   end.
 
 
-Definition get_oram_st (A B C Q: Type) (al : list (A * B * C * Q)) : option C :=
-  match al with
-  | [] => None
-  | h :: t => match h with
-            | (((a, b), c), q) => Some c 
-            end
-  end.
-Arguments get_oram_st {A B C Q}.
+Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
+  plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
+  get_payload (write_and_read_access id v s) = Some v.
+Admitted.
+
 
 
 Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
   well_formed s ->
-  forall (s' : state n l),
     get_payload(write_and_read_access id v s) = Some v.
 Proof.
+  intros wf_s. apply extract_payload.
+  apply write_and_read_access_lift. auto.
+Qed.
+
   
+
+  
+
+
+
+
+
+
+
+
+
+
+  remember (write_and_read_access id v s) as ops.
+  unfold get_payload.
+  destruct (dist_pmf ops) eqn:ops_dest.
+  - unfold write_and_read_access in Heqops. admit.
+  (* need to prove the list can't be empty. STUBBED OUT*)
+  - destruct p. destruct p. destruct p. f_equal.
+
+
+    
 Admitted.
