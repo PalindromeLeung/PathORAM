@@ -522,23 +522,6 @@ Definition access {n l : nat} (id : block_id) (op : operation) : Poram_st (state
 
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
 
-Definition get_payload {A B C Q} (al : list (A * B * C * Q)) : option B :=
-  match al with
-  | [] => None
-  | h :: t => match h with
-            | (((a, b), c), q) => Some b 
-            end
-  end.
-
-
-Definition get_oram_st (A B C Q: Type) (al : list (A * B * C * Q)) : option C :=
-  match al with
-  | [] => None
-  | h :: t => match h with
-            | (((a, b), c), q) => Some c 
-            end
-  end.
-Arguments get_oram_st {A B C Q}.
 
 Class PredLift M `{Monad M} := {
   plift {X} : (X -> Prop) -> M X -> Prop;
@@ -591,12 +574,30 @@ Proof.
   eapply state_prob_bind.
 Admitted.  
 
+Definition get_payload {l : nat} (dist_a : dist (path l * nat)): option nat :=
+  match dist_pmf dist_a with 
+  | [] => None
+  | h :: t => match h with
+            | ((_,v),_) => Some v
+            end
+  end.
+
+
+Definition get_oram_st (A B C Q: Type) (al : list (A * B * C * Q)) : option C :=
+  match al with
+  | [] => None
+  | h :: t => match h with
+            | (((a, b), c), q) => Some c 
+            end
+  end.
+Arguments get_oram_st {A B C Q}.
 
 
 Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
   well_formed s ->
   forall (s' : state n l),
-    write_and_read_access id v 
+    write_and_read_access id v s
+                          (dist (path l * nat) ) -> nat 
     get_oram_st(getsupp (access id (Write v) s )) = Some s' -> 
     get_payload(getsupp (access id Read s')) = Some [v].
 
