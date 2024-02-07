@@ -449,7 +449,7 @@ Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : st
 
 Definition remove_list_sub {A} (smL : list A) (p : A -> bool) (toL : list A) : list A := []. (* to be implemented *)
 
-Fixpoint lookup_ret_data (id : block_id) (lb : list block): list nat := [O]. (* to be implemented *)
+Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat := O. (* to be implemented *)
 
 Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) (cand_bs : list block) (lvl : nat) : oram n l := o.
 (* to be implemented *)
@@ -471,7 +471,7 @@ Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : st
   | S m => write_back (blocks_selection id lvl s) id m
   end.
            
-Definition access {n l : nat} (id : block_id) (op : operation) (s : state n l) : dist (path l * list nat * state n l).
+Definition access {n l : nat} (id : block_id) (op : operation) (s : state n l) : dist (path l * nat * state n l).
 refine(
   (* unpack the state *)
   let m := state_position_map s in
@@ -504,10 +504,54 @@ refine(
   ) ; try typeclasses eauto.
 Defined.
 
-(* Definition state_lift {S X} (Pre Post : S -> Prop) *)
-(*   (P : X -> Prop) : State S X -> Prop := *)
-(*   fun f => forall s, Pre s -> *)
-(*     P (fst (f s)) /\ Post (snd (f s)). *)
+Definition Poram_st S M A : Type := S -> M (A * S)%type.
+
+Definition retT {S} {M} `{Monad M} {X} :
+  X -> Poram_st S M X :=
+  fun x s => mreturn (x, s).
+
+Definition bindT {S} {M} `{Monad M} {X Y} :
+  Poram_st S M X ->
+  (X -> Poram_st S M Y) ->
+  Poram_st S M Y.
+Proof.
+  unfold Poram_st.
+  intros mx f s.
+  apply (mbind (mx s)).
+  intros [x s'].
+  exact (f x s').
+Defined.
+
+Definition access2 {n l : nat} (id : block_id) (op : operation) : Poram_st (state n l) dist (path l * nat) := fun s => 
+  (* unpack the state *)
+  let m := state_position_map s in
+  let h := state_stash s in
+  let o := state_oram s in
+  (* get path for the index we are querying *)
+  let p := lookup_dict dummy_path id m in
+  (* flip a bunch of coins to get the new path *)
+  p_new <- constm_vec coin_flip l;;
+  (* update the position map with the new path *)
+  let m' := update_dict id p_new m in
+  (* read the path for the index from the oram *)
+  let bkts := lookup_path_oram p o in
+  (* update the stash to include these blocks *)
+  let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
+  (* look up payload inside the stash *)
+  let ret_data := lookup_ret_data id bkt_blocks in 
+  let h' := bkt_blocks ++ h in
+  (* read the index from the stash *)
+  let (blk , h'') := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
+  (* write new data to the stash *)
+  let h''' := 
+    match op with
+    | Read => h'
+    | Write d => [Block id d] ++ h''
+    end in
+  let n_st := write_back (State m' h''' o) id l in
+  (* return the path we queried, the data we read from the ORAM, and the next system state *)
+  mreturn_dist (p, ret_data , n_st).
+
 
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
 
@@ -547,21 +591,36 @@ Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S ->
 
 (* Definition poramS {n l: nat}: Type := state n l. *)
 
-Definition read_access {n l : nat} (id : block_id) (s : state n l) : dist (path l * list nat * state n l) := access id Read s.
+Definition read_access {n l : nat} (id : block_id) : Poram_st (state n l) dist (path l * nat) := access2 id Read.
 
-Definition write_access {n l : nat} (id : block_id) (v : nat) (s : state n l) : dist (path l * list nat * state n l) := access id (Write v) s.
+Definition write_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) := access2 id (Write v).
 
-Definition write_and_read_access {n l : nat} (id : block_id) (v : nat) (s : state n l) : dist (path l * list nat * state n l) :=
-mbind_dist (write_access id v s) (fun '(_, _, st) => read_access id st).
+Definition write_and_read_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) :=
+bindT (write_access id v ) (fun '( _, st) => read_access id).
 
-Definition pred_pair {l : nat}  : path l * list nat -> Prop := fun _ => True.
+Definition pred_pair {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
 
+
+(* state_prob_bind is analogous to the sequencing rule in Hoare Logic *)
+Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
+      (Mid : S -> Prop) {Post : S -> Prop} (P: X -> Prop) (Q: Y -> Prop)
+      {mx : Poram_st S M X} {f : X -> Poram_st S M Y} : 
+  state_prob_lift Pre Mid P mx ->
+  (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
+  state_prob_lift Pre Post Q (bindT mx f). 
+Proof.
+Admitted. 
+
+(* This lemma is saying that the write_and_read_access preserves the well-formedness invariant  *)
 Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
-  state_prob_lift (@well_formed n l) well_formed pred_pair
+  state_prob_lift (@well_formed n l) well_formed (pred_pair v)
                   (write_and_read_access id v).
+Proof.
+  eapply state_prob_bind.
+Admitted.  
 
 
-  
+
 Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
   well_formed s ->
   forall (s' : state n l), 
