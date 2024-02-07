@@ -574,11 +574,11 @@ Proof.
   eapply state_prob_bind.
 Admitted.  
 
-Definition get_payload {l : nat} (dist_a : dist (path l * nat)): option nat :=
+Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))): option nat :=
   match dist_pmf dist_a with 
   | [] => None
   | h :: t => match h with
-            | ((_,v),_) => Some v
+            | (((_,v),_), _)  => Some v
             end
   end.
 
@@ -596,10 +596,7 @@ Arguments get_oram_st {A B C Q}.
 Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
   well_formed s ->
   forall (s' : state n l),
-    write_and_read_access id v s
-                          (dist (path l * nat) ) -> nat 
-    get_oram_st(getsupp (access id (Write v) s )) = Some s' -> 
-    get_payload(getsupp (access id Read s')) = Some [v].
-
+    get_payload(write_and_read_access id v s) = Some v.
 Proof.
+  
 Admitted.
