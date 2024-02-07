@@ -565,10 +565,12 @@ Definition write_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n
 Definition write_and_read_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) :=
 bindT (write_access id v ) (fun '( _, st) => read_access id).
 
-Definition pred_pair {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
+Definition has_value {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
 
 
-(* state_prob_bind is analogous to the sequencing rule in Hoare Logic *)
+(*
+ * state_prob_bind is analogous to the sequencing rule in Hoare Logic
+ *)
 Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
       (Mid : S -> Prop) {Post : S -> Prop} (P: X -> Prop) (Q: Y -> Prop)
       {mx : Poram_st S M X} {f : X -> Poram_st S M Y} : 
@@ -578,9 +580,12 @@ Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
 Proof.
 Admitted. 
 
-(* This lemma is saying that the write_and_read_access preserves the well-formedness invariant  *)
+(*
+ * This lemma is saying that the write_and_read_access preserves the well-formedness invariant
+ * and returns the correct value
+ *)
 Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
-  state_prob_lift (@well_formed n l) well_formed (pred_pair v)
+  state_prob_lift (@well_formed n l) well_formed (has_value v)
                   (write_and_read_access id v).
 Proof.
   eapply state_prob_bind.
@@ -590,7 +595,8 @@ Admitted.
 
 Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
   well_formed s ->
-  forall (s' : state n l), 
+  forall (s' : state n l),
+    write_and_read_access id v 
     get_oram_st(getsupp (access id (Write v) s )) = Some s' -> 
     get_payload(getsupp (access id Read s')) = Some [v].
 
