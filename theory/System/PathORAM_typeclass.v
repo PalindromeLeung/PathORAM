@@ -433,7 +433,13 @@ Definition dummy_block : block := Block O O.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
 
-Definition get_cand_bs {n l : nat} (o : oram n l) : list block := []. (* to be implemented *)
+Definition get_cand_bs {n l : nat} (o : oram n l) : list block := [] (* todo gi*)
+(*
+  match o with
+  | Leaf_ORAM => []
+  | Node_ORAM bkt my_n my_l =>
+  end.
+*)
 
 (* cap is the capability of each node, the current magic number is 4 based on the original paper *)
 Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : stash n) (id : nat) : list block :=
@@ -460,7 +466,13 @@ Fixpoint remove_list_sub {A} (subList : list A) (p : A -> A -> bool) (lst : list
     end
 end.
 
-Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat := O. (* to be implemented *)
+Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
+  match lb with
+  | [] => 0
+  | h :: t =>
+      if Nat.eqb (block_blockid h) id then block_payload (h%nat)
+      else lookup_ret_data id t
+  end.
 
 Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) (cand_bs : list block) (lvl : nat) : oram n l := o.
 (* to be implemented *)
