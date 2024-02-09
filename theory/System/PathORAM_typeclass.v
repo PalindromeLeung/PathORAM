@@ -1,23 +1,17 @@
 Require Coq.Bool.Bool.
-(* Require Import FCF.FCF. *)
+Require Import Coq.Vectors.Vector.
+Require Import Coq.Lists.List.
+Require Import Coq.QArith.QArith.
+Require Import Coq.Classes.EquivDec.
+Import ListNotations.
 (*** CLASSES ***)
 
 (* I'm rolling my own version of lots of datatypes and using typeclasses
  * pervasively. Here are the typeclasses that support the hand-rolled datatype
  * definitions.
  *)
-
-Inductive ord := 
-  | LT : ord 
-  | EQ : ord 
-  | GT : ord.
-
-Class Eq (A : Type) := { eq_dec : A -> A -> bool }.
-
-#[export] Instance Eq_bool : Eq bool := { eq_dec := Coq.Bool.Bool.eqb }.
-#[export] Instance Eq_nat : Eq nat := { eq_dec := Coq.Init.Nat.eqb }.
-
-Class Ord (A : Type) := { ord_dec : A -> A -> ord }.
+Class Ord (A : Type) := { ord_dec : A -> A -> comparison }.
+#[export] Instance NatOrd : Ord nat := { ord_dec := Nat.compare }.
 
 Class Monoid (A : Type) :=
   { null : A
@@ -56,63 +50,18 @@ Import MonadNotation.
  *)
 Class WF (A : Type) := { wf : A -> Type }.
 
-(* MISSING: correctness criteria, e.g., that `Eq` is an actual equivalence
- * relation, that `Ord` is an actual total order, etc.
+(* MISSING: correctness criteria, e.g., that `Ord` is an actual total order, etc.
  *)
-
-(*** OPTIONS ***)
-
-(* Probably switch to using `option` from base Coq in a real development.
- * Rolling your own is easy enough to do ; nothing wrong with doing that either.
-*)
-
-Inductive option (A : Type) : Type :=
-  | None : option A
-  | Some : A -> option A.
-Arguments None {A}.
-Arguments Some {A} _.
 
 (*** LISTS ***)
 
-(* Probably switch to using Coq.Lists.List in a real development. Rolling
- * your own is easy enough to do; nothing wrong with doing that either. 
- *)
-(* Require Import Coq.Lists.List. *)
-
-Inductive list (A : Type) : Type :=
-  | Nil : list A
-  | Cons : A -> list A -> list A.
-Arguments Nil {A}.
-Arguments Cons {A} _ _.
-
-Module ListNotation.
-  Infix "::" := Cons.
-  Print "::".
-  Notation "[ ]" := Nil.
-  Notation "[ a ; .. ; b ]" := (a :: .. (b :: []) ..).
-End ListNotation.
-Import ListNotation.
-
-Fixpoint map_list {A B : Type} (f : A -> B) (xs : list A) : list B :=
-  match xs with
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (map_list f xs)
-  end.
-
-#[export] Instance Functor_list : Functor list := { map := @map_list }.
-
-Fixpoint append_list {A : Type} (xs ys : list A) : list A :=
-  match xs with
-  | Nil => ys
-  | Cons x xs' => Cons x (append_list xs' ys)
-  end.
-
-#[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := Nil ; append := append_list }.
+#[export] Instance Functor_list : Functor list := { map := List.map }.
+#[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
 
 Fixpoint concat {A : Type} `{Monoid A} (xs : list A) : A :=
   match xs with
-  | Nil => null
-  | Cons x xs => x ++ concat xs
+  | nil => null
+  | cons x xs => x ++ concat xs
   end.
 
 Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
@@ -129,91 +78,48 @@ Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list
 
 (*** VECTORS ***)
 
-(* Probably switch to either `Coq.Vectors.Vector` or `ExtLib.Data.Fin` in a real
- * development. Rolling your own is easy enough to do; nothign wrong with doing
- * that either.
- *)
-(* Require Import Coq.Vectors.Vector. *)
-
-Inductive vec (A : Type) : forall (n : nat), Type :=
-  | Nil_V : vec A 0
-  | Cons_V : forall (n : nat), A -> vec A n -> vec A (S n).
-Arguments Nil_V {A}.
-Arguments Cons_V {A n} _ _.
-
-Definition head_vec {A : Type} {n : nat} (xs : vec A (S n)) : A :=
+Definition head_vec {A : Type} {n : nat} (xs : Vector.t A (S n)) : A :=
   match xs with
-  | Cons_V x _ => x
+  | Vector.cons _ x _ _ => x
   end.
 
-Definition tail_vec {A : Type} {n : nat} (xs : vec A (S n)) : vec A n :=
+Definition tail_vec {A : Type} {n : nat} (xs : Vector.t A (S n)) : Vector.t A n :=
   match xs with
-  | Cons_V _ xs => xs
+  | Vector.cons _ _ _ xs => xs
   end.
 
-Fixpoint zip_vec {A B : Type} {n : nat} : forall (xs : vec A n) (ys : vec B n), vec (A * B) n :=
+Fixpoint zip_vec {A B : Type} {n : nat} : forall (xs : Vector.t A n) (ys : Vector.t B n), Vector.t (A * B) n :=
   match n with
-  | O => fun _ _ => Nil_V
+  | O => fun _ _ => Vector.nil (A * B)
   | S n' => fun xs ys =>
       let x := head_vec xs in
       let xs' := tail_vec xs in
       let y := head_vec ys in
       let ys' := tail_vec ys in
-      Cons_V (x , y) (zip_vec xs' ys')
+      Vector.cons _ (x , y) _ (zip_vec xs' ys')
   end.
 
-Fixpoint const_vec {A : Type} (x : A) (n : nat) : vec A n :=
+Fixpoint const_vec {A : Type} (x : A) (n : nat) : Vector.t A n :=
   match n with
-  | O => Nil_V
-  | S n' => Cons_V x (const_vec x n')
+  | O => Vector.nil A
+  | S n' => Vector.cons _ x _ (const_vec x n')
   end.
 
-Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (vec A n) :=
+Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (Vector.t A n) :=
   match n with
-  | O => mreturn Nil_V
+  | O => mreturn (Vector.nil A)
   | S n' =>
       x <- xM ;;
       xs <- constm_vec xM n' ;;
-      mreturn (Cons_V x xs)
+      mreturn (Vector.cons _ x _ xs)
   end.
 
-Fixpoint to_list_vec {A : Type} {n : nat} (xs : vec A n) : list A :=
-  match xs with
-  | Nil_V => []
-  | Cons_V x xs' => x :: to_list_vec xs'
-  end.
+Definition to_list_vec {A : Type} {n : nat} := @Vector.to_list A n.
+Definition map_vec {A B : Type} {n : nat} f := @Vector.map A B f n.
 
-Fixpoint map_vec {A B : Type} {n : nat} (f : A -> B) (xs : vec A n) : vec B n :=
-  match xs with
-  | Nil_V => Nil_V
-  | Cons_V x xs' => Cons_V (f x) (map_vec f xs')
-  end.
-
-#[export] Instance Functor_vec {n : nat} : Functor (fun A => vec A n) := { map {_ _} f xs := map_vec f xs }.
+#[export] Instance Functor_vec {n : nat} : Functor (fun A => Vector.t A n) := { map {_ _} f xs := map_vec f xs }.
 
 (*** RATIONALS ***)
-
-(* Probably switch to `Coq.QArith.QArith` in a real development. If you're going
- * to roll your own, make sure you include a proof in the representation that
- * `ratNum` and `ratDen` are greatest-common-denominator-reduced so that
- * semantically equal rationals are syntactically equal (i.e., equal via `=`).
- *)
-Require Import Coq.QArith.QArith.
-
-(* Record rat : Type := Rat *)
-(*   { rat_num : nat *)
-(*   ; rat_den : nat *)
-(*   }. *)
-
-(* Definition divide_nat_rat (q1 q2 : nat) : rat := Rat q1 q2. *)
-
-(* Module RatNotation. *)
-(*   Infix "//" := divide_nat_rat (at level 40, left associativity). *)
-(* End RatNotation. *)
-(* Import RatNotation. *)
-
-(* Definition plus_rat : rat -> rat -> rat. Admitted. *)
-
 #[export] Instance Monoid_rat : Monoid Q:= { null := 0 / 1 ; append := Qplus}.
 
 (* DICTIONARIES *)
@@ -230,47 +136,49 @@ Arguments dict_elems {K V} _.
 
 Fixpoint map_alist {K V V' : Type} (f : V -> V') (kvs : list (K * V)) : list (K * V') :=
   match kvs with
-  | Nil => Nil
-  | Cons (k , v) kvs' => Cons (k , f v) (map_alist f kvs')
+  | nil => nil
+  | cons (k , v) kvs' => cons (k , f v) (map_alist f kvs')
   end.
 
 Fixpoint lookup_alist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)) :=
   match kvs with
-  | Nil => v
-  | Cons (k' , v') kvs' => match ord_dec k k' with
-    | LT => lookup_alist v k kvs'
-    | EQ => v'
-    | GT => lookup_alist v k kvs'
+  | nil => v
+  | cons (k' , v') kvs' => match ord_dec k k' with
+    | Lt => lookup_alist v k kvs'
+    | Eq => v'
+    | Gt => lookup_alist v k kvs'
     end
   end.
 
 Inductive wf_dict_falist {K V : Type} `{Ord K} : forall (kO : option K) (kvs : list (K * V)), Prop :=
-  | Nil_WFDict : forall {kO : option K}, wf_dict_falist kO []
-  | Cons_WFDict : forall {kO : option K} {k : K} {v : V} {kvs : list (K * V)},
-      match kO with
+  | nil_WFDict : forall {kO : option K}, wf_dict_falist kO []
+  | cons_WFDict : forall {kO : option K} {k : K} {v : V} {kvs : list (K * V)},
+      match kO return Set with
       | None => unit
-      | Some k' => ord_dec k' k = LT
+      | Some k' => ord_dec k' k = Lt
       end
       -> wf_dict_falist (Some k) kvs
       -> wf_dict_falist kO ((k , v) :: kvs).
 
+Print wf_dict_falist.
+
 Fixpoint lookup_falist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)) :=
   match kvs with
-  | Nil => v
-  | Cons (k' , v') kvs' => match ord_dec k k' with
-    | LT => v
-    | EQ => v'
-    | GT => lookup_falist v k kvs'
+  | nil => v
+  | cons (k' , v') kvs' => match ord_dec k k' with
+    | Lt => v
+    | Eq => v'
+    | Gt => lookup_falist v k kvs'
     end
   end.
 
 Fixpoint update_falist {K V : Type} `{Ord K} (k : K) (v : V) (kvs : list (K * V)) : list (K * V) :=
   match kvs with
-  | Nil => [ (k , v) ]
-  | Cons (k' , v') kvs' => match ord_dec k k' with
-      | LT => (k , v) :: (k' , v') :: kvs'
-      | EQ => (k , v) :: kvs'
-      | GT => (k' , v') :: update_falist k v kvs'
+  | nil => [ (k , v) ]
+  | cons (k' , v') kvs' => match ord_dec k k' with
+      | Lt => (k , v) :: (k' , v') :: kvs'
+      | Eq => (k , v) :: kvs'
+      | Gt => (k' , v') :: update_falist k v kvs'
       end
   end.
 
@@ -296,7 +204,7 @@ Definition update_dict {K V : Type} `{Ord K} (k : K) (v : V) (kvs : dict K V) : 
  * association list, which has the dual trade-offs.
  *
  * These are extensional distributions, which make reasoning about conditional
- * probabilities and distribution independence a pain. Consider moving to
+ * probabilities and distribution independence a pain. consider moving to
  * intensional distributions a la the "A Language for Probabilistically
  * Oblivious Computation" paper (Fig 10). 
  *)
@@ -470,10 +378,10 @@ Record block : Type := Block
   { block_blockid : block_id
   ; block_payload : nat
   }.
-Definition path (l : nat) := vec bool l.
+Definition path (l : nat) := Vector.t bool l.
 Definition position_map (l : nat) := dict block_id (path l).
 Definition stash (n : nat) := list block.
-Definition bucket (n : nat) := vec block n.
+Definition bucket (n : nat) := Vector.t block n.
 Inductive oram (n : nat) : forall (l : nat), Type :=
   | Leaf_ORAM : oram n 0
   | Node_ORAM : forall {l : nat}, bucket n -> oram n l -> oram n l -> oram n (S l).
@@ -505,16 +413,16 @@ Arguments state_position_map {n l} _.
 Arguments state_stash {n l} _.
 Arguments state_oram {n l} _.
 
-Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), vec (bucket n) l :=
+Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vector.t (bucket n) l :=
   match l with
-  | O => fun _ _ => Nil_V
+  | O => fun _ _ => Vector.nil _
   | S l' => fun p o =>
       let b := head_vec p in
       let p' := tail_vec p in
       let bkt := head_oram o in
       let o_l := tail_l_oram o in
       let o_r := tail_r_oram o in
-      Cons_V bkt (lookup_path_oram p' (if b then o_l else o_r))
+      Vector.cons _ bkt _ (lookup_path_oram p' (if b then o_l else o_r))
   end.
 
 Inductive operation := 
@@ -545,7 +453,18 @@ Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : st
                takeL wbSz cand_bs
   end.
 
-Definition remove_list_sub {A} (smL : list A) (p : A -> bool) (toL : list A) : list A := []. (* to be implemented *)
+Fixpoint remove_list_sub {A} (subList : list A) (p : A -> A -> bool) (lst : list A) : list A :=
+  match lst with
+  | [] => []
+  | h :: t =>
+    match subList with
+     | [] => lst
+     | h' :: t' =>
+      if p h h' 
+      then remove_list_sub t' p t
+      else remove_list_sub t' p lst
+    end
+end.
 
 Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   match lb with
@@ -554,17 +473,6 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       if Nat.eqb (block_blockid h) id then block_payload (h%nat)
       else lookup_ret_data id t
   end.
-Definition example_block_list : list block := [
-  Block (1%nat) 10;
-  Block (2%nat) 15;
-  Block (3%nat) 20;
-  Block (4%nat) 25
-].
-Compute lookup_ret_data (1%nat) example_block_list.
-Compute lookup_ret_data (2%nat) example_block_list.
-Compute lookup_ret_data (3%nat) example_block_list.
-Compute lookup_ret_data (4%nat) example_block_list.
-
 
 Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) (cand_bs : list block) (lvl : nat) : oram n l := o.
 (* to be implemented *)
@@ -575,8 +483,8 @@ Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks o 4 h id in 
-  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => eq_dec (block_blockid blk) id) h in  *)
-  let up_h := remove_list_sub wbs (fun blk => eq_dec (block_blockid blk) id) h in 
+  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => equiv_dec (block_blockid blk) id) h in  *)
+  let up_h := remove_list_sub wbs (fun blk => equiv_decb (block_blockid blk) id) h in 
   let up_o := up_oram_tr o id wbs lvl in
   (State m up_h up_o).
                                     
@@ -585,9 +493,26 @@ Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : st
   | O => blocks_selection id O s
   | S m => write_back (blocks_selection id lvl s) id m
   end.
-           
-Definition access {n l : nat} (id : block_id) (op : operation) (s : state n l) : dist (path l * list nat * state n l).
-refine(
+
+Definition Poram_st S M A : Type := S -> M (A * S)%type.
+
+Definition retT {S} {M} `{Monad M} {X} :
+  X -> Poram_st S M X :=
+  fun x s => mreturn (x, s).
+
+Definition bindT {S} {M} `{Monad M} {X Y} :
+  Poram_st S M X ->
+  (X -> Poram_st S M Y) ->
+  Poram_st S M Y.
+Proof.
+  unfold Poram_st.
+  intros mx f s.
+  apply (mbind (mx s)).
+  intros [x s'].
+  exact (f x s').
+Defined.
+
+Definition access {n l : nat} (id : block_id) (op : operation) : Poram_st (state n l) dist (path l * nat) := fun s => 
   (* unpack the state *)
   let m := state_position_map s in
   let h := state_stash s in
@@ -606,7 +531,7 @@ refine(
   let ret_data := lookup_ret_data id bkt_blocks in 
   let h' := bkt_blocks ++ h in
   (* read the index from the stash *)
-  let (blk , h'') := remove_list dummy_block (fun blk => eq_dec (block_blockid blk) id) h' in
+  let (blk , h'') := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
   (* write new data to the stash *)
   let h''' := 
     match op with
@@ -615,36 +540,10 @@ refine(
     end in
   let n_st := write_back (State m' h''' o) id l in
   (* return the path we queried, the data we read from the ORAM, and the next system state *)
-  mreturn_dist (p, ret_data , n_st)
-  ) ; try typeclasses eauto.
+  mreturn_dist (p, ret_data , n_st).
 
-Admitted.
-
-
-(* Definition state_lift {S X} (Pre Post : S -> Prop) *)
-(*   (P : X -> Prop) : State S X -> Prop := *)
-(*   fun f => forall s, Pre s -> *)
-(*     P (fst (f s)) /\ Post (snd (f s)). *)
 
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
-
-Definition get_payload {A B C Q} (al : list (A * B * C * Q)) : option B :=
-  match al with
-  | [] => None
-  | h :: t => match h with
-            | (((a, b), c), q) => Some b 
-            end
-  end.
-
-
-Definition get_oram_st {A B C Q} (al : list (A * B * C * Q)) : option C :=
-  match al with
-  | [] => None
-  | h :: t => match h with
-            | (((a, b), c), q) => Some c 
-            end
-  end.
-
 
 
 Class PredLift M `{Monad M} := {
@@ -657,17 +556,91 @@ Class PredLift M `{Monad M} := {
   }.
 
 
+#[export] Instance Pred_Dist_Lift : PredLift dist. Admitted.
+
 Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Prop) (P : X -> Prop) :=
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
+
+(* Definition poramS {n l: nat}: Type := state n l. *)
+
+Definition read_access {n l : nat} (id : block_id) : Poram_st (state n l) dist (path l * nat) := access id Read.
+
+Definition write_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) := access id (Write v).
+
+Definition write_and_read_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) :=
+bindT (write_access id v ) (fun '( _, st) => read_access id).
+
+Definition has_value {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
+
+
+(*
+ * state_prob_bind is analogous to the sequencing rule in Hoare Logic
+ *)
+Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
+      (Mid : S -> Prop) {Post : S -> Prop} (P: X -> Prop) (Q: Y -> Prop)
+      {mx : Poram_st S M X} {f : X -> Poram_st S M Y} : 
+  state_prob_lift Pre Mid P mx ->
+  (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
+  state_prob_lift Pre Post Q (bindT mx f). 
+Proof.
+Admitted. 
+
+(*
+ * This lemma is saying that the write_and_read_access preserves the well-formedness invariant
+ * and returns the correct value
+ *)
+Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
+  state_prob_lift (@well_formed n l) well_formed (has_value v)
+                  (write_and_read_access id v).
+Proof.
+  eapply state_prob_bind.
+Admitted.  
+
+Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))): option nat :=
+  match dist_pmf dist_a with 
+  | [] => None
+  | h :: t => match h with
+            | (((_,v),_), _)  => Some v
+            end
+  end.
+
+
+Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
+  plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
+  get_payload (write_and_read_access id v s) = Some v.
+Admitted.
 
 
 
 Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
   well_formed s ->
-  forall (s' : state n l), 
-    get_oram_st(getsupp (access id (Write v) s )) = Some s' -> 
-    get_payload(getsupp (access id Read s')) = Some [v].
-
+    get_payload(write_and_read_access id v s) = Some v.
 Proof.
+  intros wf_s. apply extract_payload.
+  apply write_and_read_access_lift. auto.
+Qed.
+
+  
+
+  
+
+
+
+
+
+
+
+
+
+
+  remember (write_and_read_access id v s) as ops.
+  unfold get_payload.
+  destruct (dist_pmf ops) eqn:ops_dest.
+  - unfold write_and_read_access in Heqops. admit.
+  (* need to prove the list can't be empty. STUBBED OUT*)
+  - destruct p. destruct p. destruct p. f_equal.
+
+
+    
 Admitted.
