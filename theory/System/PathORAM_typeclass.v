@@ -433,7 +433,7 @@ Definition dummy_block : block := Block O O.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
 
-Definition get_cand_bs {n l : nat} (o : oram n l) : list block := [] (* todo gi*)
+Definition get_cand_bs {n l : nat} (o : oram n l) : list block := []. (* todo gi*)
 (*
   match o with
   | Leaf_ORAM => []
@@ -453,14 +453,14 @@ Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : st
                takeL wbSz cand_bs
   end.
 
-Fixpoint remove_list_sub {A} (subList : list A) (p : A -> A -> bool) (lst : list A) : list A :=
+Fixpoint remove_list_sub (subList : list block) (p : block_id -> block_id -> bool) (lst : list block) : list block :=
   match lst with
   | [] => []
   | h :: t =>
     match subList with
      | [] => lst
      | h' :: t' =>
-      if p h h' 
+      if p (block_blockid h) (block_blockid h') 
       then remove_list_sub t' p t
       else remove_list_sub t' p lst
     end
@@ -484,7 +484,7 @@ Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks o 4 h id in 
   (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => equiv_dec (block_blockid blk) id) h in  *)
-  let up_h := remove_list_sub wbs (fun blk => equiv_decb (block_blockid blk) id) h in 
+  let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
   let up_o := up_oram_tr o id wbs lvl in
   (State m up_h up_o).
                                     
