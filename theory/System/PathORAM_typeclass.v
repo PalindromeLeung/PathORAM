@@ -629,9 +629,14 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
 Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
   plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
   get_payload (write_and_read_access id v s) = Some v.
+Proof.
+  intros ops_on_s.
+  destruct (write_and_read_access id v s). unfold get_payload.
+  simpl in *. destruct dist_pmf0.
+  - simpl in *. admit.         (* need distribution well-formedness. i.e. all Qs add up to 1.0 *)
+  - simpl in *.  destruct p.  destruct p.  destruct p. simpl in ops_on_s. inversion ops_on_s.
+    destruct H1. simpl in H1. congruence.
 Admitted.
-
-
 
 Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
   well_formed s ->
