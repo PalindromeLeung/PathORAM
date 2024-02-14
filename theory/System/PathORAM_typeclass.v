@@ -567,10 +567,16 @@ Proof.
     + assumption.
     + constructor.
   - intros. simpl mbind. unfold mbind_dist.
-    unfold dist_lift. rewrite Forall_map. rewrite Forall_concat.
+    unfold dist_lift. rewrite Forall_map. rewrite Forall_concat. rewrite Forall_map.
+    eapply Forall_impl.
+    Focus 2. destruct mx. simpl in *. rewrite Forall_map in H. exact H.
+    intros (k,v) pk. simpl. rewrite Forall_map.
+    specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
+    Focus 2. exact H0.
+    intros (a, b) pa. exact pa.
+Defined. 
 
 
-    
 Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Prop) (P : X -> Prop) :=
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
