@@ -512,7 +512,8 @@ Proof.
   exact (f x s').
 Defined.
 
-Definition access {n l : nat} (id : block_id) (op : operation) : Poram_st (state n l) dist (path l * nat) := fun s => 
+Definition access {n l : nat} (id : block_id) (op : operation) :
+  Poram_st (state n l) dist (path l * nat) := fun s => 
   (* unpack the state *)
   let m := state_position_map s in
   let h := state_stash s in
@@ -562,17 +563,18 @@ Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S ->
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
 
-(* Definition poramS {n l: nat}: Type := state n l. *)
 
-Definition read_access {n l : nat} (id : block_id) : Poram_st (state n l) dist (path l * nat) := access id Read.
+Definition read_access {n l : nat} (id : block_id) :
+  Poram_st (state n l) dist (path l * nat) := access id Read.
 
-Definition write_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) := access id (Write v).
+Definition write_access {n l : nat} (id : block_id) (v : nat) :
+  Poram_st (state n l) dist (path l * nat) := access id (Write v).
 
-Definition write_and_read_access {n l : nat} (id : block_id) (v : nat): Poram_st (state n l) dist (path l * nat) :=
-bindT (write_access id v ) (fun '( _, st) => read_access id).
+Definition write_and_read_access {n l : nat} (id : block_id) (v : nat) :
+  Poram_st (state n l) dist (path l * nat) :=
+  bindT (write_access id v ) (fun '( _, st) => read_access id).
 
 Definition has_value {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
-
 
 (*
  * state_prob_bind is analogous to the sequencing rule in Hoare Logic
@@ -617,30 +619,7 @@ Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state 
   well_formed s ->
     get_payload(write_and_read_access id v s) = Some v.
 Proof.
-  intros wf_s. apply extract_payload.
+  intros wf_s.
+  apply extract_payload.
   apply write_and_read_access_lift. auto.
 Qed.
-
-  
-
-  
-
-
-
-
-
-
-
-
-
-
-  remember (write_and_read_access id v s) as ops.
-  unfold get_payload.
-  destruct (dist_pmf ops) eqn:ops_dest.
-  - unfold write_and_read_access in Heqops. admit.
-  (* need to prove the list can't be empty. STUBBED OUT*)
-  - destruct p. destruct p. destruct p. f_equal.
-
-
-    
-Admitted.
