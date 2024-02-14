@@ -27,8 +27,6 @@ Class Functor (T : Type -> Type) :=
   { map : forall {A B : Type}, (A -> B) -> T A -> T B
   }.
 
-Definition map_on {T : Type -> Type} {A B : Type} `{Functor T} (xT : T A) (f : A -> B) : T B := map f xT.
-
 Class Monad (M : Type -> Type) :=
   { mreturn : forall {A : Type}, A -> M A
   ; mbind   : forall {A B : Type}, M A -> (A -> M B) -> M B
@@ -57,12 +55,6 @@ Class WF (A : Type) := { wf : A -> Type }.
 
 #[export] Instance Functor_list : Functor list := { map := List.map }.
 #[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
-
-Fixpoint concat {A : Type} `{Monoid A} (xs : list A) : A :=
-  match xs with
-  | nil => null
-  | cons x xs => x ++ concat xs
-  end.
 
 Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
   match xs with
@@ -218,11 +210,11 @@ Arguments dist_pmf {A} _.
 Definition mreturn_dist {A : Type} (x : A) : dist A := Dist [ (x, 1 / 1) ].
 
 Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B :=
-  Dist (concat (map_on (dist_pmf xM) (fun (xq : A * Q) => 
+  Dist (concat (map (fun (xq : A * Q) => 
     let (x , q) := xq in 
-    map_on (dist_pmf (f x)) (fun (yq' : B * Q) => 
-      let (y , q') := yq' in
-      (y , q ++ q'))))).
+    map (fun (yq' : B * Q) => 
+           let (y , q') := yq' in
+           (y , q ++ q')) (dist_pmf (f x))) (dist_pmf xM))).
 
 #[export] Instance Monad_dist : Monad dist := { mreturn {_} x := mreturn_dist x ; mbind {_ _} := mbind_dist }.
 
@@ -546,7 +538,6 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
 
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
 
-
 Class PredLift M `{Monad M} := {
   plift {X} : (X -> Prop) -> M X -> Prop;
   lift_ret {X} : forall x (P : X -> Prop), P x -> plift P (mreturn x);
@@ -556,9 +547,30 @@ Class PredLift M `{Monad M} := {
     plift Q (mbind mx f)
   }.
 
+(* WARNING: distribution should contain non-zero weighted support *)
+Definition dist_lift {X} (P : X -> Prop) (d : dist X) : Prop.
+Proof.   
+  destruct d.
+  eapply (Forall P (List.map fst dist_pmf0)).
+Defined.
 
-#[export] Instance Pred_Dist_Lift : PredLift dist. Admitted.
+#[export] Instance Pred_Dist_Lift : PredLift dist.
+refine 
+  {|
+    plift {X} := dist_lift;
+    lift_ret := _;
+    lift_bind := _;
+                          
+  |}.
+Proof.
+  - intros. simpl mreturn. unfold mreturn_dist. unfold dist_lift. simpl. constructor.
+    + assumption.
+    + constructor.
+  - intros. simpl mbind. unfold mbind_dist.
+    unfold dist_lift. rewrite Forall_map. rewrite Forall_concat.
 
+
+    
 Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Prop) (P : X -> Prop) :=
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
