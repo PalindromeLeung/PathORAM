@@ -604,7 +604,16 @@ Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
   (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
   state_prob_lift Pre Post Q (bindT mx f). 
 Proof.
-Admitted. 
+Admitted.
+
+
+Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))): option nat :=
+  match dist_pmf dist_a with 
+  | [] => None
+  | h :: t => match h with
+            | (((_,v),_), _)  => Some v
+            end
+  end.
 
 (*
  * This lemma is saying that the write_and_read_access preserves the well-formedness invariant
@@ -615,15 +624,11 @@ Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
                   (write_and_read_access id v).
 Proof.
   eapply state_prob_bind.
+  
+    
+
 Admitted.  
 
-Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))): option nat :=
-  match dist_pmf dist_a with 
-  | [] => None
-  | h :: t => match h with
-            | (((_,v),_), _)  => Some v
-            end
-  end.
 
 
 Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
