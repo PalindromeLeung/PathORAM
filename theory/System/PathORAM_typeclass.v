@@ -382,6 +382,22 @@ Arguments Node_ORAM {n l} _ _ _.
 
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
+Definition retT {S} {M} `{Monad M} {X} :
+  X -> Poram_st S M X :=
+  fun x s => mreturn (x, s).
+
+Definition bindT {S} {M} `{Monad M} {X Y} :
+  Poram_st S M X ->
+  (X -> Poram_st S M Y) ->
+  Poram_st S M Y.
+Proof.
+  unfold Poram_st.
+  intros mx f s.
+  apply (mbind (mx s)).
+  intros [x s'].
+  exact (f x s').
+Defined.
+
 Definition head_oram {n l : nat} (o : oram n (S l)) : bucket n :=
   match o with
   | Node_ORAM bkt _ _ => bkt
@@ -408,11 +424,17 @@ Arguments state_stash {n l} _.
 Arguments state_oram {n l} _.
 
 
-      
-Definition get_pos_map 
-Definition get_stash
-Definition get_oram
+Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
+  fun s => mreturn(s,s). 
 
+Definition get_pos_map {n l : nat} : Poram_st (state n l) dist (position_map l) :=
+  fun s => mreturn(state_position_map s,s).
+
+Definition get_stash {n l : nat} : Poram_st (state n l) dist (stash n) :=
+  fun s => mreturn(state_stash s,s).
+
+Definition get_oram {n l : nat} : Poram_st (state n l) dist (oram n l) :=
+  fun s => mreturn(state_oram s,s).
   
 Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vector.t (bucket n) l :=
   match l with
@@ -425,6 +447,8 @@ Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vect
       let o_r := tail_r_oram o in
       Vector.cons _ bkt _ (lookup_path_oram p' (if b then o_l else o_r))
   end.
+#[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) := {|mreturn A := retT; mbind X Y := bindT  |}.
+
 
 Inductive operation := 
   | Read : operation 
@@ -497,22 +521,6 @@ Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : st
 
 
 
-Definition retT {S} {M} `{Monad M} {X} :
-  X -> Poram_st S M X :=
-  fun x s => mreturn (x, s).
-
-Definition bindT {S} {M} `{Monad M} {X Y} :
-  Poram_st S M X ->
-  (X -> Poram_st S M Y) ->
-  Poram_st S M Y.
-Proof.
-  unfold Poram_st.
-  intros mx f s.
-  apply (mbind (mx s)).
-  intros [x s'].
-  exact (f x s').
-Defined.
-
 Definition access {n l : nat} (id : block_id) (op : operation) :
   Poram_st (state n l) dist (path l * nat) := fun s => 
   (* unpack the state *)
@@ -546,13 +554,14 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
 
 Definition access' {n l : nat} (id : block_id) (op : operation) :
   Poram_st (state n l) dist (path l * nat).
-  refine (
-      (* unpack the state *)
-      m <- state_position_map ;;
-      h <- state_stash ;;
-      o <- state_oram ;;
+  refine(
+      m <- get_pos_map ;;
+      h <- get_stash ;;
+      o <- get_oram ;;
+      p_new <- constm_vec coin_flip l;;
       mreturn (tt)
-    ).
+    ); try typeclasses eauto.
+
    
   (* get path for the index we are querying *)
   let p := lookup_dict dummy_path id m in
