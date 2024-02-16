@@ -569,10 +569,10 @@ Proof.
   - intros. simpl mbind. unfold mbind_dist.
     unfold dist_lift. rewrite Forall_map. rewrite Forall_concat. rewrite Forall_map.
     eapply Forall_impl.
-    Focus 2. destruct mx. simpl in *. rewrite Forall_map in H. exact H.
+    2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H.}
     intros (k,v) pk. simpl. rewrite Forall_map.
     specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
-    Focus 2. exact H0.
+    2:{exact H0.}
     intros (a, b) pa. exact pa.
 Defined. 
 
@@ -598,7 +598,7 @@ Definition has_value {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val)
  * state_prob_bind is analogous to the sequencing rule in Hoare Logic
  *)
 Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
-      (Mid : S -> Prop) {Post : S -> Prop} (P: X -> Prop) (Q: Y -> Prop)
+      (Mid : S -> Prop) {Post : S -> Prop} (P: X -> Prop) {Q: Y -> Prop}
       {mx : Poram_st S M X} {f : X -> Poram_st S M Y} : 
   state_prob_lift Pre Mid P mx ->
   (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
@@ -623,10 +623,11 @@ Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
   state_prob_lift (@well_formed n l) well_formed (has_value v)
                   (write_and_read_access id v).
 Proof.
-  eapply state_prob_bind.
-  
-    
-
+  apply (state_prob_bind
+           (fun st => well_formed st)
+           (has_value v)).
+  - admit.
+  - admit.
 Admitted.  
 
 
