@@ -565,32 +565,34 @@ Definition access' {n l : nat} (id : block_id) (op : operation) :
       let p := lookup_dict dummy_path id m in
       (* flip a bunch of coins to get the new path *)      
       (* p_new <- constm_vec coin_flip l ;; *)
+      (* update the position map with the new path *)
+      (* let m' := update_dict id p_new m in *)
+      (* read the path for the index from the oram *)
+      let bkts := lookup_path_oram p o in
+      (* update the stash to include these blocks *)
+      let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
+      (* look up payload inside the stash *)
+      let ret_data := lookup_ret_data id bkt_blocks in
+      let h' := bkt_blocks ++ h in
+      (* read the index from the stash *)
+      let (blk , h'') := remove_list dummy_block
+                           (fun blk => equiv_decb (block_blockid blk) id) h' in
+      (* write new data to the stash *)
+      let h''' :=
+        match op with
+        | Read => h'
+        | Write d => [Block id d] ++ h''
+        end in
+      let n_st := write_back (State m h''' o) id l in (* temporarily use m instead m' *)
+      (* return the path we queried, the data we read from the ORAM, *)
+         (* and the next system state *)
       mreturn((p, 0%nat))
+
     );try typeclasses eauto.
+Defined.  
+
+
   
-
-
-  (* update the position map with the new path *)
-  let m' := update_dict id p_new m in
-  (* read the path for the index from the oram *)
-  let bkts := lookup_path_oram p o in
-  (* update the stash to include these blocks *)
-  let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
-  (* look up payload inside the stash *)
-  let ret_data := lookup_ret_data id bkt_blocks in 
-  let h' := bkt_blocks ++ h in
-  (* read the index from the stash *)
-  let (blk , h'') := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
-  (* write new data to the stash *)
-  let h''' := 
-    match op with
-    | Read => h'
-    | Write d => [Block id d] ++ h''
-    end in
-  let n_st := write_back (State m' h''' o) id l in
-  (* return the path we queried, the data we read from the ORAM, and the next system state *)
-  mreturn_dist (p, ret_data , n_st).
-
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
 
 Class PredLift M `{Monad M} := {
@@ -647,6 +649,20 @@ Definition write_and_read_access {n l : nat} (id : block_id) (v : nat) :
   Poram_st (state n l) dist (path l * nat) :=
   bindT (write_access id v ) (fun '( _, st) => read_access id).
 
+
+
+
+
+
+Definition ra {n l : nat} (id : block_id) :
+  Poram_st (state n l) dist (path l * nat) := access' id Read.
+Definition wa {n l : nat} (id : block_id) (v : nat):
+  Poram_st (state n l) dist (path l * nat) := access' id (Write v).
+Definition wa_ra {n l : nat} (id : block_id) (v : nat) :
+  Poram_st (state n l) dist (path l * nat) :=
+  bindT (wa id v ) (fun '( _, st) => ra id).
+
+
 Definition has_value {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
 
 (*
@@ -669,6 +685,27 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
             | (((_,v),_), _)  => Some v
             end
   end.
+
+
+
+Lemma wa_ra_lift {n l: nat}(id : block_id)(v : nat):
+  state_prob_lift (@well_formed n l) well_formed (has_value v)
+                  (wa_ra id v).
+Proof. 
+  apply (state_prob_bind
+           (fun st => well_formed st)
+           (has_value v)).
+  - apply (state_prob_bind      (* write access  *)
+             (fun st => well_formed st)
+             (fun _ => True)).
+    + admit.                    (* theorems about get_post_map *)
+    + intros. eapply state_prob_bind.
+      *  admit.
+      * intros.  eapply state_prob_bind.
+        ++ admit.
+        ++ intros. simpl. admit.
+  - admit.                            (* read access  *)
+Admitted.
 
 (*
  * This lemma is saying that the write_and_read_access preserves the well-formedness invariant
