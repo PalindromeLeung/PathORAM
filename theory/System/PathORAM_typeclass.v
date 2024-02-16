@@ -380,6 +380,8 @@ Inductive oram (n : nat) : forall (l : nat), Type :=
 Arguments Leaf_ORAM {n}.
 Arguments Node_ORAM {n l} _ _ _.
 
+Definition Poram_st S M A : Type := S -> M (A * S)%type.
+
 Definition head_oram {n l : nat} (o : oram n (S l)) : bucket n :=
   match o with
   | Node_ORAM bkt _ _ => bkt
@@ -405,6 +407,13 @@ Arguments state_position_map {n l} _.
 Arguments state_stash {n l} _.
 Arguments state_oram {n l} _.
 
+
+      
+Definition get_pos_map 
+Definition get_stash
+Definition get_oram
+
+  
 Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vector.t (bucket n) l :=
   match l with
   | O => fun _ _ => Vector.nil _
@@ -486,7 +495,7 @@ Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : st
   | S m => write_back (blocks_selection id lvl s) id m
   end.
 
-Definition Poram_st S M A : Type := S -> M (A * S)%type.
+
 
 Definition retT {S} {M} `{Monad M} {X} :
   X -> Poram_st S M X :=
@@ -535,6 +544,40 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
   (* return the path we queried, the data we read from the ORAM, and the next system state *)
   mreturn_dist (p, ret_data , n_st).
 
+Definition access' {n l : nat} (id : block_id) (op : operation) :
+  Poram_st (state n l) dist (path l * nat).
+  refine (
+      (* unpack the state *)
+      m <- state_position_map ;;
+      h <- state_stash ;;
+      o <- state_oram ;;
+      mreturn (tt)
+    ).
+   
+  (* get path for the index we are querying *)
+  let p := lookup_dict dummy_path id m in
+  (* flip a bunch of coins to get the new path *)
+  p_new <- constm_vec coin_flip l;;
+  (* update the position map with the new path *)
+  let m' := update_dict id p_new m in
+  (* read the path for the index from the oram *)
+  let bkts := lookup_path_oram p o in
+  (* update the stash to include these blocks *)
+  let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
+  (* look up payload inside the stash *)
+  let ret_data := lookup_ret_data id bkt_blocks in 
+  let h' := bkt_blocks ++ h in
+  (* read the index from the stash *)
+  let (blk , h'') := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
+  (* write new data to the stash *)
+  let h''' := 
+    match op with
+    | Read => h'
+    | Write d => [Block id d] ++ h''
+    end in
+  let n_st := write_back (State m' h''' o) id l in
+  (* return the path we queried, the data we read from the ORAM, and the next system state *)
+  mreturn_dist (p, ret_data , n_st).
 
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
 
