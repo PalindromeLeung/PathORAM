@@ -427,6 +427,10 @@ Arguments state_oram {n l} _.
 Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
   fun s => mreturn(s,s). 
 
+Definition Poram_st_put {S M} `{Monad M} (st : S) :
+  Poram_st S M unit := fun s => mreturn(tt, st).
+
+
 Definition get_pos_map {n l : nat} : Poram_st (state n l) dist (position_map l) :=
   fun s => mreturn(state_position_map s,s).
 
@@ -579,7 +583,7 @@ Definition access' {n l : nat} (id : block_id) (op : operation) :
       let ret_data := lookup_ret_data id bkt_blocks in
       let h' := bkt_blocks ++ h in
       (* read the index from the stash *)
-      let (blk , h'') := remove_list dummy_block
+      let (blk , h'') := remove_list dummy_block (* TODO : get rid of blk in the return pair *)
                            (fun blk => equiv_decb (block_blockid blk) id) h' in
       (* write new data to the stash *)
       let h''' :=
@@ -587,10 +591,10 @@ Definition access' {n l : nat} (id : block_id) (op : operation) :
         | Read => h'
         | Write d => [Block id d] ++ h''
         end in
-      let n_st := write_back (State m h''' o) id l in (* temporarily use m instead m' *)
-      (* return the path we queried, the data we read from the ORAM, *)
-         (* and the next system state *)
-      mreturn((p, 0%nat))
+      let n_st := write_back (State m' h''' o) id l in 
+      _ <- Poram_st_put n_st ;;
+      (* return the path l and the return value *)
+      mreturn((p, ret_data))
 
     );try typeclasses eauto.
 Defined.  
