@@ -672,26 +672,13 @@ Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
 Proof.
   apply (state_prob_bind
            (fun st => well_formed st /\ kv_rel id v st)
-           (has_value v)).
-  - apply (state_prob_bind      (* write access  *)
-             (fun st => well_formed st)
-             (fun _ => True)).
-    + admit.                    (* theorems about get_post_map *)
-    + intros. eapply state_prob_bind.
-      *  admit.
-      * intros.  eapply state_prob_bind.
-        ++ admit. 
-        ++ intros. simpl. eapply state_prob_bind.
-           ** admit.
-           ** intros. simpl. eapply state_prob_bind.
-              *** admit.
-              *** intros. admit.       (* retT lemma  *)
+           (fun _ => True)).
+  - eapply write_access_wf.
   - intros _ _.
     apply (state_prob_lift_weaken (fun st : state n l => well_formed st /\ kv_rel id v st)).
     + tauto.
     + apply read_access_wf.
-
-Admitted.
+Qed.
 
 Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
   plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
