@@ -608,6 +608,14 @@ Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S ->
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
 
+Lemma state_prob_lift_weaken {S M X} `{Monad M} `{PredLift M}{Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
+  (P : X -> Prop) (m : Poram_st S M X) :
+  (forall s, Post s -> Post' s) ->
+  state_prob_lift Pre Post P m ->
+  state_prob_lift Pre Post' P m.
+Admitted.
+                             
+                             
 
 Definition read_access {n l : nat} (id : block_id) :
   Poram_st (state n l) dist (path l * nat) := access id Read.
@@ -617,7 +625,7 @@ Definition write_access {n l : nat} (id : block_id) (v : nat) :
 
 Definition write_and_read_access {n l : nat} (id : block_id) (v : nat) :
   Poram_st (state n l) dist (path l * nat) :=
-  bindT (write_access id v ) (fun '( _, st) => read_access id).
+  bindT (write_access id v ) (fun _ => read_access id).
 
 
 Definition has_value {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
@@ -643,18 +651,27 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
             end
   end.
 
-
+Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop := True. (* "Come back to me" -- The bone dog in Shogun Studio *)
 
 (*
- * This lemma is saying that the write_and_read_access preserves the well-formedness invariant
+ * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
  * and returns the correct value
  *)
+
+Lemma read_access_wf {n l: nat}(id : block_id)(v : nat) :
+  state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st)(has_value v) (read_access id).
+  Admitted.
+
+Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
+  state_prob_lift (fun st => @well_formed n l st) (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+Admitted.
+
 Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
   state_prob_lift (@well_formed n l) well_formed (has_value v)
                   (write_and_read_access id v).
 Proof.
   apply (state_prob_bind
-           (fun st => well_formed st)
+           (fun st => well_formed st /\ kv_rel id v st)
            (has_value v)).
   - apply (state_prob_bind      (* write access  *)
              (fun st => well_formed st)
@@ -669,7 +686,11 @@ Proof.
            ** intros. simpl. eapply state_prob_bind.
               *** admit.
               *** intros. admit.       (* retT lemma  *)
-  - admit.                            (* read access  *)
+  - intros _ _.
+    apply (state_prob_lift_weaken (fun st : state n l => well_formed st /\ kv_rel id v st)).
+    + tauto.
+    + apply read_access_wf.
+
 Admitted.
 
 Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
