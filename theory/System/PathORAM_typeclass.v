@@ -552,8 +552,12 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
   (* return the path we queried, the data we read from the ORAM, and the next system state *)
   mreturn_dist (p, ret_data , n_st).
 
-Definition fake_path: path 3 := const_vec false 3.
 
+Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
+  fun st =>
+    a <- dx ;; mreturn (a, st).
+          
+                 
 Definition access' {n l : nat} (id : block_id) (op : operation) :
   Poram_st (state n l) dist (path l * nat).
   refine(
@@ -564,9 +568,9 @@ Definition access' {n l : nat} (id : block_id) (op : operation) :
       (* get path for the index we are querying *)
       let p := lookup_dict dummy_path id m in
       (* flip a bunch of coins to get the new path *)      
-      (* p_new <- constm_vec coin_flip l ;; *)
+      p_new <- dist2Poram (constm_vec coin_flip l) ;;
       (* update the position map with the new path *)
-      (* let m' := update_dict id p_new m in *)
+      let m' := update_dict id p_new m in
       (* read the path for the index from the oram *)
       let bkts := lookup_path_oram p o in
       (* update the stash to include these blocks *)
@@ -702,8 +706,10 @@ Proof.
     + intros. eapply state_prob_bind.
       *  admit.
       * intros.  eapply state_prob_bind.
-        ++ admit.
-        ++ intros. simpl. admit.
+        ++ admit. 
+        ++ intros. simpl.  eapply state_prob_bind.
+           ** admit.
+           ** intros. simpl.
   - admit.                            (* read access  *)
 Admitted.
 
