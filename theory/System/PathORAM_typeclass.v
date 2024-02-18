@@ -523,17 +523,21 @@ Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : st
   end.
 
 
-
+Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
+  fun st =>
+    a <- dx ;; mreturn (a, st).
+          
+                 
 Definition access {n l : nat} (id : block_id) (op : operation) :
-  Poram_st (state n l) dist (path l * nat) := fun s => 
+  Poram_st (state n l) dist (path l * nat) := 
   (* unpack the state *)
-  let m := state_position_map s in
-  let h := state_stash s in
-  let o := state_oram s in
+  m <- get_pos_map ;;
+  h <- get_stash ;;
+  o <- get_oram ;;
   (* get path for the index we are querying *)
   let p := lookup_dict dummy_path id m in
-  (* flip a bunch of coins to get the new path *)
-  p_new <- constm_vec coin_flip l;;
+  (* flip a bunch of coins to get the new path *)      
+  p_new <- dist2Poram (constm_vec coin_flip l) ;;
   (* update the position map with the new path *)
   let m' := update_dict id p_new m in
   (* read the path for the index from the oram *)
@@ -541,62 +545,21 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
   (* update the stash to include these blocks *)
   let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
   (* look up payload inside the stash *)
-  let ret_data := lookup_ret_data id bkt_blocks in 
+  let ret_data := lookup_ret_data id bkt_blocks in
   let h' := bkt_blocks ++ h in
   (* read the index from the stash *)
-  let h'' := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
+  let h'' := remove_list dummy_block (* TODO : get rid of blk in the return pair *)
+               (fun blk => equiv_decb (block_blockid blk) id) h' in
   (* write new data to the stash *)
-  let h''' := 
+  let h''' :=
     match op with
     | Read => h'
     | Write d => [Block id d] ++ h''
     end in
-  let n_st := write_back (State m' h''' o) id l in
-  (* return the path we queried, the data we read from the ORAM, and the next system state *)
-  mreturn_dist (p, ret_data , n_st).
-
-
-Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
-  fun st =>
-    a <- dx ;; mreturn (a, st).
-          
-                 
-Definition access' {n l : nat} (id : block_id) (op : operation) :
-  Poram_st (state n l) dist (path l * nat).
-  refine(
-      (* unpack the state *)
-      m <- get_pos_map ;;
-      h <- get_stash ;;
-      o <- get_oram ;;
-      (* get path for the index we are querying *)
-      let p := lookup_dict dummy_path id m in
-      (* flip a bunch of coins to get the new path *)      
-      p_new <- dist2Poram (constm_vec coin_flip l) ;;
-      (* update the position map with the new path *)
-      let m' := update_dict id p_new m in
-      (* read the path for the index from the oram *)
-      let bkts := lookup_path_oram p o in
-      (* update the stash to include these blocks *)
-      let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
-      (* look up payload inside the stash *)
-      let ret_data := lookup_ret_data id bkt_blocks in
-      let h' := bkt_blocks ++ h in
-      (* read the index from the stash *)
-      let h'' := remove_list dummy_block (* TODO : get rid of blk in the return pair *)
-                           (fun blk => equiv_decb (block_blockid blk) id) h' in
-      (* write new data to the stash *)
-      let h''' :=
-        match op with
-        | Read => h'
-        | Write d => [Block id d] ++ h''
-        end in
-      let n_st := write_back (State m' h''' o) id l in 
-      _ <- Poram_st_put n_st ;;
-      (* return the path l and the return value *)
-      mreturn((p, ret_data))
-
-    );try typeclasses eauto.
-Defined.  
+  let n_st := write_back (State m' h''' o) id l in 
+  _ <- Poram_st_put n_st ;;
+  (* return the path l and the return value *)
+  mreturn((p, ret_data)).
 
 
   
@@ -657,19 +620,6 @@ Definition write_and_read_access {n l : nat} (id : block_id) (v : nat) :
   bindT (write_access id v ) (fun '( _, st) => read_access id).
 
 
-
-
-
-
-Definition ra {n l : nat} (id : block_id) :
-  Poram_st (state n l) dist (path l * nat) := access' id Read.
-Definition wa {n l : nat} (id : block_id) (v : nat):
-  Poram_st (state n l) dist (path l * nat) := access' id (Write v).
-Definition wa_ra {n l : nat} (id : block_id) (v : nat) :
-  Poram_st (state n l) dist (path l * nat) :=
-  bindT (wa id v ) (fun '( _, st) => ra id).
-
-
 Definition has_value {l : nat} (v : nat) : path l * nat -> Prop := fun '(_, val) => v = val.
 
 (*
@@ -695,27 +645,6 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
 
 
 
-Lemma wa_ra_lift {n l: nat}(id : block_id)(v : nat):
-  state_prob_lift (@well_formed n l) well_formed (has_value v)
-                  (wa_ra id v).
-Proof. 
-  apply (state_prob_bind
-           (fun st => well_formed st)
-           (has_value v)).
-  - apply (state_prob_bind      (* write access  *)
-             (fun st => well_formed st)
-             (fun _ => True)).
-    + admit.                    (* theorems about get_post_map *)
-    + intros. eapply state_prob_bind.
-      *  admit.
-      * intros.  eapply state_prob_bind.
-        ++ admit. 
-        ++ intros. simpl.  eapply state_prob_bind.
-           ** admit.
-           ** intros. simpl.  eapply state_prob_bind.
-  - admit.                            (* read access  *)
-Admitted.
-
 (*
  * This lemma is saying that the write_and_read_access preserves the well-formedness invariant
  * and returns the correct value
@@ -727,11 +656,21 @@ Proof.
   apply (state_prob_bind
            (fun st => well_formed st)
            (has_value v)).
-  - admit.
-  - admit.
-Admitted.  
-
-
+  - apply (state_prob_bind      (* write access  *)
+             (fun st => well_formed st)
+             (fun _ => True)).
+    + admit.                    (* theorems about get_post_map *)
+    + intros. eapply state_prob_bind.
+      *  admit.
+      * intros.  eapply state_prob_bind.
+        ++ admit. 
+        ++ intros. simpl. eapply state_prob_bind.
+           ** admit.
+           ** intros. simpl. eapply state_prob_bind.
+              *** admit.
+              *** intros. admit.       (* retT lemma  *)
+  - admit.                            (* read access  *)
+Admitted.
 
 Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
   plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
