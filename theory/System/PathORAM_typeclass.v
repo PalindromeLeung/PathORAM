@@ -56,15 +56,14 @@ Class WF (A : Type) := { wf : A -> Type }.
 #[export] Instance Functor_list : Functor list := { map := List.map }.
 #[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
 
-Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : A * list A :=
+Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : list A :=
   match xs with
-  | [] => (x , xs)
+  | [] => xs
   | x' :: xs' =>
       if p x'
-      then (x' , xs')
+      then xs'
       else
-        let (x'' , xs'') := remove_list x p xs'
-        in (x'' , x' :: xs'')
+        x' :: remove_list x p xs'
   end.
 
 
@@ -545,7 +544,7 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
   let ret_data := lookup_ret_data id bkt_blocks in 
   let h' := bkt_blocks ++ h in
   (* read the index from the stash *)
-  let (blk , h'') := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
+  let h'' := remove_list dummy_block (fun blk => equiv_decb (block_blockid blk) id) h' in
   (* write new data to the stash *)
   let h''' := 
     match op with
@@ -583,7 +582,7 @@ Definition access' {n l : nat} (id : block_id) (op : operation) :
       let ret_data := lookup_ret_data id bkt_blocks in
       let h' := bkt_blocks ++ h in
       (* read the index from the stash *)
-      let (blk , h'') := remove_list dummy_block (* TODO : get rid of blk in the return pair *)
+      let h'' := remove_list dummy_block (* TODO : get rid of blk in the return pair *)
                            (fun blk => equiv_decb (block_blockid blk) id) h' in
       (* write new data to the stash *)
       let h''' :=
@@ -713,7 +712,7 @@ Proof.
         ++ admit. 
         ++ intros. simpl.  eapply state_prob_bind.
            ** admit.
-           ** intros. simpl.
+           ** intros. simpl.  eapply state_prob_bind.
   - admit.                            (* read access  *)
 Admitted.
 
