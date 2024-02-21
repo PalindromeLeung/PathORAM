@@ -373,11 +373,21 @@ Definition path (l : nat) := Vector.t bool l.
 Definition position_map (l : nat) := dict block_id (path l).
 Definition stash (n : nat) := list block.
 Definition bucket (n : nat) := Vector.t block n.
+
+Search In.
 Inductive oram (n : nat) : forall (l : nat), Type :=
   | Leaf_ORAM : oram n 0
   | Node_ORAM : forall {l : nat}, bucket n -> oram n l -> oram n l -> oram n (S l).
 Arguments Leaf_ORAM {n}.
 Arguments Node_ORAM {n l} _ _ _.
+
+
+
+Fixpoint In_tree {n l : nat}(id : block_id) (v : nat) (o : oram n l) : Prop :=
+  match o with
+  | Leaf_ORAM => False 
+  | Node_ORAM bk l r => VectorDef.In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
+  end.
 
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
@@ -651,7 +661,10 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
             end
   end.
 
-Definition blk_in_tree {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop := True.
+Definition blk_in_tree {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop :=
+  let o := state_oram st in 
+  In_tree id v o.
+
 Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop :=
   let s := state_stash st in 
   In (Block id v) s.
