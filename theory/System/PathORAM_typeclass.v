@@ -549,7 +549,7 @@ Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : posit
   let ret_data := lookup_ret_data id bkt_blocks in
   let h' := bkt_blocks ++ h in
   (* read the index from the stash *)
-  let h'' := remove_list dummy_block (* TODO : get rid of blk in the return pair *)
+  let h'' := remove_list dummy_block 
                (fun blk => equiv_decb (block_blockid blk) id) h' in
   (* write new data to the stash *)
   let h''' :=
@@ -681,21 +681,24 @@ Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :
 Lemma read_access_wf {n l: nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
-  apply state_prob_bind.
-
-
-
-
-
-
-
-
-
-
-
-
-
+  remember (fun st : state n l => well_formed st /\ kv_rel id v st) as Inv.
+  apply (state_prob_bind Inv (fun _ => True)).
   
+  - admit.                      (* get_pos_map preserves the invariant, need a lemma for this *)
+  - intros.
+    apply (state_prob_bind Inv (fun _ => True)).
+    + admit.                    (* another get_lemma here, same as above but for the stash *)
+    + intros. 
+      apply (state_prob_bind Inv (fun _ => True)).
+      *  admit.                    (* another get_lemma here, same as above but for the oram *)
+      * intros.
+        apply (state_prob_bind Inv (fun _ => True)).
+        -- admit.               (* randomness preserves the invariant, need a lemma for this *)
+        -- intros.
+           destruct (access_helper id Read x x0 x1 (lookup_dict dummy_path id x) x2) eqn:?. simpl.
+           apply (state_prob_bind Inv (fun _ => True)).
+           ++ admit.            (* need a put_lemma here *)
+           ++ intros. admit.           (* need a retT lemma here *)
 Admitted.
 
 Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
