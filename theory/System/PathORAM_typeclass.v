@@ -536,18 +536,9 @@ Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : st
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
     a <- dx ;; mreturn (a, st).
-          
-                 
-Definition access {n l : nat} (id : block_id) (op : operation) :
-  Poram_st (state n l) dist (path l * nat) := 
-  (* unpack the state *)
-  m <- get_pos_map ;;
-  h <- get_stash ;;
-  o <- get_oram ;;
-  (* get path for the index we are querying *)
-  let p := lookup_dict dummy_path id m in
-  (* flip a bunch of coins to get the new path *)      
-  p_new <- dist2Poram (constm_vec coin_flip l) ;;
+
+Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : position_map l)
+                                   (h : stash n) (o : oram n l) (p : path l)  (p_new : path l) :=
   (* update the position map with the new path *)
   let m' := update_dict id p_new m in
   (* read the path for the index from the oram *)
@@ -566,11 +557,25 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
     | Read => h'
     | Write d => [Block id d] ++ h''
     end in
-  let n_st := write_back (State m' h''' o) id l in 
+  let n_st := write_back (State m' h''' o) id l in
+  (n_st, ret_data).
+  
+Definition access {n l : nat} (id : block_id) (op : operation) :
+  Poram_st (state n l) dist (path l * nat) := 
+  (* unpack the state *)
+  m <- get_pos_map ;;
+  h <- get_stash ;;
+  o <- get_oram ;;
+  (* get path for the index we are querying *)
+  let p := lookup_dict dummy_path id m in
+  (* flip a bunch of coins to get the new path *)      
+  p_new <- dist2Poram (constm_vec coin_flip l) ;;
+  (* get the updated path oram state to put and the data to return *)
+  let (n_st, ret_data) := access_helper id op m h o p p_new in
+  (* put the updated state back *)
   _ <- Poram_st_put n_st ;;
   (* return the path l and the return value *)
   mreturn((p, ret_data)).
-
 
   
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
@@ -673,11 +678,23 @@ Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) :
 Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-
 Lemma read_access_wf {n l: nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
-  unfold read_access. 
+  apply state_prob_bind.
+
+
+
+
+
+
+
+
+
+
+
+
+
   
 Admitted.
 
