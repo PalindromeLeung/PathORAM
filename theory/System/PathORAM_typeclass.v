@@ -613,8 +613,8 @@ Lemma state_prob_lift_weaken {S M X} `{Monad M} `{PredLift M}{Pre : S -> Prop} (
   (forall s, Post s -> Post' s) ->
   state_prob_lift Pre Post P m ->
   state_prob_lift Pre Post' P m.
-Admitted.
-                             
+Proof.
+  Admitted.
                              
 
 Definition read_access {n l : nat} (id : block_id) :
@@ -651,20 +651,31 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
             end
   end.
 
-Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop := True. (* "Come back to me" -- The bone dog in Shogun Studio *)
+Definition blk_in_tree {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop := True.
+Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop :=
+  let s := state_stash st in 
+  In (Block id v) s.
+
+(* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
+Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
+  (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
+
+
+Lemma read_access_wf {n l: nat}(id : block_id)(v : nat) :
+  state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
+Proof.
+  unfold read_access. 
+  
+Admitted.
+
+Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
+  state_prob_lift (fun st => @well_formed n l st) (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+Admitted.
 
 (*
  * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
  * and returns the correct value
  *)
-
-Lemma read_access_wf {n l: nat}(id : block_id)(v : nat) :
-  state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st)(has_value v) (read_access id).
-  Admitted.
-
-Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
-  state_prob_lift (fun st => @well_formed n l st) (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
-Admitted.
 
 Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
   state_prob_lift (@well_formed n l) well_formed (has_value v)
