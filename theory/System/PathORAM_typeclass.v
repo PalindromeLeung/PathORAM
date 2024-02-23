@@ -757,6 +757,40 @@ Admitted.
 
 Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st) (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+  remember (fun st : state n l => well_formed st) as Inv.
+  apply (state_prob_bind Inv (fun _ => True)).
+  - apply get_pos_map_wf.
+  - intros.
+    apply (state_prob_bind Inv (fun _ => True)).
+    + apply get_stash_wf.
+    + intros. 
+      apply (state_prob_bind Inv (fun _ => True)).
+      * apply get_oram_wf.
+      * intros.
+        apply (state_prob_bind Inv (fun _ => True)).
+        -- apply coin_flip_wf.
+        -- intros.
+           destruct (access_helper id Read x x0 x1 (lookup_dict dummy_path id x) x2) eqn:?.
+           apply (state_prob_bind Inv (fun _ => True)).
+           ++ apply put_wf. rewrite HeqInv.
+
+  (*             ============================ *)
+  (* well_formed *)
+  (*   (write_back *)
+  (*      {| *)
+  (*        state_position_map := update_dict id x2 x; *)
+  (*        state_stash := *)
+  (*          [{| block_blockid := id; block_payload := v |}] ++ *)
+  (*          remove_list dummy_block (fun blk : block => block_blockid blk ==b id) *)
+  (*            (append *)
+  (*               (concat *)
+  (*                  (map to_list_vec (to_list_vec (lookup_path_oram (lookup_dict dummy_path id x) x1)))) *)
+  (*               x0); *)
+  (*        state_oram := x1 *)
+  (*      |} id l) *)
+              admit.           (* need to prove write_back() preserves well-formedness  *) 
+           ++ intros. 
+              admit.           (* need a retT lemma here *)
 Admitted.
 
 (*
