@@ -660,6 +660,34 @@ Lemma state_prob_ret {S X} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop} {P : X
   P x -> state_prob_lift Pre Pre P (retT x).
 Admitted.
 
+(* Definition retT_lemma {S} {M} `{Monad M} *)
+(*   `{PredLift M} {X} {P : X -> Prop} {Pre : S -> Prop} : *)
+(*   forall x, P x -> state_lift Pre Pre P (retT x). *)
+(* Proof. *)
+(*   intros. *)
+(*   unfold state_lift. *)
+(*   intros s Pr_s. *)
+(*   apply lift_ret. *)
+(*   tauto. *)
+(* Defined. *)
+
+(* Definition bindT_lemma {S} {M} `{Monad M} *)
+(*   `{PredLift M} {X Y} {P : X -> Prop} {Q : Y -> Prop} *)
+(*   {Pre Mid Post : S -> Prop} : *)
+(*   forall (mx : StateT S M X) (f : X -> StateT S M Y), *)
+(*     state_lift Pre Mid P mx -> *)
+(*     (forall x, P x -> state_lift Mid Post Q (f x)) -> *)
+(*     state_lift Pre Post Q (bindT mx f). *)
+(* Proof. *)
+(*   intros. *)
+(*   unfold state_lift. *)
+(*   intros. *)
+(*   eapply lift_bind. *)
+(*   - exact (H2 s H4). *)
+(*   - intros [x s'] [Px G]. *)
+(*     apply H3; auto. *)
+(* Qed. *)
+
 (* TODO: having a lemma about get_pos_map is too speicific, find a way to formalize the get lemma that's genenral enough that can be applied to the other get operations  *)
 
 Lemma get_pos_map_wf {n l : nat} {Pre : state n l -> Prop} :
@@ -672,6 +700,14 @@ Admitted.
 
 Lemma get_oram_wf {n l : nat} {Pre : state n l -> Prop}:
   state_prob_lift Pre Pre (fun _ => True) get_oram.
+Admitted.
+
+Lemma coin_flip_wf {n l : nat} {Pre : state n l -> Prop}:
+  state_prob_lift Pre Pre (fun _ => True) (dist2Poram (constm_vec coin_flip l)).
+Admitted.
+
+Lemma put_wf {n l : nat} {Pre Pre' : state n l -> Prop} {s : state n l}:
+  Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
 Admitted.
 
 
@@ -709,13 +745,14 @@ Proof.
       * apply get_oram_wf.
       * intros.
         apply (state_prob_bind Inv (fun _ => True)).
-        -- admit.               (* randomness preserves the invariant, need a lemma for this *)
+        -- apply coin_flip_wf.
         -- intros.
            destruct (access_helper id Read x x0 x1 (lookup_dict dummy_path id x) x2) eqn:?. simpl.
            apply (state_prob_bind Inv (fun _ => True)).
-           ++ admit.            (* need a put_lemma here *) 
+           ++ apply put_wf. rewrite HeqInv. 
+              admit.           (* need to prove well-formedness of s and kv_rel holds  *) 
            ++ intros. eapply state_prob_ret.
-                admit.           (* need a retT lemma here *)
+              admit.           (* need a retT lemma here *)
 Admitted.
 
 Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
