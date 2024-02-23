@@ -654,7 +654,24 @@ Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
   state_prob_lift Pre Mid P mx ->
   (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
   state_prob_lift Pre Post Q (bindT mx f). 
-Proof.
+Admitted.
+
+Lemma state_prob_ret {S X} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop} {P : X -> Prop} {x : X}:
+  P x -> state_prob_lift Pre Pre P (retT x).
+Admitted.
+
+(* TODO: having a lemma about get_pos_map is too speicific, find a way to formalize the get lemma that's genenral enough that can be applied to the other get operations  *)
+
+Lemma get_pos_map_wf {n l : nat} {Pre : state n l -> Prop} :
+  state_prob_lift Pre Pre (fun _ => True) get_pos_map. 
+Admitted.
+
+Lemma get_stash_wf {n l : nat} {Pre : state n l -> Prop}:
+  state_prob_lift Pre Pre (fun _ => True) get_stash.
+Admitted.
+
+Lemma get_oram_wf {n l : nat} {Pre : state n l -> Prop}:
+  state_prob_lift Pre Pre (fun _ => True) get_oram.
 Admitted.
 
 
@@ -678,27 +695,27 @@ Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) :
 Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-Lemma read_access_wf {n l: nat}(id : block_id)(v : nat) :
+Lemma read_access_wf {n l : nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
   remember (fun st : state n l => well_formed st /\ kv_rel id v st) as Inv.
   apply (state_prob_bind Inv (fun _ => True)).
-  
-  - admit.                      (* get_pos_map preserves the invariant, need a lemma for this *)
+  - apply get_pos_map_wf.
   - intros.
     apply (state_prob_bind Inv (fun _ => True)).
-    + admit.                    (* another get_lemma here, same as above but for the stash *)
+    + apply get_stash_wf.
     + intros. 
       apply (state_prob_bind Inv (fun _ => True)).
-      *  admit.                    (* another get_lemma here, same as above but for the oram *)
+      * apply get_oram_wf.
       * intros.
         apply (state_prob_bind Inv (fun _ => True)).
         -- admit.               (* randomness preserves the invariant, need a lemma for this *)
         -- intros.
            destruct (access_helper id Read x x0 x1 (lookup_dict dummy_path id x) x2) eqn:?. simpl.
            apply (state_prob_bind Inv (fun _ => True)).
-           ++ admit.            (* need a put_lemma here *)
-           ++ intros. admit.           (* need a retT lemma here *)
+           ++ admit.            (* need a put_lemma here *) 
+           ++ intros. eapply state_prob_ret.
+                admit.           (* need a retT lemma here *)
 Admitted.
 
 Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
