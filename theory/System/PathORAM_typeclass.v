@@ -612,10 +612,10 @@ Proof.
   - intros. simpl mbind. unfold mbind_dist.
     unfold dist_lift. rewrite Forall_map. rewrite Forall_concat. rewrite Forall_map.
     eapply Forall_impl.
-    2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H.}
+    2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H. }
     intros (k,v) pk. simpl. rewrite Forall_map.
     specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
-    2:{exact H0.}
+    2:{exact H0. }
     intros (a, b) pa. exact pa.
 Defined. 
 
