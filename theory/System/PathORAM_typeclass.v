@@ -737,6 +737,12 @@ Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_ma
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Admitted.    
+
+Lemma zero_sum_stsh_tr_Rd {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
+  forall (nst : state n l) (ret_data : nat),
+    kv_rel id v (State m h o) -> 
+    access_helper id Read m h o p p_new = (nst, v).
+Admitted.    
                         
 Lemma read_access_wf {n l : nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
