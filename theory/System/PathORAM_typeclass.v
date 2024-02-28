@@ -53,7 +53,7 @@ Class WF (A : Type) := { wf : A -> Type }.
 
 (*** LISTS ***)
 
-#[export] Instance Functor_list : Functor list := { map := List.map }.
+(* #[export] Instance Functor_list : Functor list := { map := List.map }. *)
 #[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
 
 Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : list A :=
@@ -209,9 +209,9 @@ Arguments dist_pmf {A} _.
 Definition mreturn_dist {A : Type} (x : A) : dist A := Dist [ (x, 1 / 1) ].
 
 Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B :=
-  Dist (concat (map (fun (xq : A * Q) => 
+  Dist (concat (List.map (fun (xq : A * Q) => 
     let (x , q) := xq in 
-    map (fun (yq' : B * Q) => 
+    List.map (fun (yq' : B * Q) => 
            let (y , q') := yq' in
            (y , q ++ q')) (dist_pmf (f x))) (dist_pmf xM))).
 
@@ -231,7 +231,7 @@ Fixpoint fold_l {X Y: Type} (f : X -> Y -> Y) (b : Y)(l : list X) : Y :=
   | h ::t => f h (fold_l f b t)
   end.
       
-Definition sum_dist {A} (d: dist A) : Q := fold_l Qplus (0 / 0) (map snd (getsupp d)).
+Definition sum_dist {A} (d: dist A) : Q := fold_l Qplus (0 / 0) (List.map snd (getsupp d)).
 
 
 Print map_alist.
@@ -249,10 +249,11 @@ Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
   | [] => []
   | x :: l => if f x then x::(filter l f) else filter l f 
   end.
+
 Fixpoint map_l {X Y} (f: X -> Y) (l: list X) : list Y :=
   match l with
   | [] => []
-  | h :: t => (f h) :: (map f t)
+  | h :: t => (f h) :: (List.map f t)
   end.
 
 Fixpoint length {A} (l : list A) : nat :=
@@ -544,7 +545,7 @@ Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : posit
   (* read the path for the index from the oram *)
   let bkts := lookup_path_oram p o in
   (* update the stash to include these blocks *)
-  let bkt_blocks := concat (map to_list_vec (to_list_vec bkts)) in
+  let bkt_blocks := concat (List.map to_list_vec (to_list_vec bkts)) in
   (* look up payload inside the stash *)
   let ret_data := lookup_ret_data id bkt_blocks in
   let h' := bkt_blocks ++ h in
@@ -771,9 +772,9 @@ Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
         -- apply coin_flip_wf.
         -- intros.
            destruct (access_helper id Read x x0 x1 (lookup_dict dummy_path id x) x2) eqn:?.
-           apply (state_prob_bind Inv (fun _ => True)).
-           ++ apply put_wf. rewrite HeqInv.
-
+           apply (state_prob_bind (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True)).
+           ++ apply put_wf; simpl; split. apply H. unfold kv_rel. unfold access_helper in Heqp. rewrite Heqp.
+              
   (*             ============================ *)
   (* well_formed *)
   (*   (write_back *)
@@ -789,7 +790,7 @@ Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
   (*        state_oram := x1 *)
   (*      |} id l) *)
               admit.           (* need to prove write_back() preserves well-formedness  *) 
-           ++ intros. 
+           ++ intros.  eapply state_prob_ret.
               admit.           (* need a retT lemma here *)
 Admitted.
 
