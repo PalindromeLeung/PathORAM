@@ -732,6 +732,12 @@ Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) :
 Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
+
+Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
+  forall (nst : state n l) (ret_data : nat),  
+    access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
+Admitted.    
+                        
 Lemma read_access_wf {n l : nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
@@ -770,29 +776,12 @@ Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
       * intros.
         apply (state_prob_bind Inv (fun _ => True)).
         -- apply coin_flip_wf.
-        -- intros.
-           destruct (access_helper id Read x x0 x1 (lookup_dict dummy_path id x) x2) eqn:?.
+        -- intros. destruct access_helper eqn:?.
            apply (state_prob_bind (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True)).
-           ++ apply put_wf; simpl; split. apply H. unfold kv_rel. unfold access_helper in Heqp. rewrite Heqp.
-              
-  (*             ============================ *)
-  (* well_formed *)
-  (*   (write_back *)
-  (*      {| *)
-  (*        state_position_map := update_dict id x2 x; *)
-  (*        state_stash := *)
-  (*          [{| block_blockid := id; block_payload := v |}] ++ *)
-  (*          remove_list dummy_block (fun blk : block => block_blockid blk ==b id) *)
-  (*            (append *)
-  (*               (concat *)
-  (*                  (map to_list_vec (to_list_vec (lookup_path_oram (lookup_dict dummy_path id x) x1)))) *)
-  (*               x0); *)
-  (*        state_oram := x1 *)
-  (*      |} id l) *)
-              admit.           (* need to prove write_back() preserves well-formedness  *) 
-           ++ intros.  eapply state_prob_ret.
-              admit.           (* need a retT lemma here *)
-Admitted.
+           ++ apply put_wf; simpl; split. apply H. unfold kv_rel. eapply zero_sum_stsh_tr_Wr; eauto.
+           ++ intros. rewrite HeqInv. eapply state_prob_ret. auto.
+Qed.
+
 
 (*
  * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
