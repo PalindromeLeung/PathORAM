@@ -741,7 +741,7 @@ Admitted.
 Lemma read_access_wf {n l : nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
-  remember (fun st : state n l => well_formed st /\ kv_rel id v st) as Inv.
+  remember (fun st : state n l => well_formed st /\ kv_rel id v st) as Inv. 
   apply (state_prob_bind Inv (fun _ => True)).
   - apply get_pos_map_wf.
   - intros.
@@ -755,10 +755,10 @@ Proof.
         -- apply coin_flip_wf.
         -- intros.
            destruct (access_helper id Read x x0 x1 (lookup_dict dummy_path id x) x2) eqn:?. simpl.
-           apply (state_prob_bind Inv (fun _ => True)).
-           ++ apply put_wf. rewrite HeqInv. 
+           apply (state_prob_bind (fun st : state n l => kv_rel id n0 st)(fun _ => True)).
+           ++ apply put_wf. 
               admit.           (* need to prove well-formedness of s and kv_rel holds  *) 
-           ++ intros. eapply state_prob_ret.
+           ++ intros. rewrite HeqInv.
               admit.           (* need a retT lemma here *)
 Admitted.
 
