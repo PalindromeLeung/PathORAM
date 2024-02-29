@@ -761,6 +761,11 @@ Lemma zero_sum_stsh_tr_Rd {n l : nat} (id : block_id) (v : nat) (m : position_ma
     access_helper id Read m h o p p_new = (nst, v).
 Admitted.    
 
+Lemma zero_sum_stsh_tr_Rd_rev {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
+  forall (os ns: state n l) (ret_data : nat),
+    access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
+Admitted.    
+
 
 Lemma read_access_wf {n l : nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
@@ -770,37 +775,34 @@ Proof.
   - apply get_State_wf.
   - intros.
     apply (state_prob_bind Inv (fun _ => True)).
-    * apply coin_flip_wf.
-    * intros. destruct access_helper eqn :?. simpl.
+    + apply coin_flip_wf.
+    + intros. destruct access_helper eqn :?. simpl.
       apply (state_prob_bind Inv (fun _ => True)).
-      ++ apply put_wf.
-         admit.                 (* needs a lemma going from kv_rel -> Inv *)
-      ++ intros. rewrite HeqInv. apply state_prob_ret. rewrite HeqInv in H. destruct H. simpl.
-         rewrite zero_sum_stsh_tr_Rd with (v := v) (nst := s) in Heqp.
-         inversion Heqp; auto. exact H2.
+      * apply put_wf. rewrite HeqInv in H; destruct H. rewrite HeqInv. split. exact H.
+        apply zero_sum_stsh_tr_Rd_rev with
+          (ns := s)(os := x)(p := (lookup_dict dummy_path id (state_position_map x)))(p_new := x0)(v:= n0).
+        -- exact (state_position_map x).
+        -- exact (state_stash x).
+        -- exact (state_oram x).
+        -- exact Heqp.
+      * intros. rewrite HeqInv. apply state_prob_ret. rewrite HeqInv in H. destruct H. simpl.
+        rewrite zero_sum_stsh_tr_Rd with (v := v) (nst := s) in Heqp.
+        inversion Heqp; auto. exact H2.
 Qed.
-
-Print read_access_wf.
-
 
 Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed n l st) (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
   remember (fun st : state n l => well_formed st) as Inv.
-  apply (state_prob_bind Inv (fun _ => True)).
-  - apply get_pos_map_wf.
+  apply (state_prob_bind Inv Inv).
+  - apply get_State_wf.
   - intros.
     apply (state_prob_bind Inv (fun _ => True)).
-    + apply get_stash_wf.
-    + intros. 
-      apply (state_prob_bind Inv (fun _ => True)).
-      * apply get_oram_wf.
-      * intros.
-        apply (state_prob_bind Inv (fun _ => True)).
-        -- apply coin_flip_wf.
-        -- intros. destruct access_helper eqn:?.
-           apply (state_prob_bind (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True)).
-           ++ apply put_wf; simpl; split. apply H. unfold kv_rel. eapply zero_sum_stsh_tr_Wr; eauto.
-           ++ intros. rewrite HeqInv. eapply state_prob_ret. auto.
+    + apply coin_flip_wf.
+    + intros. destruct access_helper eqn:?.
+      apply (state_prob_bind (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True)).
+      * apply put_wf; simpl; split. rewrite HeqInv in H. exact H. 
+        eapply zero_sum_stsh_tr_Wr; eauto.
+      * intros. rewrite HeqInv. eapply state_prob_ret. auto.
 Qed.
 
 
