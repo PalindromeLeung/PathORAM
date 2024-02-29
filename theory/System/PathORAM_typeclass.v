@@ -749,18 +749,55 @@ Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) :
 Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
+Require Import Coq.Program.Equality.      
 
 Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
-Admitted.    
+Proof.
+  destruct l; intros.
+  - dependent induction o. (* we need H to give us a contradiction, but that isn't provable yet *)
+    (* specifically, access_helper should only be defined when the oram is level at least 1 *)
+    admit.
+  - (* now we are in the actually viable case. prove following the structure of access_helper *)
+    admit.
+Admitted.
 
+(* how do things change when you add up a level? Can you invert it?  *)
+
+
+(* Lemma access_helper_inj_l {n l :nat} (id : block_id)(v : nat) (b : bucket n)(nst : _) (m : position_map (S l)) (h : stash n) (o1 o2 : oram n (S l)) (p : path (S l))  (p_new : path (S l)) : *)
+(*   access_helper id Read m h o1 (VectorDef.tl p) (VectorDef.tl p_new) = (nst, v) -> *)
+(*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
+  
+(* Lemma access_helper_inj_r {n l :nat} (id : block_id) (v : nat) (b : bucket n )(nst: _) (m : position_map l) (h : stash n) (o1 o2 : oram n l) (p : path l)  (p_new : path l) : *)
+(*   access_helper id Read m h o2 p p_new = (nst, v) -> *)
+(*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
+Require Import Coq.Program.Equality.
 Lemma zero_sum_stsh_tr_Rd {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l),
     kv_rel id v (State m h o) -> 
     access_helper id Read m h o p p_new = (nst, v).
-Admitted.    
+Proof.
+  intros.
+  destruct H.
+  - admit.                     (* in stash  *)
+  - unfold blk_in_tree in H.
+    dependent induction o; simpl in *; intros.
+    + contradiction.
+    + intuition.
+      * admit. 
+    (*   * specialize (IHo1 (VectorDef.tl m) (VectorDef.tl p) (VectorDef.tl p_new)).   Print position_ *)
+    (*     Print access_helper. *)
+    (*     specialize (IHo1 id v ( *)
+    (*   dependent induction o; simpl in *. *)
+    (* + contradiction. *)
+    (* + intuition. *)
+    (*   * admit. *)
+    (*   *  *)
+Admitted.
 
+      
 Lemma zero_sum_stsh_tr_Rd_rev {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
   forall (os ns: state n l) (ret_data : nat),
     access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
