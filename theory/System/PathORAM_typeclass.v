@@ -474,14 +474,7 @@ Inductive operation :=
 Definition dummy_block : block := Block O O.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
-
-Definition get_cand_bs {n l : nat} (o : oram n l) : list block := []. (* todo gi*)
-(*
-  match o with
-  | Leaf_ORAM => []
-  | Node_ORAM bkt my_n my_l =>
-  end.
-*)
+Definition get_cand_bs {n l : nat} (o : oram n l) : list block := [].
 
 (* cap is the capability of each node, the current magic number is 4 based on the original paper *)
 Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : stash n) (id : nat) : list block :=
@@ -516,8 +509,9 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) (cand_bs : list block) (lvl : nat) : oram n l := o.
-(* to be implemented *)
+  
+Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) 
+  (cand_bs : list block) (lvl : nat) : oram n l. Admitted. (* to be implemented *)
                                                         
 Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list block)*) (s : state n l) : state n l :=
   (* unpack the state *)
@@ -755,6 +749,23 @@ Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_ma
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
+  (* unfold access_helper; simpl. *)
+  (* intros. inversion H. subst. *)
+  
+
+
+
+
+  
+  (* destruct o. *)
+  (* - unfold access_helper. simpl. unfold kv_rel. unfold blocks_selection; simpl. intros. inversion H; simpl in * . left. unfold blk_in_stash. simpl. left. reflexivity. *)
+  (* -  *)
+
+
+
+
+
+  
   destruct l; intros.
   - dependent induction o. (* we need H to give us a contradiction, but that isn't provable yet *)
     (* specifically, access_helper should only be defined when the oram is level at least 1 *)
@@ -773,7 +784,7 @@ Admitted.
 (* Lemma access_helper_inj_r {n l :nat} (id : block_id) (v : nat) (b : bucket n )(nst: _) (m : position_map l) (h : stash n) (o1 o2 : oram n l) (p : path l)  (p_new : path l) : *)
 (*   access_helper id Read m h o2 p p_new = (nst, v) -> *)
 (*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
-Require Import Coq.Program.Equality.
+
 Lemma zero_sum_stsh_tr_Rd {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l),
     kv_rel id v (State m h o) -> 
