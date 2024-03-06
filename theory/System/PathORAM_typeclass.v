@@ -375,14 +375,11 @@ Definition position_map (l : nat) := dict block_id (path l).
 Definition stash (n : nat) := list block.
 Definition bucket (n : nat) := Vector.t block n.
 
-Search In.
 Inductive oram (n : nat) : forall (l : nat), Type :=
   | Leaf_ORAM : oram n 0
   | Node_ORAM : forall {l : nat}, bucket n -> oram n l -> oram n l -> oram n (S l).
 Arguments Leaf_ORAM {n}.
 Arguments Node_ORAM {n l} _ _ _.
-
-
 
 Fixpoint In_tree {n l : nat}(id : block_id) (v : nat) (o : oram n l) : Prop :=
   match o with
@@ -451,7 +448,9 @@ Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vect
       let o_r := tail_r_oram o in
       Vector.cons _ bkt _ (lookup_path_oram p' (if b then o_l else o_r))
   end.
-#[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) := {|mreturn A := retT; mbind X Y := bindT  |}.
+
+#[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
+  {|mreturn A := retT; mbind X Y := bindT |}.
 
 Definition get_State {n l : nat} : Poram_st(state n l) dist(state n l) := Poram_st_get.
 
@@ -498,8 +497,8 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   end.
 
   
-Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) 
-  (cand_bs : list block) (lvl : nat) : oram n l. Admitted. (* to be implemented *)
+Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id)
+  (cand_bs : list block) (lvl : nat) : oram n l. Admitted.
 
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
 Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
@@ -547,7 +546,7 @@ Proof.
 Qed.
 (* --- END Talia's equivalent definition of nth to reuse later --- *)
 
-Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (s : state n l) : state n l :=
+Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat) (s : state n l) : state n l :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
@@ -559,10 +558,11 @@ Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (s : state n
   (State m up_h up_o).
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
-Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : state n l :=
+
+Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (p : path l) (lvl : nat) : state n l := 
   match lvl with
-  | O => blocks_selection id O s
-  | S m => write_back (blocks_selection id lvl s) id m
+  | O => blocks_selection id p O s
+  | S m => write_back (blocks_selection id p m s) id p m
   end.
 
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
@@ -589,7 +589,7 @@ Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : posit
     | Read => h'
     | Write d => [Block id d] ++ h''
     end in
-  let n_st := write_back (State m' h''' o) id l in
+  let n_st := write_back (State m' h''' o) id p l in
   (n_st, ret_data).
   
 Definition access {n l : nat} (id : block_id) (op : operation) :
