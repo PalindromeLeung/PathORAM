@@ -439,18 +439,6 @@ Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
 
 Definition Poram_st_put {S M} `{Monad M} (st : S) :
   Poram_st S M unit := fun s => mreturn(tt, st).
-
-
-Definition get_pos_map {n l : nat} : Poram_st (state n l) dist (position_map l) :=
-  fun s => mreturn(state_position_map s,s).
-
-Definition get_stash {n l : nat} : Poram_st (state n l) dist (stash n) :=
-  fun s => mreturn(state_stash s,s).
-
-Definition get_oram {n l : nat} : Poram_st (state n l) dist (oram n l) :=
-  fun s => mreturn(state_oram s,s).
-
-
   
 Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vector.t (bucket n) l :=
   match l with
@@ -694,23 +682,6 @@ Admitted.
 
 Lemma get_State_wf {n l : nat} {Pre : state n l -> Prop} :
   state_prob_lift Pre Pre Pre get_State.
-Admitted.
-
-Lemma get_pos_map_wf {n l : nat} {Pre : state n l -> Prop} :
-  state_prob_lift Pre Pre (fun _ => True) get_pos_map.
-Admitted.
-
-(* Lemma get_pos_map_wf {n l : nat} {Pre : state n l -> Prop} {P : position_map l -> Prop} : *)
-(*   (forall s, Pre s -> P (state_position_map s)) -> *)
-(*   state_prob_lift Pre Pre P get_pos_map. *)
-(* Admitted. *)
-
-Lemma get_stash_wf {n l : nat} {Pre : state n l -> Prop}:
-  state_prob_lift Pre Pre (fun _ => True) get_stash.
-Admitted.
-
-Lemma get_oram_wf {n l : nat} {Pre : state n l -> Prop}:
-  state_prob_lift Pre Pre (fun _ => True) get_oram.
 Admitted.
 
 Lemma coin_flip_wf {n l : nat} {Pre : state n l -> Prop}:
