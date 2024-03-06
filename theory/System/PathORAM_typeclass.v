@@ -512,8 +512,12 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   
 Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id) 
   (cand_bs : list block) (lvl : nat) : oram n l. Admitted. (* to be implemented *)
-                                                        
-Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list block)*) (s : state n l) : state n l :=
+
+(* An equivalent definition of nth. *)
+(* Definition nth_order {A} {n} (v: t A n) {p} (H: p < n) := *)
+(* (nth v (Fin.of_nat_lt H)). *)
+
+Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (s : state n l) : state n l :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
@@ -523,13 +527,13 @@ Definition blocks_selection {n l : nat} (id : block_id) (lvl : nat) (*(bc : list
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
   let up_o := up_oram_tr o id wbs lvl in
   (State m up_h up_o).
-                                    
+
+(* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
 Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (lvl : nat) : state n l :=
   match lvl with
   | O => blocks_selection id O s
   | S m => write_back (blocks_selection id lvl s) id m
   end.
-
 
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
@@ -565,10 +569,6 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
   let m := state_position_map PST in
   let h := state_stash  PST in
   let o := state_oram PST in 
-
-  (* m <- get_pos_map ;; *)
-  (* h <- get_stash ;; *)
-  (* o <- get_oram ;; *)
   (* get path for the index we are querying *)
   let p := lookup_dict dummy_path id m in
   (* flip a bunch of coins to get the new path *)      
@@ -579,7 +579,6 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
   _ <- Poram_st_put n_st ;;
   (* return the path l and the return value *)
   mreturn((p, ret_data)).
-
   
 Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
 
