@@ -496,10 +496,32 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-  
-Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id)
-  (cand_bs : list block) (lvl : nat) : oram n l. Admitted.
+Require Import Lia.
+Fixpoint update_oram_tree {n l : nat} (o : oram n l) (p : path l) (cand_bs : list block) (stop : nat) (stop_small : Nat.lt stop l) {struct o}: oram n l. 
+Proof.
+  destruct o.
+  - lia.
+  - destruct stop.
+    + exact (Node_ORAM cand_bs o1 o2).
 
+Fixpoint up_oram_tr {n l : nat} : 
+  forall (o : oram n l) (p : path l) (stop : nat)
+  (cand_bs : list block),  oram n l :=
+  match l with
+  | O => fun _ _ _ _ _ => @Leaf_ORAM n 
+  | S l' => fun o p stop cand_bs =>
+             let b := head_vec p in
+             let p' := tail_vec p in
+             let bkt := head_oram o in
+             let o_l := tail_l_oram o in
+             let o_r := tail_r_oram o in
+             match stop with
+             | O => Node_ORAM (Vector.of_list cand_bs) o_l o_r
+             | S stop' => Node_ORAM bkt (up_oram_tr o_l p' stop' cand_bs) (up_oram_tr o_r p' stop' cand_bs)
+             end
+  end.
+    
+             
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
 Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
   match n with
@@ -551,10 +573,9 @@ Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
-  let wbs := get_write_back_blocks o 4 h id in 
-  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => equiv_dec (block_blockid blk) id) h in  *)
+  let wbs := get_write_back_blocks o 4 h id in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
-  let up_o := up_oram_tr o id wbs lvl in
+  let up_o := up_oram_tr o id p wbs lvl in
   (State m up_h up_o).
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
