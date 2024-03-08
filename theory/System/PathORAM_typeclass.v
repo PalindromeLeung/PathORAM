@@ -377,13 +377,26 @@ Definition bucket (n : nat) := Vector.t block n.
 
 Inductive oram (n : nat) : forall (l : nat), Type :=
   | Leaf_ORAM : oram n 0
-  | Node_ORAM : forall {l : nat}, bucket n -> oram n l -> oram n l -> oram n (S l).
+  | Node_ORAM : forall {l : nat} (bkt : list block), (Nat.le (List.length bkt) n) -> oram n l -> oram n l -> oram n (S l).
 Arguments Leaf_ORAM {n}.
-Arguments Node_ORAM {n l} _ _ _.
+Arguments Node_ORAM {n l} _ _ _ _.
+
+Inductive ginger3 : forall (l : nat), Type :=
+| leaf: ginger3 0
+| node: forall {l : nat}, list block -> ginger3 l -> ginger3 l -> ginger3 (S l).
+
+Arguments node {l} _ _ _.
+Check (0 <= S 0)%nat.
+
+Fixpoint bound_pred {l : nat} (g : ginger3 l ) (n : nat) : Prop :=
+  match g with
+  | leaf => True
+  | node bkt g_l g_r => (Nat.le (List.length bkt) n) /\ bound_pred g_l n /\ bound_pred g_r n
+  end.    
 
 Fixpoint In_tree {n l : nat}(id : block_id) (v : nat) (o : oram n l) : Prop :=
   match o with
-  | Leaf_ORAM => False 
+  | Leaf_ORAM => False
   | Node_ORAM bk l r => VectorDef.In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
   end.
 
@@ -429,8 +442,7 @@ Arguments State {n l} _ _ _.
 Arguments state_position_map {n l} _.
 Arguments state_stash {n l} _.
 Arguments state_oram {n l} _.
-
-
+  
 Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
   fun s => mreturn(s,s). 
 
@@ -504,22 +516,6 @@ Proof.
   - destruct stop.
     + exact (Node_ORAM cand_bs o1 o2).
 
-Fixpoint up_oram_tr {n l : nat} : 
-  forall (o : oram n l) (p : path l) (stop : nat)
-  (cand_bs : list block),  oram n l :=
-  match l with
-  | O => fun _ _ _ _ _ => @Leaf_ORAM n 
-  | S l' => fun o p stop cand_bs =>
-             let b := head_vec p in
-             let p' := tail_vec p in
-             let bkt := head_oram o in
-             let o_l := tail_l_oram o in
-             let o_r := tail_r_oram o in
-             match stop with
-             | O => Node_ORAM (Vector.of_list cand_bs) o_l o_r
-             | S stop' => Node_ORAM bkt (up_oram_tr o_l p' stop' cand_bs) (up_oram_tr o_r p' stop' cand_bs)
-             end
-  end.
     
              
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
