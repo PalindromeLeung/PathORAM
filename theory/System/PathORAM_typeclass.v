@@ -372,32 +372,32 @@ Record block : Type := Block
   }.
 Definition path (l : nat) := Vector.t bool l.
 Definition position_map (l : nat) := dict block_id (path l).
-Definition stash (n : nat) := list block.
+Definition stash := list block.
 Definition bucket (n : nat) := Vector.t block n.
 
-Inductive oram (n : nat) : forall (l : nat), Type :=
-  | Leaf_ORAM : oram n 0
-  | Node_ORAM : forall {l : nat} (bkt : list block), (Nat.le (List.length bkt) n) -> oram n l -> oram n l -> oram n (S l).
-Arguments Leaf_ORAM {n}.
-Arguments Node_ORAM {n l} _ _ _ _.
+(* Inductive oram (n : nat) : forall (l : nat), Type := *)
+(*   | Leaf_ORAM : oram n 0 *)
+(*   | Node_ORAM : forall {l : nat} (bkt : list block), (Nat.le (List.length bkt) n) -> oram n l -> oram n l -> oram n (S l). *)
+(* Arguments Leaf_ORAM {n}. *)
+(* Arguments Node_ORAM {n l} _ _ _ _. *)
 
-Inductive ginger3 : forall (l : nat), Type :=
-| leaf: ginger3 0
-| node: forall {l : nat}, list block -> ginger3 l -> ginger3 l -> ginger3 (S l).
+Inductive oram : forall (l : nat), Type :=
+| leaf: oram 0
+| node: forall {l : nat}, list block -> oram l -> oram l -> oram (S l).
 
 Arguments node {l} _ _ _.
 Check (0 <= S 0)%nat.
 
-Fixpoint bound_pred {l : nat} (g : ginger3 l ) (n : nat) : Prop :=
-  match g with
+Fixpoint bound_pred {l : nat} (o : oram l ) (n : nat) : Prop :=
+  match o with 
   | leaf => True
   | node bkt g_l g_r => (Nat.le (List.length bkt) n) /\ bound_pred g_l n /\ bound_pred g_r n
   end.    
 
-Fixpoint In_tree {n l : nat}(id : block_id) (v : nat) (o : oram n l) : Prop :=
+Fixpoint In_tree {l : nat}(id : block_id) (v : nat) (o : oram l) : Prop :=
   match o with
-  | Leaf_ORAM => False
-  | Node_ORAM bk l r => VectorDef.In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
+  | leaf => False
+  | node bk l r => In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
   end.
 
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
@@ -418,30 +418,30 @@ Proof.
   exact (f x s').
 Defined.
 
-Definition head_oram {n l : nat} (o : oram n (S l)) : bucket n :=
+Definition head_oram {l : nat} (o : oram (S l)) : list block :=
   match o with
-  | Node_ORAM bkt _ _ => bkt
+  | node bkt _ _ => bkt
   end.
 
-Definition tail_l_oram {n l : nat} (o : oram n (S l)) : oram n l :=
+Definition tail_l_oram {l : nat} (o : oram (S l)) : oram l:=
   match o with
-  | Node_ORAM _ o_l _ => o_l
+  | node  _ o_l _ => o_l
   end.
 
-Definition tail_r_oram {n l : nat} (o : oram n (S l)) : oram n l :=
+Definition tail_r_oram {l : nat} (o : oram (S l)) : oram l :=
   match o with
-  | Node_ORAM _ _ o_r => o_r
+  | node _ _ o_r => o_r
   end.
 
-Record state (n l : nat) : Type := State
+Record state (l : nat) : Type := State
   { state_position_map : position_map l
-  ; state_stash : stash n
-  ; state_oram : oram n l
+  ; state_stash : stash
+  ; state_oram : oram l
   }.
-Arguments State {n l} _ _ _.
-Arguments state_position_map {n l} _.
-Arguments state_stash {n l} _.
-Arguments state_oram {n l} _.
+Arguments State {l} _ _ _.
+Arguments state_position_map {l} _.
+Arguments state_stash {l} _.
+Arguments state_oram {l} _.
   
 Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
   fun s => mreturn(s,s). 
@@ -449,22 +449,22 @@ Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
 Definition Poram_st_put {S M} `{Monad M} (st : S) :
   Poram_st S M unit := fun s => mreturn(tt, st).
   
-Fixpoint lookup_path_oram {n l : nat} : forall (p : path l) (o : oram n l), Vector.t (bucket n) l :=
+Fixpoint lookup_path_oram {l : nat} : forall (p : path l) (o : oram l), list (list block) :=
   match l with
-  | O => fun _ _ => Vector.nil _
+  | O => fun _ _ => [[]]
   | S l' => fun p o =>
       let b := head_vec p in
       let p' := tail_vec p in
       let bkt := head_oram o in
       let o_l := tail_l_oram o in
       let o_r := tail_r_oram o in
-      Vector.cons _ bkt _ (lookup_path_oram p' (if b then o_l else o_r))
+      cons bkt (lookup_path_oram p' (if b then o_l else o_r))
   end.
 
 #[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
   {|mreturn A := retT; mbind X Y := bindT |}.
 
-Definition get_State {n l : nat} : Poram_st(state n l) dist(state n l) := Poram_st_get.
+Definition get_State {l : nat} : Poram_st(state l) dist(state l) := Poram_st_get.
 
 Inductive operation := 
   | Read : operation 
@@ -473,10 +473,12 @@ Inductive operation :=
 Definition dummy_block : block := Block O O.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
-Definition get_cand_bs {n l : nat} (o : oram n l) : list block := [].
+Definition get_cand_bs {l : nat} (o : oram l) : list block := [].
 
 (* cap is the capability of each node, the current magic number is 4 based on the original paper *)
-Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : stash n) (id : nat) : list block :=
+
+Definition get_write_back_blocks {l : nat} (o : oram l) (cap : nat)
+  (h : stash) (id : nat) : list block :=
   match (length h) with
   | O => []
   | S m => let cand_bs := get_cand_bs o in (* to be implemented *)
@@ -508,15 +510,23 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-Require Import Lia.
-Fixpoint update_oram_tree {n l : nat} (o : oram n l) (p : path l) (cand_bs : list block) (stop : nat) (stop_small : Nat.lt stop l) {struct o}: oram n l. 
-Proof.
-  destruct o.
-  - lia.
-  - destruct stop.
-    + exact (Node_ORAM cand_bs o1 o2).
+Fixpoint up_oram_tr {l : nat} (o : oram l) (stop : nat) (d_n : list block
+  ) :
+  path l -> oram l := 
+  match o in (oram l) return path l -> oram l with
+  | leaf => fun _ => leaf
+  | node d_o o_l o_r =>
+      fun p =>
+        match stop with
+        | O => node d_n  o_l o_r
+        | S stop' =>
+            match Vector.hd p with
+            | true => node d_o (up_oram_tr o_l stop' d_n (Vector.tl p)) o_r
+            | false => node d_o o_l(up_oram_tr o_r stop' d_n (Vector.tl p))
+            end
+        end
+  end.
 
-    
              
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
 Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
@@ -564,19 +574,19 @@ Proof.
 Qed.
 (* --- END Talia's equivalent definition of nth to reuse later --- *)
 
-Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat) (s : state n l) : state n l :=
+Definition blocks_selection {l : nat} (id : block_id) (p : path l) (lvl : nat) (s : state l) : state l :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks o 4 h id in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
-  let up_o := up_oram_tr o id p wbs lvl in
+  let up_o := up_oram_tr o lvl wbs p in
   (State m up_h up_o).
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
 
-Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (p : path l) (lvl : nat) : state n l := 
+Fixpoint write_back {l : nat} (s : state l) (id : block_id) (p : path l) (lvl : nat) : state l := 
   match lvl with
   | O => blocks_selection id p O s
   | S m => write_back (blocks_selection id p m s) id p m
@@ -586,14 +596,14 @@ Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
     a <- dx ;; mreturn (a, st).
 
-Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : position_map l)
-                                   (h : stash n) (o : oram n l) (p : path l)  (p_new : path l) :=
+Definition access_helper {l : nat} (id : block_id) (op : operation) (m : position_map l)
+                                   (h : stash) (o : oram l) (p : path l)  (p_new : path l) :=
   (* update the position map with the new path *)
   let m' := update_dict id p_new m in
   (* read the path for the index from the oram *)
   let bkts := lookup_path_oram p o in
   (* update the stash to include these blocks *)
-  let bkt_blocks := concat (List.map to_list_vec (to_list_vec bkts)) in
+  let bkt_blocks := concat bkts in
   (* look up payload inside the stash *)
   let ret_data := lookup_ret_data id bkt_blocks in
   let h' := bkt_blocks ++ h in
@@ -609,8 +619,8 @@ Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : posit
   let n_st := write_back (State m' h''' o) id p l in
   (n_st, ret_data).
   
-Definition access {n l : nat} (id : block_id) (op : operation) :
-  Poram_st (state n l) dist (path l * nat) :=
+Definition access {l : nat} (id : block_id) (op : operation) :
+  Poram_st (state l) dist (path l * nat) :=
   PST <- get_State ;;
   (* unpack the state *)
   let m := state_position_map PST in
@@ -627,7 +637,7 @@ Definition access {n l : nat} (id : block_id) (op : operation) :
   (* return the path l and the return value *)
   mreturn((p, ret_data)).
   
-Definition well_formed {n l : nat } (s : state n l) : Prop := True. (* placeholder for invariant of the state *)
+Definition well_formed {l : nat } (s : state l) : Prop := True. (* placeholder for invariant of the state *)
 
 Class PredLift M `{Monad M} := {
   plift {X} : (X -> Prop) -> M X -> Prop;
@@ -681,14 +691,14 @@ Proof.
   Admitted.
                              
 
-Definition read_access {n l : nat} (id : block_id) :
-  Poram_st (state n l) dist (path l * nat) := access id Read.
+Definition read_access {l : nat} (id : block_id) :
+  Poram_st (state l) dist (path l * nat) := access id Read.
 
-Definition write_access {n l : nat} (id : block_id) (v : nat) :
-  Poram_st (state n l) dist (path l * nat) := access id (Write v).
+Definition write_access {l : nat} (id : block_id) (v : nat) :
+  Poram_st (state l) dist (path l * nat) := access id (Write v).
 
-Definition write_and_read_access {n l : nat} (id : block_id) (v : nat) :
-  Poram_st (state n l) dist (path l * nat) :=
+Definition write_and_read_access {l : nat} (id : block_id) (v : nat) :
+  Poram_st (state l) dist (path l * nat) :=
   bindT (write_access id v ) (fun _ => read_access id).
 
 
@@ -739,20 +749,20 @@ Admitted.
 
 (* TODO: having a lemma about get_pos_map is too speicific, find a way to formalize the get lemma that's genenral enough that can be applied to the other get operations  *)
 
-Lemma get_State_wf {n l : nat} {Pre : state n l -> Prop} :
+Lemma get_State_wf {l : nat} {Pre : state l -> Prop} :
   state_prob_lift Pre Pre Pre get_State.
 Admitted.
 
-Lemma coin_flip_wf {n l : nat} {Pre : state n l -> Prop}:
+Lemma coin_flip_wf {l : nat} {Pre : state l -> Prop}:
   state_prob_lift Pre Pre (fun _ => True) (dist2Poram (constm_vec coin_flip l)).
 Admitted.
 
-Lemma put_wf {n l : nat} {Pre Pre' : state n l -> Prop} {s : state n l}:
+Lemma put_wf {l : nat} {Pre Pre' : state l -> Prop} {s : state l}:
   Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
 Admitted.
 
 
-Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))): option nat :=
+Definition get_payload {l : nat} (dist_a : dist (path l * nat * (state l))): option nat :=
   match dist_pmf dist_a with 
   | [] => None
   | h :: t => match h with
@@ -760,22 +770,22 @@ Definition get_payload {n l : nat} (dist_a : dist (path l * nat * (state n l))):
             end
   end.
 
-Definition blk_in_tree {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop :=
+Definition blk_in_tree {l : nat} (id : block_id) (v : nat )(st : state l) : Prop :=
   let o := state_oram st in 
   In_tree id v o.
 
-Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop :=
+Definition blk_in_stash {l : nat} (id : block_id) (v : nat )(st : state l) : Prop :=
   let s := state_stash st in 
   In (Block id v) s.
 
 (* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
-Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
+Definition kv_rel {l : nat} (id : block_id) (v : nat) (st : state l) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
 Require Import Coq.Program.Equality.      
 
-Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
-  forall (nst : state n l) (ret_data : nat),  
+Lemma zero_sum_stsh_tr_Wr {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l):
+  forall (nst : state l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
   (* unfold access_helper; simpl. *)
@@ -814,8 +824,8 @@ Admitted.
 (*   access_helper id Read m h o2 p p_new = (nst, v) -> *)
 (*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
 
-Lemma zero_sum_stsh_tr_Rd {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
-  forall (nst : state n l),
+Lemma zero_sum_stsh_tr_Rd {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l):
+  forall (nst : state l),
     kv_rel id v (State m h o) -> 
     access_helper id Read m h o p p_new = (nst, v).
 Proof.
@@ -838,16 +848,16 @@ Proof.
 Admitted.
 
       
-Lemma zero_sum_stsh_tr_Rd_rev {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
-  forall (os ns: state n l) (ret_data : nat),
+Lemma zero_sum_stsh_tr_Rd_rev {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l):
+  forall (os ns: state l) (ret_data : nat),
     access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
 Admitted.    
 
 
-Lemma read_access_wf {n l : nat}(id : block_id)(v : nat) :
-  state_prob_lift (fun st => @well_formed n l st /\ kv_rel id v st) (fun st => @well_formed n l st /\ kv_rel id v st) (has_value v) (read_access id).
+Lemma read_access_wf {l : nat}(id : block_id)(v : nat) :
+  state_prob_lift (fun st => @well_formed l st /\ kv_rel id v st) (fun st => @well_formed l st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
-  remember (fun st : state n l => well_formed st /\ kv_rel id v st) as Inv. 
+  remember (fun st : state l => well_formed st /\ kv_rel id v st) as Inv. 
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
@@ -857,26 +867,26 @@ Proof.
       apply (state_prob_bind Inv (fun _ => True)).
       * apply put_wf. rewrite HeqInv in H; destruct H. rewrite HeqInv. split. exact H.
         apply zero_sum_stsh_tr_Rd_rev with
-          (ns := s)(os := x)(p := (lookup_dict dummy_path id (state_position_map x)))(p_new := x0)(v:= n0).
+          (ns := s)(os := x)(p := (lookup_dict dummy_path id (state_position_map x)))(p_new := x0)(v:=v ).
         -- exact (state_position_map x).
         -- exact (state_stash x).
         -- exact (state_oram x).
-        -- exact Heqp.
+        -- admit.
       * intros. rewrite HeqInv. apply state_prob_ret. rewrite HeqInv in H. destruct H. simpl.
         rewrite zero_sum_stsh_tr_Rd with (v := v) (nst := s) in Heqp.
         inversion Heqp; auto. exact H2.
-Qed.
+Admitted.
 
-Lemma write_access_wf {n l: nat}(id : block_id)(v : nat) :
-  state_prob_lift (fun st => @well_formed n l st) (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
-  remember (fun st : state n l => well_formed st) as Inv.
+Lemma write_access_wf {l: nat}(id : block_id)(v : nat) :
+  state_prob_lift (fun st => @well_formed l st) (fun st => @well_formed l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+  remember (fun st : state l => well_formed st) as Inv.
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
     apply (state_prob_bind Inv (fun _ => True)).
     + apply coin_flip_wf.
     + intros. destruct access_helper eqn:?.
-      apply (state_prob_bind (fun st => @well_formed n l st /\ kv_rel id v st) (fun _ => True)).
+      apply (state_prob_bind (fun st => @well_formed l st /\ kv_rel id v st) (fun _ => True)).
       * apply put_wf; simpl; split. rewrite HeqInv in H. exact H. 
         eapply zero_sum_stsh_tr_Wr; eauto.
       * intros. rewrite HeqInv. eapply state_prob_ret. auto.
@@ -888,8 +898,8 @@ Qed.
  * and returns the correct value
  *)
 
-Lemma write_and_read_access_lift {n l: nat}(id : block_id)(v : nat):
-  state_prob_lift (@well_formed n l) well_formed (has_value v)
+Lemma write_and_read_access_lift {l: nat}(id : block_id)(v : nat):
+  state_prob_lift (@well_formed l) well_formed (has_value v)
                   (write_and_read_access id v).
 Proof.
   apply (state_prob_bind
@@ -897,12 +907,12 @@ Proof.
            (fun _ => True)).
   - eapply write_access_wf.
   - intros _ _.
-    apply (state_prob_lift_weaken (fun st : state n l => well_formed st /\ kv_rel id v st)).
+    apply (state_prob_lift_weaken (fun st : state l => well_formed st /\ kv_rel id v st)).
     + tauto.
     + apply read_access_wf.
 Qed.
 
-Lemma extract_payload {n l : nat}  (id : block_id) (v: nat) (s : state n l) : 
+Lemma extract_payload {l : nat}  (id : block_id) (v: nat) (s : state l) : 
   plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
   get_payload (write_and_read_access id v s) = Some v.
 Proof.
@@ -914,7 +924,7 @@ Proof.
     destruct H1. simpl in H1. congruence.
 Admitted.
 
-Theorem PathORAM_simulates_RAM {n l : nat} (id : block_id) (v : nat) (s : state n l) :
+Theorem PathORAM_simulates_RAM {l : nat} (id : block_id) (v : nat) (s : state l) :
   well_formed s ->
     get_payload(write_and_read_access id v s) = Some v.
 Proof.
