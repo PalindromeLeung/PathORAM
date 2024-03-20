@@ -788,25 +788,28 @@ Lemma zero_sum_stsh_tr_Wr {l : nat} (id : block_id) (v : nat) (m : position_map 
   forall (nst : state l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
-  (* unfold access_helper; simpl. *)
-  (* intros. inversion H. subst. *)
+  unfold access_helper. simpl in *.
+  intros. 
+  destruct o.
+  - (* Leaf_ORAM *)
+    unfold write_back in H. unfold blocks_selection in H; simpl in *. inversion H.
+    (* + admit. *)
+    + unfold kv_rel. left.     (* chooese in_stash as the goal *)
+      unfold blk_in_stash. simpl. left. auto.
+      
+  - (* Node_ORAM *)
+    unfold write_back in H.
+    induction l; simpl.
+    + (* O for l  *)
+      unfold blocks_selection in H; simpl in *.
+      admit.
+    + (* induction case for l *)
+     
+    
+
+
   
-
-
-
-
-  
-  (* destruct o. *)
-  (* - unfold access_helper. simpl. unfold kv_rel. unfold blocks_selection; simpl. intros. inversion H; simpl in * . left. unfold blk_in_stash. simpl. left. reflexivity. *)
-  (* -  *)
-
-
-
-
-
-  
-  destruct l; intros.
-  - dependent induction o. (* we need H to give us a contradiction, but that isn't provable yet *)
+          - dependent induction o. (* we need H to give us a contradiction, but that isn't provable yet *)
     (* specifically, access_helper should only be defined when the oram is level at least 1 *)
     admit.
   - (* now we are in the actually viable case. prove following the structure of access_helper *)
