@@ -370,10 +370,10 @@ Record block : Type := Block
   { block_blockid : block_id
   ; block_payload : nat
   }.
-Definition path (l : nat) := Vector.t bool l.
-Definition position_map (l : nat) := dict block_id (path l).
+Definition path := list bool.
+Definition position_map := dict block_id path.
 Definition stash := list block.
-Definition bucket (n : nat) := Vector.t block n.
+Definition bucket := list block.
 
 (* Inductive oram (n : nat) : forall (l : nat), Type := *)
 (*   | Leaf_ORAM : oram n 0 *)
@@ -381,20 +381,17 @@ Definition bucket (n : nat) := Vector.t block n.
 (* Arguments Leaf_ORAM {n}. *)
 (* Arguments Node_ORAM {n l} _ _ _ _. *)
 
-Inductive oram : forall (l : nat), Type :=
-| leaf: oram 0
-| node: forall {l : nat}, list block -> oram l -> oram l -> oram (S l).
+Inductive oram : Type :=
+| leaf
+| node (payload:bucket) (o_l o_r : oram). 
 
-Arguments node {l} _ _ _.
-Check (0 <= S 0)%nat.
-
-Fixpoint bound_pred {l : nat} (o : oram l ) (n : nat) : Prop :=
+Fixpoint bound_pred (o : oram) (n : nat) : Prop :=
   match o with 
   | leaf => True
   | node bkt g_l g_r => (Nat.le (List.length bkt) n) /\ bound_pred g_l n /\ bound_pred g_r n
   end.    
 
-Fixpoint In_tree {l : nat}(id : block_id) (v : nat) (o : oram l) : Prop :=
+Fixpoint In_tree (id : block_id) (v : nat) (o : oram) : Prop :=
   match o with
   | leaf => False
   | node bk l r => In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
@@ -418,48 +415,65 @@ Proof.
   exact (f x s').
 Defined.
 
-Definition head_oram {l : nat} (o : oram (S l)) : list block :=
+Definition head_oram (o : oram) : option(list block) :=
   match o with
-  | node bkt _ _ => bkt
+  | leaf => None
+  | node bkt _ _ => Some bkt
   end.
 
-Definition tail_l_oram {l : nat} (o : oram (S l)) : oram l:=
+Definition tail_l_oram (o : oram) : oram :=
   match o with
+  | leaf => leaf
   | node  _ o_l _ => o_l
   end.
 
-Definition tail_r_oram {l : nat} (o : oram (S l)) : oram l :=
+Definition tail_r_oram (o : oram) : oram :=
   match o with
+  | leaf => leaf
   | node _ _ o_r => o_r
   end.
 
 Record state (l : nat) : Type := State
-  { state_position_map : position_map l
+  { state_position_map : position_map
   ; state_stash : stash
-  ; state_oram : oram l
+  ; state_oram : oram
   }.
-Arguments State {l} _ _ _.
-Arguments state_position_map {l} _.
-Arguments state_stash {l} _.
-Arguments state_oram {l} _.
+
+(* Arguments State  _ _ _. *)
+(* Arguments state_position_map _. *)
+(* Arguments state_stash _. *)
+(* Arguments state_oram _. *)
   
 Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
   fun s => mreturn(s,s). 
 
 Definition Poram_st_put {S M} `{Monad M} (st : S) :
   Poram_st S M unit := fun s => mreturn(tt, st).
-  
-Fixpoint lookup_path_oram {l : nat} : forall (p : path l) (o : oram l), list (list block) :=
-  match l with
-  | O => fun _ _ => [[]]
-  | S l' => fun p o =>
-      let b := head_vec p in
-      let p' := tail_vec p in
-      let bkt := head_oram o in
-      let o_l := tail_l_oram o in
-      let o_r := tail_r_oram o in
-      cons bkt (lookup_path_oram p' (if b then o_l else o_r))
+
+Fixpoint get_height (o : oram) : nat :=
+  match o with
+  | leaf => 0
+  | node  _ l r => S (max (get_height l) (get_height r))
   end.
+
+
+Fixpoint is_p_b_tr (o : oram) : Prop :=
+  match o with
+  | leaf => True
+  | node _ l r => get_height l = get_height r
+                 /\ (is_p_b_tr l) /\( is_p_b_tr r)
+  end.    
+
+Fixpoint lookup_path_oram (o : oram) : path -> list (option bucket).
+  refine(
+  match o with
+  | leaf => fun _ => [Some []]
+  | node bkt o_l o_r => fun p => 
+      match _ with
+      | true => (Some bkt) :: lookup_path_oram o_l _ 
+      | false => (Some bkt) :: lookup_path_oram o_r _ 
+      end
+  end).
 
 #[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
   {|mreturn A := retT; mbind X Y := bindT |}.
@@ -470,23 +484,41 @@ Inductive operation :=
   | Read : operation 
   | Write : nat -> operation.
 
-Definition dummy_block : block := Block O O.
-Definition dummy_path {l : nat} : path l := const_vec false l.
 
-Definition get_cand_bs {l : nat} (o : oram l) : list block := [].
 
-(* cap is the capability of each node, the current magic number is 4 based on the original paper *)
+Scheme Equality for list.
+Scheme Equality for prod.
 
-Definition get_write_back_blocks {l : nat} (o : oram l) (cap : nat)
-  (h : stash) (id : nat) : list block :=
+Print list_beq.
+
+Definition isEqvPath (p1 p2 : path) (idx : nat) : bool := list_beq bool Bool.eqb  (takeL idx p1) (takeL idx p2).
+  
+Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
+  match n with
+  | O => []
+  | S m => b :: makeBoolList b m
+  end.
+
+(* Definition dummy_block : block := Block O O. *)
+
+Fixpoint get_cand_bs (h : stash)(p : path)(stop : nat)(m : position_map) : list block :=
+  match h with
+  | [] => []
+  | x :: xs =>
+      let l := length (dict_elems m) in 
+      let rhs_path := lookup_dict (makeBoolList false l) (block_blockid x) m in
+      if @isEqvPath p rhs_path stop 
+      then x :: get_cand_bs xs p stop m 
+      else get_cand_bs xs p stop m 
+  end. 
+
+(* n is the capability of each node, the current magic number is 4 based on the original paper *)
+
+Definition get_write_back_blocks (p : path) (h : stash) (n : nat)(lvl : nat) (mp : position_map ) : list block :=
   match (length h) with
   | O => []
-  | S m => let cand_bs := get_cand_bs o in (* to be implemented *)
-          if Nat.leb cap (length(cand_bs))
-          then let wbSz := cap in
-               takeL cap cand_bs
-          else let wbSz := length(cand_bs) in 
-               takeL wbSz cand_bs
+  | S m => let cand_bs := get_cand_bs h p lvl mp in
+          takeL (Nat.min (length cand_bs) n ) cand_bs
   end.
 
 Fixpoint remove_list_sub (subList : list block) (p : block_id -> block_id -> bool) (lst : list block) : list block :=
@@ -510,9 +542,8 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-Fixpoint up_oram_tr {l : nat} (o : oram l) (stop : nat) (d_n : list block
-  ) :
-  path l -> oram l := 
+Fixpoint up_oram_tr (o : oram) (stop : nat) (d_n : list block) :
+  path -> oram := 
   match o in (oram l) return path l -> oram l with
   | leaf => fun _ => leaf
   | node d_o o_l o_r =>
