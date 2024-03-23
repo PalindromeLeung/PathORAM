@@ -622,7 +622,7 @@ Definition blocks_selection (id : block_id) (p : path) (lvl : nat) (s : state ) 
 Fixpoint write_back (s : state) (id : block_id) (p : path) (lvl : nat) : state := 
   match lvl with
   | O => blocks_selection id p O s
-  | S m => write_back (blocks_selection id p m s) id p m
+  | S m => write_back (blocks_selection id p lvl s) id p m
   end.
 
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
@@ -640,7 +640,7 @@ Fixpoint concat_option (l : list (option bucket)) : list block :=
     
 
 Definition access_helper (id : block_id) (op : operation) (m : position_map)
-                                   (h : stash) (o : oram) (p : path)  (p_new : path) :=
+  (h : stash) (o : oram) (p : path)  (p_new : path) :=
   (* update the position map with the new path *)
   let m' := update_dict id p_new m in
   (* read the path for the index from the oram *)
@@ -659,7 +659,7 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
     | Read => h'
     | Write d => (Block id d) ::  h''
     end in
-  let n_st := write_back (State m' h''' o) id p in
+  let n_st := write_back (State m' h''' o) id p (length p)in
   (n_st, ret_data).
   
 Definition access (id : block_id) (op : operation) :
