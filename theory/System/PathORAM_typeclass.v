@@ -607,7 +607,7 @@ Proof.
 Qed.
 (* --- END Talia's equivalent definition of nth to reuse later --- *)
 
-Definition blocks_selection (id : block_id) (p : path) (lvl : nat) (s : state ) : state :=
+Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
@@ -619,10 +619,10 @@ Definition blocks_selection (id : block_id) (p : path) (lvl : nat) (s : state ) 
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
 
-Fixpoint write_back (s : state) (id : block_id) (p : path) (lvl : nat) : state := 
+Fixpoint write_back (s : state) (p : path) (lvl : nat) : state := 
   match lvl with
-  | O => blocks_selection id p O s
-  | S m => write_back (blocks_selection id p lvl s) id p m
+  | O => blocks_selection p O s
+  | S m => write_back (blocks_selection p lvl s) p m
   end.
 
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
@@ -659,7 +659,7 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
     | Read => h'
     | Write d => (Block id d) ::  h''
     end in
-  let n_st := write_back (State m' h''' o) id p (length p)in
+  let n_st := write_back (State m' h''' o) p (length p)in
   (n_st, ret_data).
   
 Definition access (id : block_id) (op : operation) :
@@ -676,7 +676,7 @@ Definition access (id : block_id) (op : operation) :
   (* flip a bunch of coins to get the new path *)      
   (* p_new <- dist2Poram (constm_vec coin_flip len_m) ;; *)
   (* get the updated path oram state to put and the data to return *)
-  let (n_st, ret_data) := access_helper id op m h o p _ in (* new path is not ready yet *) (*culprit here*)
+  let (n_st, ret_data) := access_helper id op m h o p _ in (* new path is not ready yet *) 
   (* put the updated state back *)
   (* _ <- Poram_st_put n_st ;; *)
   (* return the path l and the return value *)
@@ -829,29 +829,27 @@ Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
 Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-Require Import Coq.Program.Equality.      
+Require Import Coq.Program.Equality.
+
+Lemma write_back_leaf: forall (s : state) (p : path) (lvl : nat), state_oram s = leaf -> write_back s p lvl = s. Admitted.
+
 
 Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
   forall (nst : state) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
-  unfold access_helper. simpl in *.
+  unfold access_helper. simpl in *. 
   intros. 
   destruct o.
   - (* Leaf_ORAM *)
-    unfold write_back in H. unfold blocks_selection in H; simpl in *. inversion H.
-    (* + admit. *)
-    + unfold kv_rel. left.     (* chooese in_stash as the goal *)
-      unfold blk_in_stash. simpl. left. auto.
-      
+    intros; simpl in *.
+    unfold write_back in H. simpl in *.
+    unfold blocks_selection in H; simpl in *. admit.
+  (* since it does not write back to the tree then it should remain in the stash. left in kv_rel *)
+    
   - (* Node_ORAM *)
     unfold write_back in H.
-    induction l; simpl.
-    + (* O for l  *)
-      unfold blocks_selection in H; simpl in *.
-      admit.
-    + (* induction case for l *)
-     
+    right.
     
 
 
