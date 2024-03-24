@@ -96,13 +96,13 @@ Fixpoint const_vec {A : Type} (x : A) (n : nat) : Vector.t A n :=
   | S n' => Vector.cons _ x _ (const_vec x n')
   end.
 
-Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (Vector.t A n) :=
+Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (list A) :=
   match n with
-  | O => mreturn (Vector.nil A)
+  | O => mreturn (@nil A)
   | S n' =>
       x <- xM ;;
       xs <- constm_vec xM n' ;;
-      mreturn (Vector.cons _ x _ xs)
+      mreturn (cons x xs)
   end.
 
 Definition to_list_vec {A : Type} {n : nat} := @Vector.to_list A n.
@@ -464,17 +464,21 @@ Fixpoint is_p_b_tr (o : oram) : Prop :=
                  /\ (is_p_b_tr l) /\( is_p_b_tr r)
   end.    
 
-Fixpoint lookup_path_oram (o : oram) : path -> list (option bucket).
-  refine(
+Fixpoint lookup_path_oram (o : oram) : path -> list (bucket) :=
   match o with
-  | leaf => fun _ => [Some []]
-  | node bkt o_l o_r => fun p => 
-      match _ with
-      | true => (Some bkt) :: lookup_path_oram o_l _ 
-      | false => (Some bkt) :: lookup_path_oram o_r _ 
-      end
-  end).
-Admitted.
+  | leaf => fun _ => []
+  | node bkt o_l o_r =>
+      fun p => 
+        match p with
+        | [] => []
+        | h :: t =>
+            match h with
+            | true => (bkt) :: lookup_path_oram o_l t 
+            | false => (bkt) :: lookup_path_oram o_r t 
+            end
+        end
+  end.
+
 
 #[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
   {|mreturn A := retT; mbind X Y := bindT |}.
@@ -646,7 +650,7 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
   (* read the path for the index from the oram *)
   let bkts := lookup_path_oram o p in
   (* update the stash to include these blocks *)
-  let bkt_blocks := concat_option bkts in
+  let bkt_blocks := concat bkts in
   (* look up payload inside the stash *)
   let ret_data := lookup_ret_data id bkt_blocks in
   let h' := bkt_blocks ++ h in
@@ -672,13 +676,13 @@ Definition access (id : block_id) (op : operation) :
   let o := state_oram PST in 
   (* get path for the index we are querying *)
   let len_m := length (dict_elems m) in 
-  let p := lookup_dict  (makeBoolList false len_m) id m in
+  let p := lookup_dict (makeBoolList false len_m) id m in
   (* flip a bunch of coins to get the new path *)      
-  (* p_new <- dist2Poram (constm_vec coin_flip len_m) ;; *)
+  p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
   (* get the updated path oram state to put and the data to return *)
-  let (n_st, ret_data) := access_helper id op m h o p _ in (* new path is not ready yet *) 
+  let (n_st, ret_data) := access_helper id op m h o p p_new in (* new path is not ready yet *) 
   (* put the updated state back *)
-  (* _ <- Poram_st_put n_st ;; *)
+  _ <- Poram_st_put n_st ;;
   (* return the path l and the return value *)
   mreturn((p, ret_data))
   ).
@@ -800,9 +804,9 @@ Lemma get_State_wf {Pre : state-> Prop} :
   state_prob_lift Pre Pre Pre get_State.
 Admitted.
 
-(* Lemma coin_flip_wf {Pre : state -> Prop}: *)
-(*   state_prob_lift Pre Pre (fun _ => True) (dist2Poram (constm_vec coin_flip l)). *)
-(* Admitted. *)
+Lemma coin_flip_wf {Pre : state -> Prop} (l : nat):
+  state_prob_lift Pre Pre (fun _ => True) (dist2Poram (constm_vec coin_flip l)).
+Admitted.
 
 Lemma put_wf {Pre Pre' : state -> Prop} {s : state}:
   Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
@@ -831,35 +835,61 @@ Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
 
 Require Import Coq.Program.Equality.
 
-Lemma write_back_leaf: forall (s : state) (p : path) (lvl : nat), state_oram s = leaf -> write_back s p lvl = s. Admitted.
+Lemma write_back_preservation :
+  forall (lvl : nat) (s : state) (p : path) (P : state -> Prop ),
+    P s -> (forall s' lvl' p' , P s' -> P (blocks_selection p' lvl' s' ))
+    -> P (write_back s p lvl).
+Proof.
+  induction lvl; simpl.
+  - intros. auto.
+  - intros. apply IHlvl.
+    + apply H0. auto.
+    + trivial.
+Qed.
 
+
+Lemma inListPartition:
+  forall {A} (a b c: list A) x, In x a \/ In x (b ++ c) -> In x (a ++ b) \/ In x c.
+Proof.
+  intros.
+  repeat rewrite in_app_iff in *.
+  destruct H.
+  repeat left; auto.
+
+  destruct H.
+  left. right; auto.
+  right; auto.
+Qed.
 
 Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
   forall (nst : state) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
   unfold access_helper. simpl in *. 
-  intros. 
-  destruct o.
-  - (* Leaf_ORAM *)
-    intros; simpl in *.
-    unfold write_back in H. simpl in *.
-    unfold blocks_selection in H; simpl in *. admit.
-  (* since it does not write back to the tree then it should remain in the stash. left in kv_rel *)
+  intros.
+  inversion H.
+  apply write_back_preservation.
+  - left. unfold blk_in_stash; simpl. left. auto. 
+  - intros. 
+    admit.  (* I have a lemma for this ready three semesters ago.  *)
+Admitted.
     
-  - (* Node_ORAM *)
-    unfold write_back in H.
-    right.
-    
+
+
+
+
+
+
+
 
 
   
-          - dependent induction o. (* we need H to give us a contradiction, but that isn't provable yet *)
+    
+
+
+(* we need H to give us a contradiction, but that isn't provable yet *)
     (* specifically, access_helper should only be defined when the oram is level at least 1 *)
-    admit.
-  - (* now we are in the actually viable case. prove following the structure of access_helper *)
-    admit.
-Admitted.
+  (* now we are in the actually viable case. prove following the structure of access_helper *)
 
 (* how do things change when you add up a level? Can you invert it?  *)
 
@@ -872,34 +902,16 @@ Admitted.
 (*   access_helper id Read m h o2 p p_new = (nst, v) -> *)
 (*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
 
-Lemma zero_sum_stsh_tr_Rd {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l):
-  forall (nst : state l),
-    kv_rel id v (State m h o) -> 
-    access_helper id Read m h o p p_new = (nst, v).
-Proof.
-  intros.
-  destruct H.
-  - admit.                     (* in stash  *)
-  - unfold blk_in_tree in H.
-    dependent induction o; simpl in *; intros.
-    + contradiction.
-    + intuition.
-      * admit. 
-    (*   * specialize (IHo1 (VectorDef.tl m) (VectorDef.tl p) (VectorDef.tl p_new)).   Print position_ *)
-    (*     Print access_helper. *)
-    (*     specialize (IHo1 id v ( *)
-    (*   dependent induction o; simpl in *. *)
-    (* + contradiction. *)
-    (* + intuition. *)
-    (*   * admit. *)
-    (*   *  *)
-Admitted.
-
+(* Lemma zero_sum_stsh_tr_Rd {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l): *)
+(*   forall (nst : state l), *)
+(*     kv_rel id v (State m h o) ->  *)
+(*     access_helper id Read m h o p p_new = (nst, v). *)
+(* Admitted. *)
       
-Lemma zero_sum_stsh_tr_Rd_rev {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l):
-  forall (os ns: state l) (ret_data : nat),
-    access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
-Admitted.    
+(* Lemma zero_sum_stsh_tr_Rd_rev {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l): *)
+(*   forall (os ns: state l) (ret_data : nat), *)
+(*     access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns. *)
+(* Admitted.     *)
 
 
 Lemma read_access_wf {l : nat}(id : block_id)(v : nat) :
