@@ -621,8 +621,8 @@ Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
 
 Fixpoint write_back (s : state) (p : path) (lvl : nat) : state := 
   match lvl with
-  | O => blocks_selection p O s
-  | S m => write_back (blocks_selection p lvl s) p m
+  | O => s 
+  | S m => write_back (blocks_selection p m s) p m
   end.
 
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
