@@ -4,6 +4,8 @@ Require Import Coq.Lists.List.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Classes.EquivDec.
 Import ListNotations.
+Require Import Coq.Program.Equality.
+
 (*** CLASSES ***)
 
 (* I'm rolling my own version of lots of datatypes and using typeclasses
@@ -833,11 +835,10 @@ Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
 Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-Require Import Coq.Program.Equality.
 
 Lemma write_back_preservation :
   forall (lvl : nat) (s : state) (p : path) (P : state -> Prop ),
-    P s -> (forall s' lvl' p' , P s' -> P (blocks_selection p' lvl' s' ))
+    P s -> (forall s' lvl' , P s' -> P (blocks_selection p lvl' s' ))
     -> P (write_back s p lvl).
 Proof.
   induction lvl; simpl.
@@ -846,21 +847,50 @@ Proof.
     + apply H0. auto.
     + trivial.
 Qed.
+    
+Lemma kv_in_dlt_remain_in_stsh :
+  forall (id : block_id) (v : nat) (s : state) (del :list block),
+    blk_in_stash id v s
+    /\ (not (In (Block id v) del)) -> (forall (stsh : list block), stsh = remove_list_sub del (fun blk : block_id => equiv_decb blk) (state_stash s) -> In (Block id v) stsh ).
+Admitted.
 
 
-Lemma inListPartition:
-  forall {A} (a b c: list A) x, In x a \/ In x (b ++ c) -> In x (a ++ b) \/ In x c.
+(* Lemma kv_in_dlt_move_to_tree: *)
+(*   forall (id : block_id) (v : nat) (s : state) (del : list block), *)
+(*     blk_in_stash id v s *)
+(*     /\ (In (Block id v) del) -> (forall (s' : state),  *)
+
+Lemma kv_in_tree_remain_in_tree :
+  forall (s : state) (id : block_id) (v : nat) (del : list block)
+    (lvl: nat )(p :path),
+    In_tree id v (state_oram s) ->    
+    In_tree id v (up_oram_tr (state_oram s) lvl del p).
+Admitted.
+
+
+Lemma blocks_selection_preservation:
+  forall (lvl : nat) (s : state) (p : path) (id : block_id) (v : nat),
+    kv_rel id v s -> kv_rel id v(blocks_selection p lvl s).
 Proof.
   intros.
-  repeat rewrite in_app_iff in *.
-  destruct H.
-  repeat left; auto.
-
-  destruct H.
-  left. right; auto.
-  right; auto.
-Qed.
-
+  unfold blocks_selection.
+  remember  (get_write_back_blocks p (state_stash s) 4 lvl
+             (state_position_map s)) as dlt.
+  unfold kv_rel.
+  unfold blk_in_tree. inversion H.
+  - (* assuming blk in stash *)
+  unfold blk_in_stash in *.
+  left. simpl in *.
+  apply kv_in_dlt_remain_in_stsh with(s := s )(del := dlt). split; auto.
+  + admit.                      (* need to show (id,v) is not in delta *)
+  + auto.
+  
+  - (* assuming blk in tree *)
+    right.                      (* starting with In_tree, after adding dlt will still be in tree *)
+    simpl. apply kv_in_tree_remain_in_tree.
+    unfold blk_in_tree in H0. auto.
+Admitted. 
+     
 Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
   forall (nst : state) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
@@ -870,48 +900,9 @@ Proof.
   inversion H.
   apply write_back_preservation.
   - left. unfold blk_in_stash; simpl. left. auto. 
-  - intros. 
-    admit.  (* I have a lemma for this ready three semesters ago.  *)
-Admitted.
-    
-
-
-
-
-
-
-
-
-
-  
-    
-
-
-(* we need H to give us a contradiction, but that isn't provable yet *)
-    (* specifically, access_helper should only be defined when the oram is level at least 1 *)
-  (* now we are in the actually viable case. prove following the structure of access_helper *)
-
-(* how do things change when you add up a level? Can you invert it?  *)
-
-
-(* Lemma access_helper_inj_l {n l :nat} (id : block_id)(v : nat) (b : bucket n)(nst : _) (m : position_map (S l)) (h : stash n) (o1 o2 : oram n (S l)) (p : path (S l))  (p_new : path (S l)) : *)
-(*   access_helper id Read m h o1 (VectorDef.tl p) (VectorDef.tl p_new) = (nst, v) -> *)
-(*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
-  
-(* Lemma access_helper_inj_r {n l :nat} (id : block_id) (v : nat) (b : bucket n )(nst: _) (m : position_map l) (h : stash n) (o1 o2 : oram n l) (p : path l)  (p_new : path l) : *)
-(*   access_helper id Read m h o2 p p_new = (nst, v) -> *)
-(*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
-
-(* Lemma zero_sum_stsh_tr_Rd {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l): *)
-(*   forall (nst : state l), *)
-(*     kv_rel id v (State m h o) ->  *)
-(*     access_helper id Read m h o p p_new = (nst, v). *)
-(* Admitted. *)
-      
-(* Lemma zero_sum_stsh_tr_Rd_rev {l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram l) (p : path l)  (p_new : path l): *)
-(*   forall (os ns: state l) (ret_data : nat), *)
-(*     access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns. *)
-(* Admitted.     *)
+  - intros.
+    apply blocks_selection_preservation. auto.
+Qed.    
 
 
 Lemma read_access_wf {l : nat}(id : block_id)(v : nat) :
