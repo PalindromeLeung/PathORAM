@@ -553,22 +553,25 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   end.
 
 Fixpoint up_oram_tr (o : oram) (stop : nat) (d_n : list block) :
-  path -> oram.
-  refine(
+  path -> oram :=
   match o in oram return path -> oram with
   | leaf => fun _ => leaf
   | node d_o o_l o_r =>
       fun p =>
         match stop with
-        | O => node d_n  o_l o_r
+        | O => node d_n o_l o_r
         | S stop' =>
-            match _ with
-            | true => node d_o (up_oram_tr o_l stop' d_n _ ) o_r
-            | false => node d_o o_l(up_oram_tr o_r stop' d_n _)
+            match p with
+            | [] => node d_o o_l o_r
+            | x :: xs =>
+                match x with
+                | true => node d_o (up_oram_tr o_l stop' d_n xs ) o_r
+                | false => node d_o o_l(up_oram_tr o_r stop' d_n xs)
+                end
             end
         end
-  end).
-Admitted.
+  end.
+
              
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
 Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
@@ -889,7 +892,10 @@ Lemma kv_in_delta_to_tree :
     (lvl: nat )(p :path),
     In (Block id v) del ->    
     In_tree id v (up_oram_tr (state_oram s) lvl del p).
-Admitted.
+Proof.
+  
+
+  
 
 Lemma blocks_selection_preservation:
   forall (lvl : nat) (s : state) (p : path) (id : block_id) (v : nat),
