@@ -844,12 +844,6 @@ Proof.
     + apply H0. auto.
     + trivial.
 Qed.
-    
-Lemma kv_in_stsh_kv_rel:
-  forall (id : block_id) (v : nat) (s : state) (del :list block),
-    blk_in_stash id v s /\ (not (In (Block id v) del)) ->
-    (forall (stsh : list block), stsh = remove_list_sub del (fun blk : block_id => equiv_decb blk) (state_stash s) -> In (Block id v) stsh ).
-Admitted.
 
 Lemma kv_in_list_partition:
   forall (id : block_id) (v : nat) (s : state) (del :list block),
@@ -859,12 +853,6 @@ Lemma kv_in_list_partition:
           (fun blk : block_id => equiv_decb blk) (state_stash s))  \/
     (In (Block id v) del)).
 Admitted.
-
-Lemma inListPartition:
-  forall {A} (a b c: list A) x,
-    In x (a ++ b) ->
-    In x a \/ In x b. 
-Admitted. 
 
 Lemma kv_in_tree_remain_in_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
