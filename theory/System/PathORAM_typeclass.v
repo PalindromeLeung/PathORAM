@@ -848,17 +848,26 @@ Proof.
     + trivial.
 Qed.
     
-Lemma kv_in_dlt_remain_in_stsh :
+Lemma kv_in_stsh_kv_rel:
   forall (id : block_id) (v : nat) (s : state) (del :list block),
-    blk_in_stash id v s
-    /\ (not (In (Block id v) del)) -> (forall (stsh : list block), stsh = remove_list_sub del (fun blk : block_id => equiv_decb blk) (state_stash s) -> In (Block id v) stsh ).
+    blk_in_stash id v s /\ (not (In (Block id v) del)) ->
+    (forall (stsh : list block), stsh = remove_list_sub del (fun blk : block_id => equiv_decb blk) (state_stash s) -> In (Block id v) stsh ).
 Admitted.
 
+Lemma kv_in_list_partition:
+  forall (id : block_id) (v : nat) (s : state) (del :list block),
+    blk_in_stash id v s ->
+    (In (Block id v)
+       (remove_list_sub del
+          (fun blk : block_id => equiv_decb blk) (state_stash s))  \/
+    (In (Block id v) del)).
+Admitted.
 
-(* Lemma kv_in_dlt_move_to_tree: *)
-(*   forall (id : block_id) (v : nat) (s : state) (del : list block), *)
-(*     blk_in_stash id v s *)
-(*     /\ (In (Block id v) del) -> (forall (s' : state),  *)
+Lemma inListPartition:
+  forall {A} (a b c: list A) x,
+    In x (a ++ b) ->
+    In x a \/ In x b. 
+Admitted. 
 
 Lemma kv_in_tree_remain_in_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
@@ -876,15 +885,24 @@ Proof.
   unfold blocks_selection.
   remember  (get_write_back_blocks p (state_stash s) 4 lvl
              (state_position_map s)) as dlt.
-  unfold kv_rel.
-  unfold blk_in_tree. inversion H.
+  inversion H.
   - (* assuming blk in stash *)
-  unfold blk_in_stash in *.
-  left. simpl in *.
-  apply kv_in_dlt_remain_in_stsh with(s := s )(del := dlt). split; auto.
-  + admit.                      (* need to show (id,v) is not in delta *)
-  + auto.
-  
+    (* left or right both could be possible  *)
+    unfold kv_rel. 
+    apply kv_in_list_partition with (del := dlt) in H0.
+    left; unfold blk_in_stash; simpl. 
+    (* right; unfold blk_in_tree; auto; simpl. *)
+    destruct H0; simpl. 
+    unfold blk_in_stash; auto; simpl.
+    
+    
+
+
+    
+    apply kv_in_dlt_remain_in_stsh with(s := s )(del := dlt). split; auto.
+    + admit.            (* need to show (id,v) is not in delta *)
+    + auto.
+      
   - (* assuming blk in tree *)
     right.                      (* starting with In_tree, after adding dlt will still be in tree *)
     simpl. apply kv_in_tree_remain_in_tree.
