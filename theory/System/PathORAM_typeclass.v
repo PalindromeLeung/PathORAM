@@ -528,6 +528,8 @@ Definition get_write_back_blocks (p : path) (h : stash) (n : nat)(lvl : nat) (mp
           takeL (Nat.min (length cand_bs) n ) cand_bs
   end.
 
+Scheme Equality for nat.
+
 Fixpoint remove_list_sub (subList : list block) (lst : list block) : list block :=
   match lst with
   | [] => []
@@ -535,7 +537,8 @@ Fixpoint remove_list_sub (subList : list block) (lst : list block) : list block 
     match subList with
      | [] => lst
      | h' :: t' =>
-      if equiv_dec (block_blockid h) (block_blockid h') 
+         if andb (Nat.eqb (block_blockid h) (block_blockid h'))
+              (Nat.eqb (block_payload h) (block_payload h'))
       then remove_list_sub t' t
       else remove_list_sub t' lst
     end
@@ -797,8 +800,6 @@ Admitted.
 (*     apply H3; auto. *)
 (* Qed. *)
 
-(* TODO: having a lemma about get_pos_map is too speicific, find a way to formalize the get lemma that's genenral enough that can be applied to the other get operations  *)
-
 Lemma get_State_wf {Pre : state-> Prop} :
   state_prob_lift Pre Pre Pre get_State.
 Admitted.
@@ -819,7 +820,7 @@ Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
             | (((_,v),_), _)  => Some v
             end
   end.
-
+             
 Definition blk_in_tree (id : block_id) (v : nat )(st : state ) : Prop :=
   let o := state_oram st in 
   In_tree id v o.
@@ -854,9 +855,9 @@ Proof.
   - left. destruct lst; auto.
   - destruct IHsub.
     + simpl. destruct lst; auto.
-      destruct (block_blockid b == block_blockid a).
+      destruct (block_blockid b == block_blockid a). 
       *                         (* stuck becasue In x l is too strong  *)
-Abort.
+Admitted.
         
 Lemma kv_in_list_partition:
   forall (id : block_id) (v : nat) (s : state) (del : list block),
