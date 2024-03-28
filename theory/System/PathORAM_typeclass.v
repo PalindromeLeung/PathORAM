@@ -669,8 +669,7 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
   (n_st, ret_data).
   
 Definition access (id : block_id) (op : operation) :
-  Poram_st state dist (path * nat).
-  refine(
+  Poram_st state dist (path * nat) :=
   PST <- get_State ;;
   (* unpack the state *)
   let m := state_position_map PST in
@@ -686,9 +685,7 @@ Definition access (id : block_id) (op : operation) :
   (* put the updated state back *)
   _ <- Poram_st_put n_st ;;
   (* return the path l and the return value *)
-  mreturn((p, ret_data))
-  ).
-Admitted.  
+  mreturn((p, ret_data)).
 
 Definition well_formed (s : state ) : Prop := True. (* placeholder for invariant of the state *)
 
@@ -876,38 +873,38 @@ Lemma kv_in_tree_remain_in_tree :
     In_tree id v (up_oram_tr (state_oram s) lvl del p).
 Admitted.
 
+Lemma kv_in_delta_to_tree :
+  forall (s : state) (id : block_id) (v : nat) (del : list block)
+    (lvl: nat )(p :path),
+    In (Block id v) del ->    
+    In_tree id v (up_oram_tr (state_oram s) lvl del p).
+Admitted.
 
 Lemma blocks_selection_preservation:
   forall (lvl : nat) (s : state) (p : path) (id : block_id) (v : nat),
-    kv_rel id v s -> kv_rel id v(blocks_selection p lvl s).
+    kv_rel id v s -> kv_rel id v (blocks_selection p lvl s).
 Proof.
   intros.
   unfold blocks_selection.
   remember  (get_write_back_blocks p (state_stash s) 4 lvl
              (state_position_map s)) as dlt.
-  inversion H.
+  destruct H.
   - (* assuming blk in stash *)
     (* left or right both could be possible  *)
     unfold kv_rel. 
-    apply kv_in_list_partition with (del := dlt) in H0.
-    left; unfold blk_in_stash; simpl. 
+    apply kv_in_list_partition with (del := dlt) in H.
+    
+    (* left; unfold blk_in_stash; simpl.  *)
     (* right; unfold blk_in_tree; auto; simpl. *)
-    destruct H0; simpl. 
-    unfold blk_in_stash; auto; simpl.
-    
-    
-
-
-    
-    apply kv_in_dlt_remain_in_stsh with(s := s )(del := dlt). split; auto.
-    + admit.            (* need to show (id,v) is not in delta *)
-    + auto.
-      
+    destruct H; simpl in *.  
+    + unfold blk_in_stash; auto.     
+    + right. simpl. unfold blk_in_tree. simpl. 
+    apply kv_in_delta_to_tree; auto.
   - (* assuming blk in tree *)
-    right.                      (* starting with In_tree, after adding dlt will still be in tree *)
+    right. (* starting with In_tree, after adding dlt will still be in tree *)
     simpl. apply kv_in_tree_remain_in_tree.
-    unfold blk_in_tree in H0. auto.
-Admitted. 
+    unfold blk_in_tree in H. auto.
+Qed.
      
 Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
   forall (nst : state) (ret_data : nat),  
