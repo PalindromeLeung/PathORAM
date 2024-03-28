@@ -534,15 +534,15 @@ Fixpoint remove_list_sub (subList : list block) (lst : list block) : list block 
   match lst with
   | [] => []
   | h :: t =>
-    match subList with
-     | [] => lst
-     | h' :: t' =>
-         if andb (Nat.eqb (block_blockid h) (block_blockid h'))
-              (Nat.eqb (block_payload h) (block_payload h'))
-      then remove_list_sub t' t
-      else remove_list_sub t' lst
-    end
-end.
+      match subList with
+      | [] => lst
+      | h' :: t' =>
+          if andb (Nat.eqb (block_blockid h) (block_blockid h'))
+               (Nat.eqb (block_payload h) (block_payload h'))
+          then remove_list_sub t' t
+          else remove_list_sub t' lst
+      end
+  end.
 
 Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   match lb with
@@ -855,8 +855,13 @@ Proof.
   - left. destruct lst; auto.
   - destruct IHsub.
     + simpl. destruct lst; auto.
-      destruct (block_blockid b == block_blockid a). 
-      *                         (* stuck becasue In x l is too strong  *)
+      destruct (block_blockid b =? block_blockid a) eqn : id_eq; simpl.
+      *  destruct (block_payload b =? block_payload a); simpl.
+         -- left. admit.              (* what if x is b?  *)
+         -- left. auto.
+      * left. auto.
+    + right. right. auto.
+        
 Admitted.
         
 Lemma kv_in_list_partition:
