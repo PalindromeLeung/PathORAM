@@ -528,16 +528,16 @@ Definition get_write_back_blocks (p : path) (h : stash) (n : nat)(lvl : nat) (mp
           takeL (Nat.min (length cand_bs) n ) cand_bs
   end.
 
-Fixpoint remove_list_sub (subList : list block) (p : block_id -> block_id -> bool) (lst : list block) : list block :=
+Fixpoint remove_list_sub (subList : list block) (lst : list block) : list block :=
   match lst with
   | [] => []
   | h :: t =>
     match subList with
      | [] => lst
      | h' :: t' =>
-      if p (block_blockid h) (block_blockid h') 
-      then remove_list_sub t' p t
-      else remove_list_sub t' p lst
+      if equiv_dec (block_blockid h) (block_blockid h') 
+      then remove_list_sub t' t
+      else remove_list_sub t' lst
     end
 end.
 
@@ -619,7 +619,7 @@ Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks p h 4 lvl m in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
-  let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
+  let up_h := remove_list_sub wbs h in 
   let up_o := up_oram_tr o lvl wbs p in
   (State m up_h up_o).
 
@@ -845,14 +845,30 @@ Proof.
     + trivial.
 Qed.
 
+
+
+
+Lemma remove_list_sub_lemma : forall (x : block) (sub : list block) (lst : list block),
+    In x lst ->
+    In x (remove_list_sub sub lst) \/ In x sub.
+Admitted.
+
+
+
+
+
 Lemma kv_in_list_partition:
-  forall (id : block_id) (v : nat) (s : state) (del :list block),
+  forall (id : block_id) (v : nat) (s : state) (del : list block),
     blk_in_stash id v s ->
     (In (Block id v)
-       (remove_list_sub del
-          (fun blk : block_id => equiv_decb blk) (state_stash s))  \/
+       (remove_list_sub del (state_stash s))  \/
     (In (Block id v) del)).
-Admitted.
+Proof.
+  intros.
+  unfold blk_in_stash in H.
+  apply remove_list_sub_lemma.
+  auto.
+Qed.  
 
 Lemma kv_in_tree_remain_in_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
