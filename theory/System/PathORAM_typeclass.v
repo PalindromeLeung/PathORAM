@@ -845,18 +845,19 @@ Proof.
     + trivial.
 Qed.
 
-
-
-
 Lemma remove_list_sub_lemma : forall (x : block) (sub : list block) (lst : list block),
     In x lst ->
     In x (remove_list_sub sub lst) \/ In x sub.
-Admitted.
-
-
-
-
-
+Proof.
+  intros.
+  induction sub.
+  - left. destruct lst; auto.
+  - destruct IHsub.
+    + simpl. destruct lst; auto.
+      destruct (block_blockid b == block_blockid a).
+      *                         (* stuck becasue In x l is too strong  *)
+Abort.
+        
 Lemma kv_in_list_partition:
   forall (id : block_id) (v : nat) (s : state) (del : list block),
     blk_in_stash id v s ->
