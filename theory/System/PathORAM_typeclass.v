@@ -571,7 +571,6 @@ Fixpoint up_oram_tr (o : oram) (stop : nat) (d_n : list block) :
             end
         end
   end.
-
              
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
 Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
@@ -807,9 +806,33 @@ Lemma get_State_wf {Pre : state-> Prop} :
   state_prob_lift Pre Pre Pre get_State.
 Admitted.
 
+
+Lemma dist2Poram_wf {X} (dx : dist X) {Pre : state -> Prop}:
+  state_prob_lift Pre Pre (fun _ => True) (dist2Poram dx).
+Proof.
+  unfold state_prob_lift.
+  intros. unfold plift. unfold Pred_Dist_Lift. unfold dist_lift.
+  unfold dist2Poram. simpl. 
+  rewrite Forall_map.
+  rewrite Forall_concat.
+  rewrite Forall_map.
+  destruct dx; simpl.
+  rewrite Forall_forall; intros.
+  rewrite Forall_forall; intros.
+  destruct x0; simpl.
+  destruct p; simpl.
+  split. exact I.
+  destruct x.
+  inversion H1.
+  - inversion H2. rewrite H5 in H. auto.
+  - simpl in H2. exfalso. auto.
+Qed.
+
 Lemma coin_flip_wf {Pre : state -> Prop} (l : nat):
   state_prob_lift Pre Pre (fun _ => True) (dist2Poram (constm_vec coin_flip l)).
-Admitted.
+Proof.
+  eapply dist2Poram_wf.
+Qed.
 
 Lemma put_wf {Pre Pre' : state -> Prop} {s : state}:
   Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
@@ -864,7 +887,6 @@ Proof.
          -- left. auto.
       * left. auto.
     + right. right. auto.
-        
 Admitted.
         
 Lemma kv_in_list_partition:
@@ -883,20 +905,51 @@ Qed.
 Lemma kv_in_tree_remain_in_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
     (lvl: nat )(p :path),
-    In_tree id v (state_oram s) ->    
+    In_tree id v (state_oram s) ->
+    (* state_oram s <> leaf -> *)
+    p <> [] ->
     In_tree id v (up_oram_tr (state_oram s) lvl del p).
+Proof.
+  intros s.
+  induction (state_oram s); intros ; simpl.
+  - contradiction.
+  - destruct lvl; simpl. 
+    + inversion H. 
+      * left. admit. 
+      * right. auto. 
+    + destruct p; simpl.
+      * contradiction.
+      * destruct b; simpl.
+        -- inversion H. left. auto. right. inversion H1.
+           left. eapply IHo1; auto. admit. right. auto.
+        -- inversion H. left. auto. right. inversion H1.
+           left. auto. right. eapply IHo2. auto. admit.
 Admitted.
-
+  
 Lemma kv_in_delta_to_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
     (lvl: nat )(p :path),
-    In (Block id v) del ->    
+    In (Block id v) del -> state_oram s <> leaf -> p <> [] ->  
     In_tree id v (up_oram_tr (state_oram s) lvl del p).
 Proof.
-  
+  (* current *)
+  intros s.
+  induction (state_oram s); intros ; simpl; try contradiction.
+  - (* node case  *)
+    destruct lvl; simpl in *.
+    + (* lvl is O *)
+      left. auto.
+    + (* lvl is S n *)
+     destruct p; simpl.
+      * contradiction.          (* [] <> [] *)
+      *  destruct b eqn : dir_cond; simpl in *.
+        -- right. left.
+          eapply IHo1. auto. admit. auto. admit.
+        -- right. right. eapply IHo2. auto. admit. admit.
+    
+Admitted.
 
-  
-
+          
 Lemma blocks_selection_preservation:
   forall (lvl : nat) (s : state) (p : path) (id : block_id) (v : nat),
     kv_rel id v s -> kv_rel id v (blocks_selection p lvl s).
@@ -910,13 +963,10 @@ Proof.
     (* left or right both could be possible  *)
     unfold kv_rel. 
     apply kv_in_list_partition with (del := dlt) in H.
-    
-    (* left; unfold blk_in_stash; simpl.  *)
-    (* right; unfold blk_in_tree; auto; simpl. *)
     destruct H; simpl in *.  
     + unfold blk_in_stash; auto.     
     + right. simpl. unfold blk_in_tree. simpl. 
-    apply kv_in_delta_to_tree; auto.
+    apply kv_in_delta_to_tree; auto. admit. admit.
   - (* assuming blk in tree *)
     right. (* starting with In_tree, after adding dlt will still be in tree *)
     simpl. apply kv_in_tree_remain_in_tree.
