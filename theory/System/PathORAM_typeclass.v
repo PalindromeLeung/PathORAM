@@ -1022,21 +1022,21 @@ Proof.
         inversion Heqp; auto. exact H2.
 Qed.
 
-Lemma write_access_wf {l: nat}(id : block_id)(v : nat) :
-  state_prob_lift (fun st => @well_formed l st) (fun st => @well_formed l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
-  remember (fun st : state l => well_formed st) as Inv.
+Lemma write_access_wf (id : block_id) (v : nat) :
+  state_prob_lift (fun st => @well_formed st) (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+Proof.
+  remember (fun st : state => well_formed st) as Inv.
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
     apply (state_prob_bind Inv (fun _ => True)).
     + apply coin_flip_wf.
     + intros. destruct access_helper eqn:?.
-      apply (state_prob_bind (fun st => @well_formed l st /\ kv_rel id v st) (fun _ => True)).
+      apply (state_prob_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
       * apply put_wf; simpl; split. rewrite HeqInv in H. exact H. 
         eapply zero_sum_stsh_tr_Wr; eauto.
       * intros. rewrite HeqInv. eapply state_prob_ret. auto.
 Qed.
-
 
 (*
  * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
