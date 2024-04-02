@@ -904,7 +904,7 @@ Qed.
 
 Lemma kv_in_tree_remain_in_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
-    (lvl: nat )(p :path),
+    (lvl: nat )(p : path),
     In_tree id v (state_oram s) ->
     (* state_oram s <> leaf -> *)
     p <> [] ->
@@ -970,8 +970,8 @@ Proof.
   - (* assuming blk in tree *)
     right. (* starting with In_tree, after adding dlt will still be in tree *)
     simpl. apply kv_in_tree_remain_in_tree.
-    unfold blk_in_tree in H. auto.
-Qed.
+    unfold blk_in_tree in H. auto. admit.
+Admitted.
      
 Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
   forall (nst : state) (ret_data : nat),  
@@ -986,11 +986,23 @@ Proof.
     apply blocks_selection_preservation. auto.
 Qed.    
 
+Lemma zero_sum_stsh_tr_Rd_rev (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
+  forall (os ns: state) (ret_data : nat),
+    access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
+Admitted.
 
-Lemma read_access_wf {l : nat}(id : block_id)(v : nat) :
-  state_prob_lift (fun st => @well_formed l st /\ kv_rel id v st) (fun st => @well_formed l st /\ kv_rel id v st) (has_value v) (read_access id).
+
+Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path)  (p_new : path):
+  forall (nst : state),
+    kv_rel id v (State m h o) -> 
+    access_helper id Read m h o p p_new = (nst, v).
+Admitted.
+
+
+Lemma read_access_wf (id : block_id)(v : nat) :
+  state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
-  remember (fun st : state l => well_formed st /\ kv_rel id v st) as Inv. 
+  remember (fun st : state => well_formed st /\ kv_rel id v st) as Inv. 
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
@@ -1000,15 +1012,15 @@ Proof.
       apply (state_prob_bind Inv (fun _ => True)).
       * apply put_wf. rewrite HeqInv in H; destruct H. rewrite HeqInv. split. exact H.
         apply zero_sum_stsh_tr_Rd_rev with
-          (ns := s)(os := x)(p := (lookup_dict dummy_path id (state_position_map x)))(p_new := x0)(v:=v ).
+          (ns := s)(os := x)(p := (lookup_dict (makeBoolList false (length (dict_elems (state_position_map x)))) id (state_position_map x)))(p_new := x0)(v:=n).
         -- exact (state_position_map x).
         -- exact (state_stash x).
         -- exact (state_oram x).
-        -- admit.
+        -- exact Heqp.
       * intros. rewrite HeqInv. apply state_prob_ret. rewrite HeqInv in H. destruct H. simpl.
         rewrite zero_sum_stsh_tr_Rd with (v := v) (nst := s) in Heqp.
         inversion Heqp; auto. exact H2.
-Admitted.
+Qed.
 
 Lemma write_access_wf {l: nat}(id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed l st) (fun st => @well_formed l st /\ kv_rel id v st) (fun _ => True) (write_access id v).
