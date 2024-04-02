@@ -80,13 +80,9 @@ Qed.
 Section ORAM_STATE.
 
 Record orState (n l : nat) : Type := ORState
-  { state_position_map : position_map l
-  ; state_stash : stash n
-  ; state_oram : oram n l
+  { state_position_map : position_map
+  ; state_stash : stash
+  ; state_oram : oram
   }.
-Arguments State {n l} _ _ _.
-Arguments state_position_map {n l} _.
-Arguments state_stash {n l} _.
-Arguments state_oram {n l} _.
 
 End ORAM_STATE.
