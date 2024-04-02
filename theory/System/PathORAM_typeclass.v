@@ -1043,8 +1043,8 @@ Qed.
  * and returns the correct value
  *)
 
-Lemma write_and_read_access_lift {l: nat}(id : block_id)(v : nat):
-  state_prob_lift (@well_formed l) well_formed (has_value v)
+Lemma write_and_read_access_lift (id : block_id)(v : nat):
+  state_prob_lift (@well_formed) well_formed (has_value v)
                   (write_and_read_access id v).
 Proof.
   apply (state_prob_bind
@@ -1052,12 +1052,12 @@ Proof.
            (fun _ => True)).
   - eapply write_access_wf.
   - intros _ _.
-    apply (state_prob_lift_weaken (fun st : state l => well_formed st /\ kv_rel id v st)).
+    apply (state_prob_lift_weaken (fun st : state => well_formed st /\ kv_rel id v st)).
     + tauto.
     + apply read_access_wf.
 Qed.
 
-Lemma extract_payload {l : nat}  (id : block_id) (v: nat) (s : state l) : 
+Lemma extract_payload (id : block_id) (v: nat) (s : state) : 
   plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
   get_payload (write_and_read_access id v s) = Some v.
 Proof.
@@ -1069,7 +1069,7 @@ Proof.
     destruct H1. simpl in H1. congruence.
 Admitted.
 
-Theorem PathORAM_simulates_RAM {l : nat} (id : block_id) (v : nat) (s : state l) :
+Theorem PathORAM_simulates_RAM (id : block_id) (v : nat) (s : state) :
   well_formed s ->
     get_payload(write_and_read_access id v s) = Some v.
 Proof.
