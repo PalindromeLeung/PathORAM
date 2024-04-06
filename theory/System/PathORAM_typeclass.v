@@ -865,7 +865,7 @@ Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
 
 (* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
 Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
-  (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
+  (blk_in_stash id v st) \/ (blk_in_path id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
 
 Lemma write_back_preservation :
@@ -914,7 +914,6 @@ Lemma kv_in_tree_remain_in_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
     (lvl: nat )(p : path),
     In_tree id v (state_oram s) ->
-    (* state_oram s <> leaf -> *)
     p <> [] ->
     In_tree id v (up_oram_tr (state_oram s) lvl del p).
 Proof.
@@ -933,12 +932,20 @@ Proof.
         -- inversion H. left. auto. right. inversion H1.
            left. auto. right. eapply IHo2. auto. admit.
 Admitted.
-  
+
+  (* blk_in_path id v *)
+  (*   {| *)
+  (*     state_position_map := state_position_map s; *)
+  (*     state_stash := remove_list_sub dlt (state_stash s); *)
+  (*     state_oram := up_oram_tr (state_oram s) lvl dlt p *)
+  (*   |} *)
+
 Lemma kv_in_delta_to_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
     (lvl: nat )(p :path),
     In (Block id v) del -> state_oram s <> leaf -> p <> [] ->  
-    In_tree id v (up_oram_tr (state_oram s) lvl del p).
+    blk_in_path id v
+      (State (state_position_map s) (remove_list_sub del (state_stash s)) (up_oram_tr (state_oram s) lvl del p)).
 Proof.
   (* current *)
   intros s.
@@ -946,15 +953,13 @@ Proof.
   - (* node case  *)
     destruct lvl; simpl in *.
     + (* lvl is O *)
-      left. auto.
+      admit.
     + (* lvl is S n *)
      destruct p; simpl.
       * contradiction.          (* [] <> [] *)
       *  destruct b eqn : dir_cond; simpl in *.
-        -- right. left.
-          eapply IHo1. auto. admit. auto. admit.
-        -- right. right. eapply IHo2. auto. admit. admit.
-    
+        -- admit.
+        -- admit.
 Admitted.
 
           
@@ -975,10 +980,8 @@ Proof.
     + unfold blk_in_stash; auto.     
     + right. simpl. unfold blk_in_tree. simpl. 
     apply kv_in_delta_to_tree; auto. admit. admit.
-  - (* assuming blk in tree *)
-    right. (* starting with In_tree, after adding dlt will still be in tree *)
-    simpl. apply kv_in_tree_remain_in_tree.
-    unfold blk_in_tree in H. auto. admit.
+  - admit. (* this should not be true,
+ becasue blk should not in path during block selection phase  *)
 Admitted.
      
 Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
@@ -1004,19 +1007,6 @@ Proof.
   (* apply write_back_preservation. *)
 Admitted.
 
-
-Definition block_on_path
-  (id : block_id) (v : nat) (p : path) (o : oram) : Prop :=
-  In (Block id v) (concat (lookup_path_oram o p)).
-  
-
-Lemma In_tree_on_off_path :
-  forall (id : block_id) (v : nat)
-    (s : state) (p : path) (P : block_id -> nat -> path -> oram -> Prop),
-    blk_in_tree id v s -> (P id v p (state_oram s)) \/ (~ P id v p (state_oram s)).
-Admitted.
-
-
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   In (Block id v) l -> lookup_ret_data id l = v.
 Admitted.
@@ -1028,17 +1018,14 @@ Proof.
   simpl.
   intros.
   destruct H. 
-  - apply lookup_ret_data_block_in_list.
+  - (* assume in stash *)
+    apply lookup_ret_data_block_in_list.
     apply in_or_app. right.
     auto.
-  - unfold access_helper.               (* assume in tree *)
-    + unfold blk_in_tree in H.
-      edestruct In_tree_on_off_path with (p := p) (P := block_on_path).
-      exact H.
-      * unfold block_on_path in H; simpl in *.
-        apply lookup_ret_data_block_in_list.
-        apply in_or_app. left. auto.
-      * admit.                  (* should be contradiction *)
+  - (* assume in path *)
+    apply lookup_ret_data_block_in_list.
+    unfold blk_in_path in H. simpl in *.
+    apply in_or_app. left. admit. (* ps do not match *)
 
 Admitted.
         
