@@ -377,28 +377,19 @@ Definition position_map := dict block_id path.
 Definition stash := list block.
 Definition bucket := list block.
 
-(* Inductive oram (n : nat) : forall (l : nat), Type := *)
-(*   | Leaf_ORAM : oram n 0 *)
-(*   | Node_ORAM : forall {l : nat} (bkt : list block), (Nat.le (List.length bkt) n) -> oram n l -> oram n l -> oram n (S l). *)
-(* Arguments Leaf_ORAM {n}. *)
-(* Arguments Node_ORAM {n l} _ _ _ _. *)
-
 Inductive oram : Type :=
 | leaf
-| node (payload:bucket) (o_l o_r : oram). 
+| node (payload: option bucket) (o_l o_r : oram). 
 
 Fixpoint bound_pred (o : oram) (n : nat) : Prop :=
   match o with 
   | leaf => True
-  | node bkt g_l g_r => (Nat.le (List.length bkt) n) /\ bound_pred g_l n /\ bound_pred g_r n
-  end.    
-
-Fixpoint In_tree (id : block_id) (v : nat) (o : oram) : Prop :=
-  match o with
-  | leaf => False
-  | node bk l r => In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
-  end.
-
+  | node obkt g_l g_r =>
+      match obkt with
+      | Some bkt => (Nat.le (List.length bkt) n) /\ bound_pred g_l n /\ bound_pred g_r n
+      | None => bound_pred g_l n /\ bound_pred g_r n
+      end
+  end.   
 
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
@@ -418,10 +409,10 @@ Proof.
   exact (f x s').
 Defined.
 
-Definition head_oram (o : oram) : option(list block) :=
+Definition head_oram (o : oram) : option (list block) :=
   match o with
   | leaf => None
-  | node bkt _ _ => Some bkt
+  | node obkt _ _ => obkt
   end.
 
 Definition tail_l_oram (o : oram) : oram :=
@@ -441,11 +432,6 @@ Record state : Type := State
   ; state_stash : stash
   ; state_oram : oram
   }.
-
-(* Arguments State  _ _ _. *)
-(* Arguments state_position_map _. *)
-(* Arguments state_stash _. *)
-(* Arguments state_oram _. *)
   
 Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
   fun s => mreturn(s,s). 
@@ -467,17 +453,23 @@ Fixpoint is_p_b_tr (o : oram) : Prop :=
                  /\ (is_p_b_tr l) /\( is_p_b_tr r)
   end.    
 
-Fixpoint lookup_path_oram (o : oram) : path -> list (bucket) :=
+Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
   match o with
   | leaf => fun _ => []
-  | node bkt o_l o_r =>
+  | node obkt o_l o_r =>
       fun p => 
         match p with
         | [] => []
         | h :: t =>
             match h with
-            | true => (bkt) :: lookup_path_oram o_l t 
-            | false => (bkt) :: lookup_path_oram o_r t 
+            | true => match obkt with
+                     | Some bkt => bkt :: lookup_path_oram o_l t
+                     | None => lookup_path_oram o_l t
+                     end
+            | false => match obkt with
+                      | Some bkt => bkt :: lookup_path_oram o_r t
+                      | None => lookup_path_oram o_r t
+                      end
             end
         end
   end.
@@ -560,14 +552,14 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-Fixpoint up_oram_tr (o : oram) (stop : nat) (d_n : list block) :
+Fixpoint up_oram_tr (o : oram) (stop : nat) (d_n : bucket) :
   path -> oram :=
   match o in oram return path -> oram with
   | leaf => fun _ => leaf
   | node d_o o_l o_r =>
       fun p =>
         match stop with
-        | O => node d_n o_l o_r
+        | O => node (Some d_n) o_l o_r
         | S stop' =>
             match p with
             | [] => node d_o o_l o_r
@@ -855,10 +847,6 @@ Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
             end
   end.
              
-Definition blk_in_tree (id : block_id) (v : nat )(st : state ) : Prop :=
-  let o := state_oram st in 
-  In_tree id v o.
-
 Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
   let s := state_stash st in 
   In (Block id v) s.
@@ -910,36 +898,6 @@ Proof.
   auto.
 Qed.  
 
-Lemma kv_in_tree_remain_in_tree :
-  forall (s : state) (id : block_id) (v : nat) (del : list block)
-    (lvl: nat )(p : path),
-    In_tree id v (state_oram s) ->
-    p <> [] ->
-    In_tree id v (up_oram_tr (state_oram s) lvl del p).
-Proof.
-  intros s.
-  induction (state_oram s); intros ; simpl.
-  - contradiction.
-  - destruct lvl; simpl. 
-    + inversion H. 
-      * left. admit. 
-      * right. auto. 
-    + destruct p; simpl.
-      * contradiction.
-      * destruct b; simpl.
-        -- inversion H. left. auto. right. inversion H1.
-           left. eapply IHo1; auto. admit. right. auto.
-        -- inversion H. left. auto. right. inversion H1.
-           left. auto. right. eapply IHo2. auto. admit.
-Admitted.
-
-  (* blk_in_path id v *)
-  (*   {| *)
-  (*     state_position_map := state_position_map s; *)
-  (*     state_stash := remove_list_sub dlt (state_stash s); *)
-  (*     state_oram := up_oram_tr (state_oram s) lvl dlt p *)
-  (*   |} *)
-
 Lemma kv_in_delta_to_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
     (lvl: nat )(p :path),
@@ -978,7 +936,7 @@ Proof.
     apply kv_in_list_partition with (del := dlt) in H.
     destruct H; simpl in *.  
     + unfold blk_in_stash; auto.     
-    + right. simpl. unfold blk_in_tree. simpl. 
+    + right. simpl.
     apply kv_in_delta_to_tree; auto. admit. admit.
   - admit. (* this should not be true,
  becasue blk should not in path during block selection phase  *)
