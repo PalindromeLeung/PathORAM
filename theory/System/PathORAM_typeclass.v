@@ -399,6 +399,7 @@ Fixpoint In_tree (id : block_id) (v : nat) (o : oram) : Prop :=
   | node bk l r => In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
   end.
 
+
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
 Definition retT {S} {M} `{Monad M} {X} :
@@ -481,6 +482,8 @@ Fixpoint lookup_path_oram (o : oram) : path -> list (bucket) :=
         end
   end.
 
+(* Definition In_path (id : block_id) (v : nat) (p : path) (o : oram) : Prop := *)
+  
 
 #[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
   {|mreturn A := retT; mbind X Y := bindT |}.
@@ -658,9 +661,9 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
   let bkts := lookup_path_oram o p in
   (* update the stash to include these blocks *)
   let bkt_blocks := concat bkts in
-  (* look up payload inside the stash *)
-  let ret_data := lookup_ret_data id bkt_blocks in
   let h' := bkt_blocks ++ h in
+  (* look up payload inside the stash *)
+  let ret_data := lookup_ret_data id h' in
   (* read the index from the stash *)
   let h'' := remove_list dummy_block 
                (fun blk => equiv_decb (block_blockid blk) id) h' in
@@ -989,16 +992,53 @@ Qed.
 Lemma zero_sum_stsh_tr_Rd_rev (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
   forall (os ns: state) (ret_data : nat),
     access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
+Proof.
+  unfold access_helper; simpl.
+  intros.
+  inversion H.
+  (* apply write_back_preservation. *)
 Admitted.
 
 
-Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path)  (p_new : path):
-  forall (nst : state),
-    kv_rel id v (State m h o) -> 
-    access_helper id Read m h o p p_new = (nst, v).
+Definition block_on_path
+  (id : block_id) (v : nat) (p : path) (o : oram) : Prop :=
+  In (Block id v) (concat (lookup_path_oram o p)).
+  
+
+Lemma In_tree_on_off_path :
+  forall (id : block_id) (v : nat)
+    (s : state) (p : path) (P : block_id -> nat -> path -> oram -> Prop),
+    blk_in_tree id v s -> (P id v p (state_oram s)) \/ (~ P id v p (state_oram s)).
 Admitted.
 
 
+Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
+  In (Block id v) l -> lookup_ret_data id l = v.
+Admitted.
+
+Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
+  kv_rel id v (State m h o) ->
+  snd(access_helper id Read m h o p p_new) = v.
+Proof.
+  simpl.
+  intros.
+  destruct H. 
+  - unfold access_helper.
+
+    admit.                             (* assume in stash *)
+  - unfold access_helper.               (* assume in tree *)
+    f_equal.
+    + admit.                    (* I don't care about the new state *)
+    (* +                           (* relevant case *) *)
+    (*   unfold blk_in_tree in H. *)
+    (*   apply In_tree_on_off_path with (p := p) (P := block_on_path) in H. *)
+    (*   destruct H. *)
+    (*   * unfold block_on_path in H; simpl in *. *)
+    (*     apply lookup_ret_data_block_in_list. auto. *)
+    (*   * admit.                  (* should be contradiction *) *)
+
+Admitted.
+        
 Lemma read_access_wf (id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
@@ -1018,8 +1058,9 @@ Proof.
         -- exact (state_oram x).
         -- exact Heqp.
       * intros. rewrite HeqInv. apply state_prob_ret. rewrite HeqInv in H. destruct H. simpl.
-        rewrite zero_sum_stsh_tr_Rd with (v := v) (nst := s) in Heqp.
-        inversion Heqp; auto. exact H2.
+        transitivity (snd(s, n)). rewrite <- Heqp. symmetry.
+        rewrite zero_sum_stsh_tr_Rd with (v := v); auto.
+        auto.
 Qed.
 
 Lemma write_access_wf (id : block_id) (v : nat) :
