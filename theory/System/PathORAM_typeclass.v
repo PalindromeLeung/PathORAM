@@ -1004,16 +1004,20 @@ Proof.
   unfold access_helper; simpl.
   intros.
   inversion H.
-  (* apply write_back_preservation. *)
 Admitted.
 
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   In (Block id v) l -> lookup_ret_data id l = v.
 Admitted.
 
-Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
+Definition calc_path (id : block_id) (m : position_map):=
+  let l := length (dict_elems m) in
+  lookup_dict (makeBoolList false l) id m.
+
+
+Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
   kv_rel id v (State m h o) ->
-  snd(access_helper id Read m h o p p_new) = v.
+  snd(access_helper id Read m h o (calc_path id m) p_new) = v.
 Proof.
   simpl.
   intros.
@@ -1025,9 +1029,8 @@ Proof.
   - (* assume in path *)
     apply lookup_ret_data_block_in_list.
     unfold blk_in_path in H. simpl in *.
-    apply in_or_app. left. admit. (* ps do not match *)
-
-Admitted.
+    apply in_or_app. left. auto.
+Qed.
         
 Lemma read_access_wf (id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
