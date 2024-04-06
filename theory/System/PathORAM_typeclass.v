@@ -482,8 +482,19 @@ Fixpoint lookup_path_oram (o : oram) : path -> list (bucket) :=
         end
   end.
 
-(* Definition In_path (id : block_id) (v : nat) (p : path) (o : oram) : Prop := *)
-  
+Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
+  match n with
+  | O => []
+  | S m => b :: makeBoolList b m
+  end.
+
+
+Definition In_path (id : block_id) (v : nat) (s : state): Prop :=
+  let m := state_position_map s in
+  let l := length(dict_elems m) in
+  let p := lookup_dict (makeBoolList false l) id m in
+  let path_blks := concat(lookup_path_oram (state_oram s) p) in
+  In (Block id v) path_blks.
 
 #[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
   {|mreturn A := retT; mbind X Y := bindT |}.
@@ -494,8 +505,6 @@ Inductive operation :=
   | Read : operation 
   | Write : nat -> operation.
 
-
-
 Scheme Equality for list.
 Scheme Equality for prod.
 
@@ -503,11 +512,7 @@ Print list_beq.
 
 Definition isEqvPath (p1 p2 : path) (idx : nat) : bool := list_beq bool Bool.eqb  (takeL idx p1) (takeL idx p2).
   
-Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
-  match n with
-  | O => []
-  | S m => b :: makeBoolList b m
-  end.
+
 
 Definition dummy_block : block := Block O O.
 
@@ -1023,19 +1028,17 @@ Proof.
   simpl.
   intros.
   destruct H. 
-  - unfold access_helper.
-
-    admit.                             (* assume in stash *)
+  - apply lookup_ret_data_block_in_list.
+    apply in_or_app. right.
+    auto.
   - unfold access_helper.               (* assume in tree *)
-    f_equal.
-    + admit.                    (* I don't care about the new state *)
-    (* +                           (* relevant case *) *)
-    (*   unfold blk_in_tree in H. *)
-    (*   apply In_tree_on_off_path with (p := p) (P := block_on_path) in H. *)
-    (*   destruct H. *)
-    (*   * unfold block_on_path in H; simpl in *. *)
-    (*     apply lookup_ret_data_block_in_list. auto. *)
-    (*   * admit.                  (* should be contradiction *) *)
+    + unfold blk_in_tree in H.
+      edestruct In_tree_on_off_path with (p := p) (P := block_on_path).
+      exact H.
+      * unfold block_on_path in H; simpl in *.
+        apply lookup_ret_data_block_in_list.
+        apply in_or_app. left. auto.
+      * admit.                  (* should be contradiction *)
 
 Admitted.
         
