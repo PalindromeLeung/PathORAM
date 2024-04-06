@@ -489,7 +489,7 @@ Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
   end.
 
 
-Definition In_path (id : block_id) (v : nat) (s : state): Prop :=
+Definition blk_in_path (id : block_id) (v : nat) (s : state): Prop :=
   let m := state_position_map s in
   let l := length(dict_elems m) in
   let p := lookup_dict (makeBoolList false l) id m in
