@@ -474,6 +474,21 @@ Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
         end
   end.
 
+Fixpoint clear_path (o : oram ) : path -> oram :=
+  match o with
+  | leaf => fun _ => leaf
+  | node obkt o_l o_r =>
+      fun p =>
+        match p with
+        | [] => o
+        | h :: t =>
+            match h with
+            | true => node None (clear_path o_l t) o_r
+            | false => node None o_l (clear_path o_r t)
+            end
+        end
+  end.
+           
 Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
   match n with
   | O => []
