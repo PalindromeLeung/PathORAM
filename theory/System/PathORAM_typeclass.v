@@ -670,10 +670,12 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
   (* update the position map with the new path *)
   let m' := update_dict id p_new m in
   (* read the path for the index from the oram *)
+
   let bkts := lookup_path_oram o p in
   (* update the stash to include these blocks *)
   let bkt_blocks := concat bkts in
   let h' := bkt_blocks ++ h in
+  
   (* look up payload inside the stash *)
   let ret_data := lookup_ret_data id h' in
   (* read the index from the stash *)
@@ -684,10 +686,37 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
     match op with
     | Read => h'
     | Write d => (Block id d) ::  h''
-    end in
-  let n_st := write_back (State m' h''' o) p (length p)in
+    end in 
+  let o' := clear_path o p in 
+  let n_st := write_back (State m' h''' o') p (length p)in
   (n_st, ret_data).
-  
+
+
+Definition get_new_st (id : block_id) (op : operation) (m : position_map)(h : stash) (o : oram) (p : path)(p_new : path):=
+  let m' := update_dict id p_new m in
+  let bkts := lookup_path_oram o p in
+  let bkt_blocks := concat bkts in
+  let h' := bkt_blocks ++ h in
+  let h'' := remove_list dummy_block 
+               (fun blk => equiv_decb (block_blockid blk) id) h' in  
+  let h''' :=
+    match op with
+    | Read => h'
+    | Write d => (Block id d) ::  h''
+    end in
+  let o' := clear_path o p in 
+  let n_st := write_back (State m' h''' o') p (length p)in
+  n_st.
+
+
+
+Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
+  let bkts := lookup_path_oram o p in
+  let bkt_blocks := concat bkts in
+  let h' := bkt_blocks ++ h in
+  let ret_data := lookup_ret_data id h' in
+  ret_data. 
+
 Definition access (id : block_id) (op : operation) :
   Poram_st state dist (path * nat) :=
   PST <- get_State ;;
@@ -701,7 +730,8 @@ Definition access (id : block_id) (op : operation) :
   (* flip a bunch of coins to get the new path *)      
   p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
   (* get the updated path oram state to put and the data to return *)
-  let (n_st, ret_data) := access_helper id op m h o p p_new in (* new path is not ready yet *) 
+  let n_st := get_new_st id op  m h o p p_new in
+  let ret_data := get_ret_data id h p o in
   (* put the updated state back *)
   _ <- Poram_st_put n_st ;;
   (* return the path l and the return value *)
@@ -956,41 +986,41 @@ Proof.
   - admit. (* this should not be true,
  becasue blk should not in path during block selection phase  *)
 Admitted.
-     
-Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
-  forall (nst : state) (ret_data : nat),  
-    access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
+
+
+
+Definition calc_path (id : block_id) (m : position_map):=
+  let l := length (dict_elems m) in
+  lookup_dict (makeBoolList false l) id m.
+ 
+Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
+ kv_rel id v ( get_new_st id (Write v) m h o (calc_path id m) p_new).
 Proof.
-  unfold access_helper. simpl in *. 
+  simpl in *.
   intros.
-  inversion H.
+  unfold get_new_st.
   apply write_back_preservation.
   - left. unfold blk_in_stash; simpl. left. auto. 
   - intros.
     apply blocks_selection_preservation. auto.
-Qed.    
+Qed.
 
-Lemma zero_sum_stsh_tr_Rd_rev (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p : path) (p_new : path):
-  forall (os ns: state) (ret_data : nat),
-    access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
+Lemma zero_sum_stsh_tr_Rd_rev (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
+    kv_rel id v (State m h o) -> 
+    kv_rel id v (get_new_st id Read m h o
+                   (calc_path id m) p_new). 
 Proof.
-  unfold access_helper; simpl.
-  intros.
-  inversion H.
 Admitted.
 
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   In (Block id v) l -> lookup_ret_data id l = v.
 Admitted.
 
-Definition calc_path (id : block_id) (m : position_map):=
-  let l := length (dict_elems m) in
-  lookup_dict (makeBoolList false l) id m.
 
 
-Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
+Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
   kv_rel id v (State m h o) ->
-  snd(access_helper id Read m h o (calc_path id m) p_new) = v.
+  get_ret_data id h (calc_path id m) o = v.
 Proof.
   simpl.
   intros.
@@ -1014,19 +1044,15 @@ Proof.
   - intros.
     apply (state_prob_bind Inv (fun _ => True)).
     + apply coin_flip_wf.
-    + intros. destruct access_helper eqn :?. simpl.
+    + intros. simpl.
       apply (state_prob_bind Inv (fun _ => True)).
-      * apply put_wf. rewrite HeqInv in H; destruct H. rewrite HeqInv. split. exact H.
-        apply zero_sum_stsh_tr_Rd_rev with
-          (ns := s)(os := x)(p := (lookup_dict (makeBoolList false (length (dict_elems (state_position_map x)))) id (state_position_map x)))(p_new := x0)(v:=n).
-        -- exact (state_position_map x).
-        -- exact (state_stash x).
-        -- exact (state_oram x).
-        -- exact Heqp.
-      * intros. rewrite HeqInv. apply state_prob_ret. rewrite HeqInv in H. destruct H. simpl.
-        transitivity (snd(s, n)). rewrite <- Heqp. symmetry.
-        rewrite zero_sum_stsh_tr_Rd with (v := v); auto.
-        auto.
+      * apply put_wf. rewrite HeqInv in H; destruct H.
+        rewrite HeqInv. split. exact H.
+        apply zero_sum_stsh_tr_Rd_rev. auto.
+      * intros. rewrite HeqInv. apply state_prob_ret.
+        rewrite HeqInv in H. destruct H. simpl.
+        symmetry. apply zero_sum_stsh_tr_Rd.
+        auto. 
 Qed.
 
 Lemma write_access_wf (id : block_id) (v : nat) :
@@ -1038,10 +1064,10 @@ Proof.
   - intros.
     apply (state_prob_bind Inv (fun _ => True)).
     + apply coin_flip_wf.
-    + intros. destruct access_helper eqn:?.
+    + intros. simpl.
       apply (state_prob_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
-      * apply put_wf; simpl; split. rewrite HeqInv in H. exact H. 
-        eapply zero_sum_stsh_tr_Wr; eauto.
+      * apply put_wf; simpl; split. rewrite HeqInv in H. exact H.  
+        apply zero_sum_stsh_tr_Wr.
       * intros. rewrite HeqInv. eapply state_prob_ret. auto.
 Qed.
 
