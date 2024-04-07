@@ -900,7 +900,10 @@ Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
 Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_path id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-
+Definition calc_path (id : block_id) (m : position_map):=
+  let l := length (dict_elems m) in
+  lookup_dict (makeBoolList false l) id m.
+ 
 Lemma write_back_preservation :
   forall (lvl : nat) (s : state) (p : path) (P : state -> Prop ),
     P s -> (forall s' lvl' , P s' -> P (blocks_selection p lvl' s' ))
@@ -943,36 +946,74 @@ Proof.
   auto.
 Qed.  
 
+Fixpoint coord_in_bound (o : oram) (p : path) (stop: nat) : Prop :=
+  match o with
+  | leaf => False 
+  | node d_o o_l o_r =>
+      match stop with
+      | 0%nat => True 
+      | S stop' =>
+          match p with
+          | [] => False 
+          | true :: xs => coord_in_bound o_l xs stop' 
+          | false :: xs => coord_in_bound o_r xs stop'
+          end
+      end
+  end.
+
 Lemma kv_in_delta_to_tree :
   forall (s : state) (id : block_id) (v : nat) (del : list block)
     (lvl: nat )(p :path),
-    In (Block id v) del -> state_oram s <> leaf -> p <> [] ->  
-    blk_in_path id v
-      (State (state_position_map s) (remove_list_sub del (state_stash s)) (up_oram_tr (state_oram s) lvl del p)).
+    In (Block id v) del ->
+    coord_in_bound (state_oram s) p lvl ->
+    In (Block id v) (concat (lookup_path_oram (up_oram_tr (state_oram s) lvl del p)p)).
 Proof.
   (* current *)
   intros s.
-  induction (state_oram s); intros ; simpl; try contradiction.
+  induction (state_oram s); intros ; simpl. try contradiction.
   - (* node case  *)
+    simpl in H0.
     destruct lvl; simpl in *.
     + (* lvl is O *)
-      admit.
-    + (* lvl is S n *)
-     destruct p; simpl.
-      * contradiction.          (* [] <> [] *)
-      *  destruct b eqn : dir_cond; simpl in *.
-        -- admit.
-        -- admit.
+      simpl.
+      unfold blk_in_path. simpl.
+      rewrite in_concat. 
+      destruct p.
+      *  admit.                 (* we are in node of height 1, so the length of this list should not be empty *)
+      * destruct b.
+        -- exists del. split; auto. left; auto.
+        -- exists del. split; auto. left; auto.
+    + destruct p; simpl; auto.
+      destruct b; simpl.
+      * destruct payload.
+        -- rewrite in_concat.
+           pose proof (IHo1 id v del lvl p H H0).
+           rewrite in_concat in H1. destruct H1. exists x. split.
+           destruct H1.
+           right. auto. tauto.
+        -- rewrite in_concat. 
+           pose proof (IHo1 id v del lvl p H H0).
+           rewrite in_concat in H1. destruct H1. exists x. split.
+           destruct H1. auto. tauto.
+      * destruct payload.
+        -- rewrite in_concat.
+           pose proof (IHo2 id v del lvl p H H0).
+           rewrite in_concat in H1. destruct H1. exists x. split.
+           destruct H1.
+           right. auto. tauto.
+        -- rewrite in_concat. 
+           pose proof (IHo2 id v del lvl p H H0).
+           rewrite in_concat in H1. destruct H1. exists x. split.
+           destruct H1. auto. tauto.
 Admitted.
 
-          
 Lemma blocks_selection_preservation:
-  forall (lvl : nat) (s : state) (p : path) (id : block_id) (v : nat),
-    kv_rel id v s -> kv_rel id v (blocks_selection p lvl s).
+  forall (lvl : nat) (s : state) (id : block_id) (v : nat),
+    kv_rel id v s -> kv_rel id v (blocks_selection (calc_path id (state_position_map s)) lvl s).
 Proof.
   intros.
   unfold blocks_selection.
-  remember  (get_write_back_blocks p (state_stash s) 4 lvl
+  remember  (get_write_back_blocks (calc_path id (state_position_map s)) (state_stash s) 4 lvl
              (state_position_map s)) as dlt.
   destruct H.
   - (* assuming blk in stash *)
@@ -982,17 +1023,14 @@ Proof.
     destruct H; simpl in *.  
     + unfold blk_in_stash; auto.     
     + right. simpl.
-    apply kv_in_delta_to_tree; auto. admit. admit.
+    apply kv_in_delta_to_tree; auto. admit. 
   - admit. (* this should not be true,
  becasue blk should not in path during block selection phase  *)
 Admitted.
 
 
 
-Definition calc_path (id : block_id) (m : position_map):=
-  let l := length (dict_elems m) in
-  lookup_dict (makeBoolList false l) id m.
- 
+
 Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
  kv_rel id v ( get_new_st id (Write v) m h o (calc_path id m) p_new).
 Proof.
