@@ -1050,12 +1050,73 @@ Proof.
    apply blocks_selection_preservation. auto.
 Qed.
 
+
+Lemma m_o_irr_blk_in_path :
+  forall (id : block_id) (v : nat) (m1 m2 : position_map)
+    (h : stash) (o1 o2 : oram),
+    blk_in_path id v (State m1 h o1) -> blk_in_path id v (State m2 h o2).
+  Admitted.
+
+Lemma m_o_irr_blk_in_path_app :
+  forall (id : block_id) (v : nat) (m1 m2 : position_map)
+    (h1 h2 : stash) (o1 o2 : oram),
+    blk_in_stash id v (State m1 h1 o1) -> blk_in_stash id v (State m2 (h2 ++ h1) o2).
+Admitted.
+
 Lemma zero_sum_stsh_tr_Rd_rev (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
     kv_rel id v (State m h o) -> 
     kv_rel id v (get_new_st id Read m h o
                    (calc_path id m) p_new). 
 Proof.
-Admitted.
+  intros.
+  unfold get_new_st.
+  apply write_back_preservation.
+  - induction o; simpl.
+    + (* leaf case *)
+      auto.     
+    + (* node case *)
+      destruct (calc_path id m); simpl in *.
+      * destruct H.
+        -- left. auto.
+        -- right. apply m_o_irr_blk_in_path with (m1 := m)(o1 := node payload o1 o2). auto.
+      * destruct b; simpl in *.
+        -- destruct payload; simpl in *.
+           ++ destruct H.
+              ** left.
+                 apply m_o_irr_blk_in_path_app with
+                   (m2 := update_dict id p_new m)
+                   (h2 := (b ++ concat (lookup_path_oram o1 l)))
+                   (o2 := node None (clear_path o1 l) o2)
+                   in H. auto.
+              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node (Some b) o1 o2). auto.
+           ++ destruct H.
+              ** left.
+                 apply m_o_irr_blk_in_path_app with
+                   (m2 := update_dict id p_new m)
+                   (h2 := (concat (lookup_path_oram o1 l)))
+                   (o2 := node None (clear_path o1 l) o2)
+                   in H. auto.
+              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node None o1 o2). auto.
+        -- destruct payload; simpl in *.
+           ++ destruct H.
+              ** left.
+                 apply m_o_irr_blk_in_path_app with
+                   (m2 := update_dict id p_new m)
+                   (h2 := (b ++ concat (lookup_path_oram o2 l)))
+                   (o2 := node None (clear_path o1 l) o2)
+                   in H. auto.
+              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node (Some b) o1 o2). auto.
+           ++ destruct H.
+              ** left.
+                 apply m_o_irr_blk_in_path_app with
+                   (m2 := update_dict id p_new m)
+                   (h2 := (concat (lookup_path_oram o2 l)))
+                   (o2 := node None o1 (clear_path o2 l ))
+                   in H. auto.
+              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node None o1 o2). auto.
+  - intros. apply blocks_selection_preservation. auto.
+Qed.
+
 
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   In (Block id v) l -> lookup_ret_data id l = v.
