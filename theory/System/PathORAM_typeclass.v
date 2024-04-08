@@ -966,7 +966,8 @@ Lemma kv_in_delta_to_tree :
     (lvl: nat )(p :path),
     In (Block id v) del ->
     coord_in_bound (state_oram s) p lvl ->
-    In (Block id v) (concat (lookup_path_oram (up_oram_tr (state_oram s) lvl del p)p)).
+    In (Block id v)
+      (concat (lookup_path_oram (up_oram_tr (state_oram s) lvl del p)p)).
 Proof.
   (* current *)
   intros s.
@@ -979,7 +980,9 @@ Proof.
       unfold blk_in_path. simpl.
       rewrite in_concat. 
       destruct p.
-      *  admit.                 (* we are in node of height 1, so the length of this list should not be empty *)
+      *  admit.
+      (* we are in node of height 1,
+         so the length of this list should not be empty *)
       * destruct b.
         -- exists del. split; auto. left; auto.
         -- exists del. split; auto. left; auto.
@@ -1008,31 +1011,35 @@ Proof.
 Admitted.
 
 Lemma blocks_selection_preservation:
-  forall (lvl : nat) (s : state) (id : block_id) (v : nat),
-    kv_rel id v s -> kv_rel id v (blocks_selection (calc_path id (state_position_map s)) lvl s).
+  forall (lvl : nat) (s_t : state) (id : block_id) (v : nat) (m : position_map),
+    kv_rel id v s_t -> kv_rel id v (blocks_selection (calc_path id m) lvl s_t).
 Proof.
   intros.
   unfold blocks_selection.
-  remember  (get_write_back_blocks (calc_path id (state_position_map s)) (state_stash s) 4 lvl
-             (state_position_map s)) as dlt.
+  remember
+    (get_write_back_blocks
+       (calc_path id m) (state_stash s_t) 4 lvl
+       (state_position_map s_t)) as dlt. 
   destruct H.
   - (* assuming blk in stash *)
     (* left or right both could be possible  *)
     unfold kv_rel. 
     apply kv_in_list_partition with (del := dlt) in H.
     destruct H; simpl in *.  
-    + unfold blk_in_stash; auto.     
-    + right. simpl.
-    apply kv_in_delta_to_tree; auto. admit. 
+    + unfold blk_in_stash; auto. 
+    + right. simpl. unfold blk_in_path.
+      (* apply kv_in_delta_to_tree. *)
+      admit.
   - admit. (* this should not be true,
  becasue blk should not in path during block selection phase  *)
 Admitted.
 
 
-
-
-Lemma zero_sum_stsh_tr_Wr (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
- kv_rel id v ( get_new_st id (Write v) m h o (calc_path id m) p_new).
+Lemma zero_sum_stsh_tr_Wr
+  (s : state) (id : block_id) (v : nat) (m : position_map)(p_new : path):
+  kv_rel id v (get_new_st id (Write v)
+                 (state_position_map s) (state_stash s) (state_oram s)
+                 (calc_path id m) p_new).
 Proof.
   simpl in *.
   intros.
@@ -1040,7 +1047,7 @@ Proof.
   apply write_back_preservation.
   - left. unfold blk_in_stash; simpl. left. auto. 
   - intros.
-    apply blocks_selection_preservation. auto.
+   apply blocks_selection_preservation. auto.
 Qed.
 
 Lemma zero_sum_stsh_tr_Rd_rev (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
