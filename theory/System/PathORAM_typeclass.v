@@ -1057,7 +1057,7 @@ Lemma m_o_irr_blk_in_path :
     blk_in_path id v (State m1 h o1) -> blk_in_path id v (State m2 h o2).
   Admitted.
 
-Lemma m_o_irr_blk_in_path_app :
+Lemma m_o_irr_blk_in_stash_app :
   forall (id : block_id) (v : nat) (m1 m2 : position_map)
     (h1 h2 : stash) (o1 o2 : oram),
     blk_in_stash id v (State m1 h1 o1) -> blk_in_stash id v (State m2 (h2 ++ h1) o2).
@@ -1083,7 +1083,7 @@ Proof.
         -- destruct payload; simpl in *.
            ++ destruct H.
               ** left.
-                 apply m_o_irr_blk_in_path_app with
+                 apply m_o_irr_blk_in_stash_app with
                    (m2 := update_dict id p_new m)
                    (h2 := (b ++ concat (lookup_path_oram o1 l)))
                    (o2 := node None (clear_path o1 l) o2)
@@ -1091,7 +1091,7 @@ Proof.
               ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node (Some b) o1 o2). auto.
            ++ destruct H.
               ** left.
-                 apply m_o_irr_blk_in_path_app with
+                 apply m_o_irr_blk_in_stash_app with
                    (m2 := update_dict id p_new m)
                    (h2 := (concat (lookup_path_oram o1 l)))
                    (o2 := node None (clear_path o1 l) o2)
@@ -1100,7 +1100,7 @@ Proof.
         -- destruct payload; simpl in *.
            ++ destruct H.
               ** left.
-                 apply m_o_irr_blk_in_path_app with
+                 apply m_o_irr_blk_in_stash_app with
                    (m2 := update_dict id p_new m)
                    (h2 := (b ++ concat (lookup_path_oram o2 l)))
                    (o2 := node None (clear_path o1 l) o2)
@@ -1108,7 +1108,7 @@ Proof.
               ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node (Some b) o1 o2). auto.
            ++ destruct H.
               ** left.
-                 apply m_o_irr_blk_in_path_app with
+                 apply m_o_irr_blk_in_stash_app with
                    (m2 := update_dict id p_new m)
                    (h2 := (concat (lookup_path_oram o2 l)))
                    (o2 := node None o1 (clear_path o2 l ))
@@ -1120,6 +1120,7 @@ Qed.
 
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   In (Block id v) l -> lookup_ret_data id l = v.
+Proof.    
 Admitted.
 
 
