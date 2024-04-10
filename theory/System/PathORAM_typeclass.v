@@ -1081,32 +1081,34 @@ Proof.
    apply blocks_selection_preservation. auto.
 Qed.
 
-
-Lemma m_o_irr_blk_in_path :
-  forall (id : block_id) (v : nat) (m : position_map)(p_new : path)
-    (h : stash) (o : oram), 
-    blk_in_path id v (State m h o) -> blk_in_path id v (State (update_dict id p_new m) h o).
+Lemma blk_in_path_in_lookup_oram : forall (id : block_id) (v : nat) (s : state) ,
+    blk_in_path id v s -> 
+    In (Block id v)
+      (concat
+         (lookup_path_oram (state_oram s)
+            (calc_path id (state_position_map s))
+         )
+      ).
 Admitted.
 
-Lemma m_o_irr_blk_in_stash_app :
-  forall (id : block_id) (v : nat) (m1 m2 : position_map)
-    (h1 h2 : stash) (o1 o2 : oram),
-    blk_in_stash id v (State m1 h1 o1) -> blk_in_stash id v (State m2 (h2 ++ h1) o2).
-Admitted.
 
-Lemma zero_sum_stsh_tr_Rd_rev (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p_new : path):
-    kv_rel id v (State m h o) -> 
-    kv_rel id v (get_new_st id Read m h o
-                   (calc_path id m) p_new). 
+Lemma zero_sum_stsh_tr_Rd_rev :
+  forall (id : block_id) (v : nat) (s : state) (p_new : path), 
+    kv_rel id v s  -> 
+    kv_rel id v (get_new_st id Read (state_position_map s)
+                   (state_stash s)
+                   (state_oram s)
+                   (calc_path id (state_position_map s)) p_new). 
 Proof.
   intros.
   unfold get_new_st.
   apply write_back_preservation.
   - destruct H.
-    + left. apply m_o_irr_blk_in_stash_app with (m1 := m) (o1 := o). auto.
-    + left. admit.
-  - intros. apply blocks_selection_preservation. auto.
-Admitted.
+    + left. apply in_or_app. right. auto.
+    + left. simpl. unfold blk_in_stash. apply in_or_app.
+      left. apply blk_in_path_in_lookup_oram; auto.
+  - intros. apply blocks_selection_preservation; auto.
+Qed.
 
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   NoDup (List.map block_blockid l) ->
