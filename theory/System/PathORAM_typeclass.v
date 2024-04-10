@@ -559,6 +559,36 @@ Fixpoint remove_list_sub (subList : list block) (lst : list block) : list block 
       end
   end.
 
+Fixpoint remove_list_sub' (sublist : list block) (lst : list block) : list block :=
+    match sublist with
+    | [] => lst
+    | h :: t =>
+        match lst with
+        | [] => []
+        | x :: xs => if andb (Nat.eqb (block_blockid h) (block_blockid x))
+                        (Nat.eqb (block_payload h) (block_payload x))
+                   then remove_list_sub' t xs
+                   else remove_list_sub' sublist xs
+        end
+    end.
+
+(* Fixpoint remove_list_sub_nat (sublist : list nat) (lst : list nat) : list nat := *)
+(*     match sublist with *)
+(*     | [] => lst *)
+(*     | h :: t => *)
+(*         match lst with *)
+(*         | [] => [] *)
+(*         | x :: xs => if  (Nat.eqb h x) *)
+(*                    then remove_list_sub_nat t xs *)
+(*                    else remove_list_sub_nat sublist xs *)
+(*         end *)
+(*     end. *)
+          
+(* Compute remove_list_sub_nat ([1;2])%nat ([2;1])%nat. *)
+(* Compute remove_list_sub_nat ([1;2])%nat ([2;1])%nat. *)
+                     
+            
+                 
 Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   match lb with
   | [] => 0
@@ -639,7 +669,7 @@ Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks p h 4 lvl m in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
-  let up_h := remove_list_sub wbs h in 
+  let up_h := remove_list_sub' wbs h in 
   let up_o := up_oram_tr o lvl wbs p in
   (State m up_h up_o).
 
@@ -918,26 +948,27 @@ Qed.
 
 Lemma remove_list_sub_lemma : forall (x : block) (sub : list block) (lst : list block),
     In x lst ->
-    In x (remove_list_sub sub lst) \/ In x sub.
+    In x (remove_list_sub' sub lst) \/ In x sub.
 Proof.
-  intros.
-  induction sub.
-  - left. destruct lst; auto.
-  - destruct IHsub.
-    + simpl. destruct lst; auto.
-      destruct (block_blockid b =? block_blockid a) eqn : id_eq; simpl.
-      *  destruct (block_payload b =? block_payload a); simpl.
-         -- left. admit.              (* what if x is b?  *)
-         -- left. auto.
-      * left. auto.
-    + right. right. auto.
+  (* intros. *)
+  (* induction sub; simpl. *)
+  (* - left. destruct lst; auto. *)
+  (* - destruct IHsub.  *)
+  (*   + (* in the remainder list   *) *)
+  (*     destruct lst; auto. *)
+  (*     destruct (block_blockid b =? block_blockid a) eqn : id_eq; simpl. *)
+  (*     *  destruct (block_payload b =? block_payload a); simpl. *)
+  (*        -- left. admit.              (* what if x is b?  *) *)
+  (*        -- left. auto. admit. *)
+  (*     * left. auto. admit. *)
+  (*   + right. right. auto. *)
 Admitted.
         
 Lemma kv_in_list_partition:
   forall (id : block_id) (v : nat) (s : state) (del : list block),
     blk_in_stash id v s ->
     (In (Block id v)
-       (remove_list_sub del (state_stash s))  \/
+       (remove_list_sub' del (state_stash s))  \/
     (In (Block id v) del)).
 Proof.
   intros.
@@ -1052,10 +1083,10 @@ Qed.
 
 
 Lemma m_o_irr_blk_in_path :
-  forall (id : block_id) (v : nat) (m1 m2 : position_map)
-    (h : stash) (o1 o2 : oram),
-    blk_in_path id v (State m1 h o1) -> blk_in_path id v (State m2 h o2).
-  Admitted.
+  forall (id : block_id) (v : nat) (m : position_map)(p_new : path)
+    (h : stash) (o : oram), 
+    blk_in_path id v (State m h o) -> blk_in_path id v (State (update_dict id p_new m) h o).
+Admitted.
 
 Lemma m_o_irr_blk_in_stash_app :
   forall (id : block_id) (v : nat) (m1 m2 : position_map)
@@ -1071,59 +1102,33 @@ Proof.
   intros.
   unfold get_new_st.
   apply write_back_preservation.
-  - induction o; simpl.
-    + (* leaf case *)
-      auto.     
-    + (* node case *)
-      destruct (calc_path id m); simpl in *.
-      * destruct H.
-        -- left. auto.
-        -- right. apply m_o_irr_blk_in_path with (m1 := m)(o1 := node payload o1 o2). auto.
-      * destruct b; simpl in *.
-        -- destruct payload; simpl in *.
-           ++ destruct H.
-              ** left.
-                 apply m_o_irr_blk_in_stash_app with
-                   (m2 := update_dict id p_new m)
-                   (h2 := (b ++ concat (lookup_path_oram o1 l)))
-                   (o2 := node None (clear_path o1 l) o2)
-                   in H. auto.
-              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node (Some b) o1 o2). auto.
-           ++ destruct H.
-              ** left.
-                 apply m_o_irr_blk_in_stash_app with
-                   (m2 := update_dict id p_new m)
-                   (h2 := (concat (lookup_path_oram o1 l)))
-                   (o2 := node None (clear_path o1 l) o2)
-                   in H. auto.
-              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node None o1 o2). auto.
-        -- destruct payload; simpl in *.
-           ++ destruct H.
-              ** left.
-                 apply m_o_irr_blk_in_stash_app with
-                   (m2 := update_dict id p_new m)
-                   (h2 := (b ++ concat (lookup_path_oram o2 l)))
-                   (o2 := node None (clear_path o1 l) o2)
-                   in H. auto.
-              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node (Some b) o1 o2). auto.
-           ++ destruct H.
-              ** left.
-                 apply m_o_irr_blk_in_stash_app with
-                   (m2 := update_dict id p_new m)
-                   (h2 := (concat (lookup_path_oram o2 l)))
-                   (o2 := node None o1 (clear_path o2 l ))
-                   in H. auto.
-              ** right. apply m_o_irr_blk_in_path with (m1 := m) (o1 := node None o1 o2). auto.
+  - destruct H.
+    + left. apply m_o_irr_blk_in_stash_app with (m1 := m) (o1 := o). auto.
+    + left. admit.
   - intros. apply blocks_selection_preservation. auto.
-Qed.
-
-
-Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
-  In (Block id v) l -> lookup_ret_data id l = v.
-Proof.    
 Admitted.
 
-
+Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
+  NoDup (List.map block_blockid l) ->
+  In (Block id v) l -> lookup_ret_data id l = v.
+Proof.
+  intro ND.
+  intros.
+  induction l; simpl; try contradiction.
+  destruct (block_blockid a =? id) eqn: id_cond.
+  - destruct H; simpl in *.
+    + rewrite H; auto.
+    + inversion ND; subst.
+      rewrite Nat.eqb_eq in id_cond.
+      rewrite id_cond in H2. Search In List.map.
+      apply List.in_map with (f := block_blockid) in H.
+      simpl in *. contradiction.
+  - apply IHl.
+    + inversion ND; auto.
+    + destruct H; auto.
+      rewrite H in id_cond. simpl in *. rewrite Nat.eqb_neq in id_cond.
+      contradiction.
+Qed.
 
 Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
   kv_rel id v (State m h o) ->
@@ -1134,11 +1139,12 @@ Proof.
   destruct H. 
   - (* assume in stash *)
     apply lookup_ret_data_block_in_list.
-    apply in_or_app. right.
-    auto.
+    + admit.              (* NoDup evidence *)
+    + apply in_or_app. right. auto.
   - (* assume in path *)
     apply lookup_ret_data_block_in_list.
-    unfold blk_in_path in H. simpl in *.
+    + admit.                    (* NoDup evidence *)
+    + unfold blk_in_path in H. simpl in *.
     apply in_or_app. left. auto.
 Qed.
         
