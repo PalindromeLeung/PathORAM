@@ -1089,9 +1089,12 @@ Lemma blk_in_path_in_lookup_oram : forall (id : block_id) (v : nat) (s : state) 
             (calc_path id (state_position_map s))
          )
       ).
-Admitted.
-
-
+Proof.
+  intros.
+  unfold blk_in_path in H.
+  unfold calc_path. auto.
+Qed.
+  
 Lemma zero_sum_stsh_tr_Rd_rev :
   forall (id : block_id) (v : nat) (s : state) (p_new : path), 
     kv_rel id v s  -> 
