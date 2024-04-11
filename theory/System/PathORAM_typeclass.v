@@ -545,20 +545,6 @@ Definition get_write_back_blocks (p : path) (h : stash) (n : nat)(lvl : nat) (mp
 
 Scheme Equality for nat.
 
-Fixpoint remove_list_sub (subList : list block) (lst : list block) : list block :=
-  match lst with
-  | [] => []
-  | h :: t =>
-      match subList with
-      | [] => lst
-      | h' :: t' =>
-          if andb (Nat.eqb (block_blockid h) (block_blockid h'))
-               (Nat.eqb (block_payload h) (block_payload h'))
-          then remove_list_sub t' t
-          else remove_list_sub t' lst
-      end
-  end.
-
 Fixpoint remove_aux (lst : list block) (x : block) : list block :=
   match lst with
   | [] => []
@@ -569,10 +555,10 @@ Fixpoint remove_aux (lst : list block) (x : block) : list block :=
       else h :: (remove_aux t x)
   end.
 
-Fixpoint remove_list_sub' (sublist : list block) (lst : list block) : list block :=
+Fixpoint remove_list_sub (sublist : list block) (lst : list block) : list block :=
     match sublist with
     | [] => lst
-    | h :: t => remove_list_sub' t (remove_aux lst h)
+    | h :: t => remove_list_sub t (remove_aux lst h)
     end.
                  
 Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
@@ -655,7 +641,7 @@ Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks p h 4 lvl m in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
-  let up_h := remove_list_sub' wbs h in 
+  let up_h := remove_list_sub wbs h in 
   let up_o := up_oram_tr o lvl wbs p in
   (State m up_h up_o).
 
@@ -697,7 +683,7 @@ Definition access_helper (id : block_id) (op : operation) (m : position_map)
   (* read the index from the stash *)
   let h'' := remove_list dummy_block 
                (fun blk => equiv_decb (block_blockid blk) id) h' in
-  (* write new data to the stash *)
+  (* write nnew data to the stash *)
   let h''' :=
     match op with
     | Read => h'
@@ -867,7 +853,6 @@ Lemma get_State_wf {Pre : state-> Prop} :
   state_prob_lift Pre Pre Pre get_State.
 Admitted.
 
-
 Lemma dist2Poram_wf {X} (dx : dist X) {Pre : state -> Prop}:
   state_prob_lift Pre Pre (fun _ => True) (dist2Poram dx).
 Proof.
@@ -921,13 +906,13 @@ Definition calc_path (id : block_id) (m : position_map):=
   lookup_dict (makeBoolList false l) id m.
  
 Lemma write_back_preservation :
-  forall (lvl : nat) (s : state) (p : path) (P : state -> Prop ),
-    P s -> (forall s' lvl' p', P s' -> P (blocks_selection p' lvl' s' ))
-    -> P (write_back s p lvl).
+  forall (lvl : nat) (s : state) (id : block_id) (P : state -> Prop ),
+    P s -> (forall s' lvl', P s' -> P (blocks_selection (calc_path id (state_position_map s')) lvl' s' ))
+    -> P (write_back s (calc_path id (state_position_map s)) lvl).
 Proof.
   induction lvl; simpl.
   - intros. auto.
-  - intros. apply IHlvl.
+  - intros. apply IHlvl with (s := (blocks_selection (calc_path id (state_position_map s)) lvl s)).
     + apply H0. auto.
     + trivial.
 Qed.
@@ -953,12 +938,12 @@ Qed.
       
 Lemma remove_list_sub_lemma : forall (x : block) (sub : list block) (lst : list block),
     In x lst ->
-    In x (remove_list_sub' sub lst) \/ In x sub.
+    In x (remove_list_sub sub lst) \/ In x sub.
 Proof.
   intros blk s_lst.
   induction s_lst. 
   - simpl.  intros. left; auto.
-  - intros. simpl remove_list_sub'.
+  - intros. simpl remove_list_sub.
     pose proof (IHs_lst (remove_aux lst a))%list.
     destruct (remove_aux_lemma _ a _ H).
     + apply H0 in H1. destruct H1.
@@ -971,7 +956,7 @@ Lemma kv_in_list_partition:
   forall (id : block_id) (v : nat) (s : state) (del : list block),
     blk_in_stash id v s ->
     (In (Block id v)
-       (remove_list_sub' del (state_stash s))  \/
+       (remove_list_sub del (state_stash s))  \/
     (In (Block id v) del)).
 Proof.
   intros.
@@ -1080,7 +1065,44 @@ Proof.
   simpl in *.
   intros.
   unfold get_new_st.
-  apply write_back_preservation.
+  Check write_back_preservation.
+  epose write_back_preservation as w.
+  epose (w _
+ {|
+         state_position_map :=
+           update_dict id p_new (state_position_map s);
+         state_stash :=
+           {| block_blockid := id; block_payload := v |}
+           :: remove_list dummy_block
+                (fun blk : block => block_blockid blk ==b id)
+                (append
+                   (concat
+                      (lookup_path_oram (state_oram s)
+                         (calc_path id (state_position_map s))))
+                   (state_stash s));
+         state_oram :=
+           clear_path (state_oram s)
+             (calc_path id (state_position_map s))
+ |} id (kv_rel id v)).
+  
+  apply write_back_preservation with (P := kv_rel id v).  (s :=
+ {|
+         state_position_map :=
+           update_dict id p_new (state_position_map s);
+         state_stash :=
+           {| block_blockid := id; block_payload := v |}
+           :: remove_list dummy_block
+                (fun blk : block => block_blockid blk ==b id)
+                (append
+                   (concat
+                      (lookup_path_oram (state_oram s)
+                         (calc_path id (state_position_map s))))
+                   (state_stash s));
+         state_oram :=
+           clear_path (state_oram s)
+             (calc_path id (state_position_map s))
+       |}
+                                     ).
   - left. unfold blk_in_stash; simpl. left. auto. 
   - intros.
    apply blocks_selection_preservation. auto.
