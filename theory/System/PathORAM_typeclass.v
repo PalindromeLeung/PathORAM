@@ -753,7 +753,7 @@ Definition access (id : block_id) (op : operation) :
   (* flip a bunch of coins to get the new path *)      
   p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
   (* get the updated path oram state to put and the data to return *)
-  let n_st := get_new_st id op  m h o p p_new in
+  let n_st := get_post_wb_st id (get_pre_wb_st id op  m h o p p_new) in
   let ret_data := get_ret_data id h p o in
   (* put the updated state back *)
   _ <- Poram_st_put n_st ;;
@@ -923,18 +923,6 @@ Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_path id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
  
-Lemma write_back_preservation :
-  forall (lvl : nat) (s : state) (id : block_id) (P : state -> Prop ),
-    P s -> (forall s' lvl', P s' -> P (blocks_selection (calc_path id s') lvl' s' ))
-    -> P (write_back s (calc_path id s) lvl).
-Proof.
-  induction lvl; simpl.
-  - intros. auto.
-  - intros. admit.
-    (* + apply H0. auto. *)
-    (* + trivial. *)
-Admitted.
-
 Lemma remove_aux_lemma : forall (lst : list block) (a blk: block),
     In blk lst ->
     In blk (remove_aux lst a) \/ a = blk.
@@ -1073,70 +1061,41 @@ Proof.
  becasue blk should not in path during block selection phase  *)
 Admitted.
 
+Lemma write_back_preservation :
+  forall (lvl : nat) (s : state) (p : path) (P : state -> Prop ),
+    P s -> (forall s' lvl' , P s' -> P (blocks_selection p lvl' s' ))
+    -> P (write_back s p lvl).
+Proof.
+  induction lvl; simpl.
+  - intros. auto.
+  - intros. apply IHlvl.
+    + apply H0. auto.
+    + trivial.
+Qed.
 
 Lemma zero_sum_stsh_tr_Wr
   (s : state) (id : block_id) (v : nat) (p_new : path):
-  kv_rel id v (get_new_st id (Write v)
-                 (state_position_map s) (state_stash s) (state_oram s)
-                 (calc_path id s) p_new).
+  kv_rel id v
+    (get_post_wb_st id
+       (get_pre_wb_st id (Write v)
+          (state_position_map s) (state_stash s) (state_oram s)
+          (calc_path id s) p_new)).
 Proof.
-  simpl in *.
-  intros.
-  unfold get_new_st.
-  s --  ---> s' (* this state has changes where the blocks along path have been collecte to the stash *)
-
-  P (write_back s' (calc_path id s) lvl)
-
-
-  Check write_back_preservation.
-  epose write_back_preservation as w.
-  epose (w _
- {|
-         state_position_map :=
-           update_dict id p_new (state_position_map s);
-         state_stash :=
-           {| block_blockid := id; block_payload := v |}
-           :: remove_list dummy_block
-                (fun blk : block => block_blockid blk ==b id)
-                (append
-                   (concat
-                      (lookup_path_oram (state_oram s)
-                         (calc_path id (state_position_map s))))
-                   (state_stash s));
-         state_oram :=
-           clear_path (state_oram s)
-             (calc_path id (state_position_map s))
- |} id (kv_rel id v)).
-  
-  apply write_back_preservation with (P := kv_rel id v).  (s :=
- {|
-         state_position_map :=
-           update_dict id p_new (state_position_map s);
-         state_stash :=
-           {| block_blockid := id; block_payload := v |}
-           :: remove_list dummy_block
-                (fun blk : block => block_blockid blk ==b id)
-                (append
-                   (concat
-                      (lookup_path_oram (state_oram s)
-                         (calc_path id (state_position_map s))))
-                   (state_stash s));
-         state_oram :=
-           clear_path (state_oram s)
-             (calc_path id (state_position_map s))
-       |}
-                                     ).
-  - left. unfold blk_in_stash; simpl. left. auto. 
-  - intros.
-   apply blocks_selection_preservation. auto.
-Qed.
+  unfold get_post_wb_st.
+  (* remember (get_pre_wb_st id (Write v) (state_position_map s) *)
+  (*         (state_stash s) (state_oram s) (calc_path id s) p_new) as pre_wb_st. *)
+  apply write_back_preservation.
+  - left. unfold blk_in_stash; simpl. left. auto.
+    (* - intros. apply blocks_selection_preservation. auto. *)
+    (* in this case s' should be the get_pre_wb_st *)
+Admitted.
 
 Lemma blk_in_path_in_lookup_oram : forall (id : block_id) (v : nat) (s : state) ,
     blk_in_path id v s -> 
     In (Block id v)
       (concat
          (lookup_path_oram (state_oram s)
-            (calc_path id (state_position_map s))
+            (calc_path id s)
          )
       ).
 Proof.
@@ -1151,7 +1110,7 @@ Lemma zero_sum_stsh_tr_Rd_rev :
     kv_rel id v (get_new_st id Read (state_position_map s)
                    (state_stash s)
                    (state_oram s)
-                   (calc_path id (state_position_map s)) p_new). 
+                   (calc_path id s) p_new). 
 Proof.
   intros.
   unfold get_new_st.
