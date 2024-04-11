@@ -922,7 +922,7 @@ Definition calc_path (id : block_id) (m : position_map):=
  
 Lemma write_back_preservation :
   forall (lvl : nat) (s : state) (p : path) (P : state -> Prop ),
-    P s -> (forall s' lvl' , P s' -> P (blocks_selection p lvl' s' ))
+    P s -> (forall s' lvl' p', P s' -> P (blocks_selection p' lvl' s' ))
     -> P (write_back s p lvl).
 Proof.
   induction lvl; simpl.
@@ -1045,15 +1045,15 @@ Proof.
 Admitted.
 
 Lemma blocks_selection_preservation:
-  forall (lvl : nat) (s_t : state) (id : block_id) (v : nat) (m : position_map),
-    kv_rel id v s_t -> kv_rel id v (blocks_selection (calc_path id m) lvl s_t).
+  forall (lvl : nat) (st : state) (id : block_id) (v : nat), 
+    kv_rel id v st -> kv_rel id v (blocks_selection (calc_path id (state_position_map st)) lvl st).
 Proof.
   intros.
   unfold blocks_selection.
   remember
     (get_write_back_blocks
-       (calc_path id m) (state_stash s_t) 4 lvl
-       (state_position_map s_t)) as dlt. 
+       (calc_path id (state_position_map st)) (state_stash st) 4 lvl
+       (state_position_map st)) as dlt. 
   destruct H.
   - (* assuming blk in stash *)
     (* left or right both could be possible  *)
@@ -1061,8 +1061,10 @@ Proof.
     apply kv_in_list_partition with (del := dlt) in H.
     destruct H; simpl in *.  
     + unfold blk_in_stash; auto. 
-    + right. simpl. unfold blk_in_path.
-      (* apply kv_in_delta_to_tree. *)
+    + right. unfold blk_in_path.
+      apply kv_in_delta_to_tree.
+      apply H.
+      simpl.
       admit.
   - admit. (* this should not be true,
  becasue blk should not in path during block selection phase  *)
@@ -1070,10 +1072,10 @@ Admitted.
 
 
 Lemma zero_sum_stsh_tr_Wr
-  (s : state) (id : block_id) (v : nat) (m : position_map)(p_new : path):
+  (s : state) (id : block_id) (v : nat) (p_new : path):
   kv_rel id v (get_new_st id (Write v)
                  (state_position_map s) (state_stash s) (state_oram s)
-                 (calc_path id m) p_new).
+                 (calc_path id (state_position_map s)) p_new).
 Proof.
   simpl in *.
   intros.
