@@ -559,35 +559,21 @@ Fixpoint remove_list_sub (subList : list block) (lst : list block) : list block 
       end
   end.
 
+Fixpoint remove_aux (lst : list block) (x : block) : list block :=
+  match lst with
+  | [] => []
+  | h :: t => 
+      if andb (Nat.eqb (block_blockid h) (block_blockid x))
+           (Nat.eqb (block_payload h) (block_payload x))
+      then t 
+      else h :: (remove_aux t x)
+  end.
+
 Fixpoint remove_list_sub' (sublist : list block) (lst : list block) : list block :=
     match sublist with
     | [] => lst
-    | h :: t =>
-        match lst with
-        | [] => []
-        | x :: xs => if andb (Nat.eqb (block_blockid h) (block_blockid x))
-                        (Nat.eqb (block_payload h) (block_payload x))
-                   then remove_list_sub' t xs
-                   else remove_list_sub' sublist xs
-        end
+    | h :: t => remove_list_sub' t (remove_aux lst h)
     end.
-
-(* Fixpoint remove_list_sub_nat (sublist : list nat) (lst : list nat) : list nat := *)
-(*     match sublist with *)
-(*     | [] => lst *)
-(*     | h :: t => *)
-(*         match lst with *)
-(*         | [] => [] *)
-(*         | x :: xs => if  (Nat.eqb h x) *)
-(*                    then remove_list_sub_nat t xs *)
-(*                    else remove_list_sub_nat sublist xs *)
-(*         end *)
-(*     end. *)
-          
-(* Compute remove_list_sub_nat ([1;2])%nat ([2;1])%nat. *)
-(* Compute remove_list_sub_nat ([1;2])%nat ([2;1])%nat. *)
-                     
-            
                  
 Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   match lb with
@@ -946,23 +932,40 @@ Proof.
     + trivial.
 Qed.
 
+Lemma remove_aux_lemma : forall (lst : list block) (a blk: block),
+    In blk lst ->
+    In blk (remove_aux lst a) \/ a = blk.
+Proof.
+  intros.
+  induction lst; intuition.
+  simpl.
+  destruct andb eqn: eq_cond; simpl.
+  - destruct H.
+    + right.
+      rewrite andb_true_iff in eq_cond.
+      do 2 rewrite Nat.eqb_eq in eq_cond.
+      rewrite <- H. destruct a, a0; f_equal; simpl in *; firstorder.
+    + tauto.
+  - destruct H.
+    + do 2 left; auto.
+    + apply IHlst in H. tauto.
+Qed.
+      
 Lemma remove_list_sub_lemma : forall (x : block) (sub : list block) (lst : list block),
     In x lst ->
     In x (remove_list_sub' sub lst) \/ In x sub.
 Proof.
-  (* intros. *)
-  (* induction sub; simpl. *)
-  (* - left. destruct lst; auto. *)
-  (* - destruct IHsub.  *)
-  (*   + (* in the remainder list   *) *)
-  (*     destruct lst; auto. *)
-  (*     destruct (block_blockid b =? block_blockid a) eqn : id_eq; simpl. *)
-  (*     *  destruct (block_payload b =? block_payload a); simpl. *)
-  (*        -- left. admit.              (* what if x is b?  *) *)
-  (*        -- left. auto. admit. *)
-  (*     * left. auto. admit. *)
-  (*   + right. right. auto. *)
-Admitted.
+  intros blk s_lst.
+  induction s_lst. 
+  - simpl.  intros. left; auto.
+  - intros. simpl remove_list_sub'.
+    pose proof (IHs_lst (remove_aux lst a))%list.
+    destruct (remove_aux_lemma _ a _ H).
+    + apply H0 in H1. destruct H1.
+      * left. auto.
+      * right. right; auto.
+    + right. left; auto.
+Qed.
         
 Lemma kv_in_list_partition:
   forall (id : block_id) (v : nat) (s : state) (del : list block),
