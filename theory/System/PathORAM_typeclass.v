@@ -666,6 +666,9 @@ Fixpoint concat_option (l : list (option bucket)) : list block :=
             end
   end.
     
+Definition calc_path (id : block_id) (s : state):=
+  let l := length (dict_elems (state_position_map s)) in
+  lookup_dict (makeBoolList false l) id (state_position_map s).
 
 Definition access_helper (id : block_id) (op : operation) (m : position_map)
   (h : stash) (o : oram) (p : path)  (p_new : path) :=
@@ -710,7 +713,25 @@ Definition get_new_st (id : block_id) (op : operation) (m : position_map)(h : st
   let n_st := write_back (State m' h''' o') p (length p)in
   n_st.
 
+Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
+  let m' := update_dict id p_new m in
+  let bkts := lookup_path_oram o p in
+  let bkt_blocks := concat bkts in
+  let h' := bkt_blocks ++ h in
+  let h'' := remove_list dummy_block 
+               (fun blk => equiv_decb (block_blockid blk) id) h' in  
+  let h''' :=
+    match op with
+    | Read => h'
+    | Write d => (Block id d) ::  h''
+    end in
+  let o' := clear_path o p in 
+  State m' h''' o'.
 
+Definition get_post_wb_st (id : block_id)(s : state) :=
+  let p := calc_path id s in 
+  write_back s p (length p).
+  
 
 Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
   let bkts := lookup_path_oram o p in
@@ -901,21 +922,18 @@ Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
 Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_path id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-Definition calc_path (id : block_id) (m : position_map):=
-  let l := length (dict_elems m) in
-  lookup_dict (makeBoolList false l) id m.
  
 Lemma write_back_preservation :
   forall (lvl : nat) (s : state) (id : block_id) (P : state -> Prop ),
-    P s -> (forall s' lvl', P s' -> P (blocks_selection (calc_path id (state_position_map s')) lvl' s' ))
-    -> P (write_back s (calc_path id (state_position_map s)) lvl).
+    P s -> (forall s' lvl', P s' -> P (blocks_selection (calc_path id s') lvl' s' ))
+    -> P (write_back s (calc_path id s) lvl).
 Proof.
   induction lvl; simpl.
   - intros. auto.
-  - intros. apply IHlvl with (s := (blocks_selection (calc_path id (state_position_map s)) lvl s)).
-    + apply H0. auto.
-    + trivial.
-Qed.
+  - intros. admit.
+    (* + apply H0. auto. *)
+    (* + trivial. *)
+Admitted.
 
 Lemma remove_aux_lemma : forall (lst : list block) (a blk: block),
     In blk lst ->
@@ -1031,13 +1049,13 @@ Admitted.
 
 Lemma blocks_selection_preservation:
   forall (lvl : nat) (st : state) (id : block_id) (v : nat), 
-    kv_rel id v st -> kv_rel id v (blocks_selection (calc_path id (state_position_map st)) lvl st).
+    kv_rel id v st -> kv_rel id v (blocks_selection (calc_path id st) lvl st).
 Proof.
   intros.
   unfold blocks_selection.
   remember
     (get_write_back_blocks
-       (calc_path id (state_position_map st)) (state_stash st) 4 lvl
+       (calc_path id st) (state_stash st) 4 lvl
        (state_position_map st)) as dlt. 
   destruct H.
   - (* assuming blk in stash *)
@@ -1060,11 +1078,16 @@ Lemma zero_sum_stsh_tr_Wr
   (s : state) (id : block_id) (v : nat) (p_new : path):
   kv_rel id v (get_new_st id (Write v)
                  (state_position_map s) (state_stash s) (state_oram s)
-                 (calc_path id (state_position_map s)) p_new).
+                 (calc_path id s) p_new).
 Proof.
   simpl in *.
   intros.
   unfold get_new_st.
+  s --  ---> s' (* this state has changes where the blocks along path have been collecte to the stash *)
+
+  P (write_back s' (calc_path id s) lvl)
+
+
   Check write_back_preservation.
   epose write_back_preservation as w.
   epose (w _
