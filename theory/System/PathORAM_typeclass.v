@@ -1072,6 +1072,26 @@ Proof.
     + trivial.
 Qed.
 
+Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
+    kv_rel id v s ->
+    blk_in_stash id v ((get_pre_wb_st id Read (state_position_map s)
+                          (state_stash s)
+                          (state_oram s)
+                          (calc_path id s) p_new)).
+Admitted.
+
+Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
+    blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
+                          (state_stash s)
+                          (state_oram s)
+                          (calc_path id s) p_new)).
+Admitted.
+
+Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
+    blk_in_stash id v s -> 
+    kv_rel id v (get_post_wb_st s p).
+Admitted.
+
 Lemma zero_sum_stsh_tr_Wr
   (s : state) (id : block_id) (v : nat) (p p_new : path):
   kv_rel id v
@@ -1080,15 +1100,9 @@ Lemma zero_sum_stsh_tr_Wr
           (state_position_map s) (state_stash s) (state_oram s)
           (calc_path id s) p_new) p).
 Proof.
-  unfold get_post_wb_st.
-  (* remember (get_pre_wb_st id (Write v) (state_position_map s) *)
-  (*         (state_stash s) (state_oram s) (calc_path id s) p_new) as pre_wb_st. *)
-  apply write_back_preservation.
-  - left. unfold blk_in_stash; simpl. left. auto. 
-  - admit.
-    (* - intros. apply blocks_selection_preservation. auto. *)
-    (* in this case s' should be the get_pre_wb_st *)
-Admitted.
+  apply distribute_via_get_post_wb_st.
+  apply stash_path_combined_rel_Wr.
+Qed.
 
 Lemma blk_in_path_in_lookup_oram : forall (id : block_id) (v : nat) (s : state) ,
     blk_in_path id v s -> 
@@ -1103,25 +1117,23 @@ Proof.
   unfold blk_in_path in H.
   unfold calc_path. auto.
 Qed.
-  
+
+        
 Lemma zero_sum_stsh_tr_Rd_rev :
-  forall (id : block_id) (v : nat) (s : state) (p_new : path), 
+  forall (id : block_id) (v : nat) (s : state) (p p_new : path), 
     kv_rel id v s  -> 
-    kv_rel id v (get_new_st id Read (state_position_map s)
-                   (state_stash s)
-                   (state_oram s)
-                   (calc_path id s) p_new). 
+    kv_rel id v (get_post_wb_st
+      (get_pre_wb_st id Read (state_position_map s)
+         (state_stash s)
+         (state_oram s)
+         (calc_path id s) p_new) p). 
 Proof.
   intros.
   unfold get_new_st.
-  apply write_back_preservation.
-  - destruct H.
-    + left. apply in_or_app. right. auto.
-    + left. simpl. unfold blk_in_stash. apply in_or_app.
-      left. apply blk_in_path_in_lookup_oram; auto.
-  (* - intros. apply blocks_selection_preservation; auto. *) - admit.
-Admitted.
-
+  apply distribute_via_get_post_wb_st. apply stash_path_combined_rel_Rd.
+  apply H.
+Qed.
+  
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   NoDup (List.map block_blockid l) ->
   In (Block id v) l -> lookup_ret_data id l = v.
