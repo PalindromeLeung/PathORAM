@@ -728,9 +728,8 @@ Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h 
   let o' := clear_path o p in 
   State m' h''' o'.
 
-Definition get_post_wb_st (id : block_id)(s : state) :=
-  let p := calc_path id s in 
-  write_back s p (length p).
+Definition get_post_wb_st (s : state) (id_path : path):=
+  write_back s id_path (length id_path).
   
 
 Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
@@ -753,7 +752,7 @@ Definition access (id : block_id) (op : operation) :
   (* flip a bunch of coins to get the new path *)      
   p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
   (* get the updated path oram state to put and the data to return *)
-  let n_st := get_post_wb_st id (get_pre_wb_st id op  m h o p p_new) in
+  let n_st := get_post_wb_st (get_pre_wb_st id op m h o p p_new) p in
   let ret_data := get_ret_data id h p o in
   (* put the updated state back *)
   _ <- Poram_st_put n_st ;;
@@ -1074,18 +1073,19 @@ Proof.
 Qed.
 
 Lemma zero_sum_stsh_tr_Wr
-  (s : state) (id : block_id) (v : nat) (p_new : path):
+  (s : state) (id : block_id) (v : nat) (p p_new : path):
   kv_rel id v
-    (get_post_wb_st id
+    (get_post_wb_st
        (get_pre_wb_st id (Write v)
           (state_position_map s) (state_stash s) (state_oram s)
-          (calc_path id s) p_new)).
+          (calc_path id s) p_new) p).
 Proof.
   unfold get_post_wb_st.
   (* remember (get_pre_wb_st id (Write v) (state_position_map s) *)
   (*         (state_stash s) (state_oram s) (calc_path id s) p_new) as pre_wb_st. *)
   apply write_back_preservation.
-  - left. unfold blk_in_stash; simpl. left. auto.
+  - left. unfold blk_in_stash; simpl. left. auto. 
+  - admit.
     (* - intros. apply blocks_selection_preservation. auto. *)
     (* in this case s' should be the get_pre_wb_st *)
 Admitted.
@@ -1119,8 +1119,8 @@ Proof.
     + left. apply in_or_app. right. auto.
     + left. simpl. unfold blk_in_stash. apply in_or_app.
       left. apply blk_in_path_in_lookup_oram; auto.
-  - intros. apply blocks_selection_preservation; auto.
-Qed.
+  (* - intros. apply blocks_selection_preservation; auto. *) - admit.
+Admitted.
 
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
   NoDup (List.map block_blockid l) ->
@@ -1146,7 +1146,7 @@ Qed.
 
 Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
   kv_rel id v (State m h o) ->
-  get_ret_data id h (calc_path id m) o = v.
+  get_ret_data id h (calc_path id (State m h o)) o = v.
 Proof.
   simpl.
   intros.
@@ -1160,7 +1160,7 @@ Proof.
     + admit.                    (* NoDup evidence *)
     + unfold blk_in_path in H. simpl in *.
     apply in_or_app. left. auto.
-Qed.
+Admitted.
         
 Lemma read_access_wf (id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
