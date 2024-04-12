@@ -1034,44 +1034,6 @@ Proof.
            destruct H1. auto. tauto.
 Admitted.
 
-Lemma blocks_selection_preservation:
-  forall (lvl : nat) (st : state) (id : block_id) (v : nat), 
-    kv_rel id v st -> kv_rel id v (blocks_selection (calc_path id st) lvl st).
-Proof.
-  intros.
-  unfold blocks_selection.
-  remember
-    (get_write_back_blocks
-       (calc_path id st) (state_stash st) 4 lvl
-       (state_position_map st)) as dlt. 
-  destruct H.
-  - (* assuming blk in stash *)
-    (* left or right both could be possible  *)
-    unfold kv_rel. 
-    apply kv_in_list_partition with (del := dlt) in H.
-    destruct H; simpl in *.  
-    + unfold blk_in_stash; auto. 
-    + right. unfold blk_in_path.
-      apply kv_in_delta_to_tree.
-      apply H.
-      simpl.
-      admit.
-  - admit. (* this should not be true,
- becasue blk should not in path during block selection phase  *)
-Admitted.
-
-Lemma write_back_preservation :
-  forall (lvl : nat) (s : state) (p : path) (P : state -> Prop ),
-    P s -> (forall s' lvl' , P s' -> P (blocks_selection p lvl' s' ))
-    -> P (write_back s p lvl).
-Proof.
-  induction lvl; simpl.
-  - intros. auto.
-  - intros. apply IHlvl.
-    + apply H0. auto.
-    + trivial.
-Qed.
-
 Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
     kv_rel id v s ->
     blk_in_stash id v ((get_pre_wb_st id Read (state_position_map s)
