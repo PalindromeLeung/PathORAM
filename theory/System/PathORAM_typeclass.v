@@ -1055,8 +1055,13 @@ Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) 
                           (state_stash s)
                           (state_oram s)
                           (calc_path id s) p_new)).
-Admitted.
-
+Proof.
+  intros.
+  unfold get_pre_wb_st;
+  unfold blk_in_stash; simpl.
+  left; auto.
+Qed.
+  
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
     kv_rel id v (get_post_wb_st s p).
