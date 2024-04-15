@@ -1040,7 +1040,15 @@ Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) 
                           (state_stash s)
                           (state_oram s)
                           (calc_path id s) p_new)).
-Admitted.
+Proof.
+  intros.
+  unfold get_pre_wb_st. simpl.
+  apply in_or_app.
+  destruct H.
+  - right; auto.
+  - unfold blk_in_path in H. auto.
+Qed.
+
 
 Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
     blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
