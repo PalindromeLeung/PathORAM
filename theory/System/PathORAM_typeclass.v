@@ -653,12 +653,6 @@ Fixpoint write_back (s : state) (p : path) (lvl : nat) : state :=
   | S m => write_back (blocks_selection p m s) p m
   end.
 
-Fixpoint write_back_gradual (s : state) (p : path) (start : nat) (steps : nat) : state :=
-  match steps with
-  | O => s
-  | S m => blocks_selection p start (write_back_gradual s p (S start) m)
-  end.
-
 Fixpoint iterate_right {X} (start : nat) (p : path) (f : path -> nat -> X -> X) (n : nat) (x : X) : X :=
   match n with
   | O => x
@@ -773,7 +767,7 @@ Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h 
   State m' h''' o'.
 
 Definition get_post_wb_st (s : state) (id_path : path):=
-  write_back_gradual s id_path O (length id_path).
+  write_back_r s id_path O (length id_path).
   
 
 Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
@@ -1106,39 +1100,11 @@ Proof.
   left; auto.
 Qed.
 
-
-Lemma split_two : forall st start i_a i_b p,
-    write_back_gradual st p start (i_a + i_b) =
-      write_back_gradual (write_back_gradual st p (i_a + start) i_b) p start i_b.
-Proof.
-Admitted.
-
-Lemma split_three : forall st (lvl k : nat) p (Hk : (k < lvl)%nat),
-    write_back_gradual st p O lvl =
-      write_back_gradual
-        (blocks_selection p k
-           (write_back_gradual st p
-              (S k) (lvl - 1 - k))
-        ) p O k.
-Proof.
-  intros.
-  assert (lvl = k + S ((lvl - 1) - k))%nat by lia.
-  rewrite H at 1.
-  rewrite split_two.
-  rewrite <- plus_n_O.
-  simpl write_back_gradual.
-  reflexivity.
-
-
-    
-Lemma write_back_split : forall s p n id v,
+Lemma write_back_lemma : forall s p n id v,
     blk_in_stash id v s ->
-    kv_rel id v (write_back_gradual s p O n).
+    (* blk_in_path id v (write_back_r s p O n) -> *)
+    kv_rel id v (write_back_r s p O n).
 Proof.
-  intros.
-  induction n; simpl.
-  - left; auto.
-  - Print get_write_back_blocks.
 Admitted.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
@@ -1147,7 +1113,7 @@ Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : stat
 Proof.
   intros.
   unfold get_post_wb_st.
-  apply write_back_lemma; auto.
+  apply write_back_lemma; auto. 
 Qed.    
 
 Lemma zero_sum_stsh_tr_Wr
@@ -1187,7 +1153,6 @@ Lemma zero_sum_stsh_tr_Rd_rev :
          (calc_path id s) p_new) p). 
 Proof.
   intros.
-  unfold get_new_st.
   apply distribute_via_get_post_wb_st. apply stash_path_combined_rel_Rd.
   apply H.
 Qed.
