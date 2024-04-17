@@ -676,48 +676,47 @@ Definition calc_path (id : block_id) (s : state):=
   let l := length (dict_elems (state_position_map s)) in
   lookup_dict (makeBoolList false l) id (state_position_map s).
 
-Definition access_helper (id : block_id) (op : operation) (m : position_map)
-  (h : stash) (o : oram) (p : path)  (p_new : path) :=
-  (* update the position map with the new path *)
-  let m' := update_dict id p_new m in
-  (* read the path for the index from the oram *)
+(* Definition access_helper (id : block_id) (op : operation) (m : position_map) *)
+(*   (h : stash) (o : oram) (p : path)  (p_new : path) := *)
+(*   (* update the position map with the new path *) *)
+(*   let m' := update_dict id p_new m in *)
+(*   (* read the path for the index from the oram *) *)
 
-  let bkts := lookup_path_oram o p in
-  (* update the stash to include these blocks *)
-  let bkt_blocks := concat bkts in
-  let h' := bkt_blocks ++ h in
+(*   let bkts := lookup_path_oram o p in *)
+(*   (* update the stash to include these blocks *) *)
+(*   let bkt_blocks := concat bkts in *)
+(*   let h' := bkt_blocks ++ h in *)
   
-  (* look up payload inside the stash *)
-  let ret_data := lookup_ret_data id h' in
-  (* read the index from the stash *)
-  let h'' := remove_list dummy_block 
-               (fun blk => equiv_decb (block_blockid blk) id) h' in
-  (* write nnew data to the stash *)
-  let h''' :=
-    match op with
-    | Read => h'
-    | Write d => (Block id d) ::  h''
-    end in 
-  let o' := clear_path o p in 
-  let n_st := write_back (State m' h''' o') p (length p)in
-  (n_st, ret_data).
+(*   (* look up payload inside the stash *) *)
+(*   let ret_data := lookup_ret_data id h' in *)
+(*   (* read the index from the stash *) *)
+(*   let h'' := remove_list dummy_block  *)
+(*                (fun blk => equiv_decb (block_blockid blk) id) h' in *)
+(*   (* write nnew data to the stash *) *)
+(*   let h''' := *)
+(*     match op with *)
+(*     | Read => h' *)
+(*     | Write d => (Block id d) ::  h'' *)
+(*     end in  *)
+(*   let o' := clear_path o p in  *)
+(*   let n_st := write_back (State m' h''' o') p (length p)in *)
+(*   (n_st, ret_data). *)
 
-
-Definition get_new_st (id : block_id) (op : operation) (m : position_map)(h : stash) (o : oram) (p : path)(p_new : path):=
-  let m' := update_dict id p_new m in
-  let bkts := lookup_path_oram o p in
-  let bkt_blocks := concat bkts in
-  let h' := bkt_blocks ++ h in
-  let h'' := remove_list dummy_block 
-               (fun blk => equiv_decb (block_blockid blk) id) h' in  
-  let h''' :=
-    match op with
-    | Read => h'
-    | Write d => (Block id d) ::  h''
-    end in
-  let o' := clear_path o p in 
-  let n_st := write_back (State m' h''' o') p (length p)in
-  n_st.
+(* Definition get_new_st (id : block_id) (op : operation) (m : position_map)(h : stash) (o : oram) (p : path)(p_new : path):= *)
+(*   let m' := update_dict id p_new m in *)
+(*   let bkts := lookup_path_oram o p in *)
+(*   let bkt_blocks := concat bkts in *)
+(*   let h' := bkt_blocks ++ h in *)
+(*   let h'' := remove_list dummy_block  *)
+(*                (fun blk => equiv_decb (block_blockid blk) id) h' in   *)
+(*   let h''' := *)
+(*     match op with *)
+(*     | Read => h' *)
+(*     | Write d => (Block id d) ::  h'' *)
+(*     end in *)
+(*   let o' := clear_path o p in  *)
+(*   let n_st := write_back (State m' h''' o') p (length p)in *)
+(*   n_st. *)
 
 Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
   let m' := update_dict id p_new m in
