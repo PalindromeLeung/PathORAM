@@ -653,6 +653,12 @@ Fixpoint write_back (s : state) (p : path) (lvl : nat) : state :=
   | S m => write_back (blocks_selection p m s) p m
   end.
 
+Fixpoint write_back_gradual (s : state) (p : path) (start : nat) (steps : nat) : state :=
+  match steps with
+  | O => s
+  | S m => blocks_selection p start (write_back_gradual s p (S start) m)
+  end.
+
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
     a <- dx ;; mreturn (a, st).
@@ -1065,7 +1071,11 @@ Qed.
 Lemma write_back_lemma : forall s p n id v,
     blk_in_stash id v s ->
     kv_rel id v (write_back s p n).
-Admitted.
+Proof.
+  intros.
+  induction n; simpl.
+  - left; auto.
+  - Print get_write_back_blocks.
     
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
