@@ -5,7 +5,7 @@ Require Import Coq.QArith.QArith.
 Require Import Coq.Classes.EquivDec.
 Import ListNotations.
 Require Import Coq.Program.Equality.
-
+Require Import Lia.
 (*** CLASSES ***)
 
 (* I'm rolling my own version of lots of datatypes and using typeclasses
@@ -659,6 +659,45 @@ Fixpoint write_back_gradual (s : state) (p : path) (start : nat) (steps : nat) :
   | S m => blocks_selection p start (write_back_gradual s p (S start) m)
   end.
 
+Fixpoint iterate_right {X} (start : nat) (p : path) (f : path -> nat -> X -> X) (n : nat) (x : X) : X :=
+  match n with
+  | O => x
+  | S m => f p start (iterate_right (S start) p f m x)
+  end.
+
+Definition write_back_r (s : state) (p : path) (start : nat) (step : nat):=
+  iterate_right start p blocks_selection step s.
+                        
+Lemma iterate_right_split {X} n : forall (start k : nat) (f : path -> nat -> X -> X) (p : path) (x : X),
+  iterate_right start p f (n+k) x =
+  iterate_right start p f n
+  (iterate_right (n + start) p f k x).
+Proof.
+  induction n; intros.
+  - reflexivity.
+  - simpl.
+    rewrite IHn.
+    rewrite plus_n_Sm.
+    reflexivity.
+Qed.
+
+Lemma factor_lemma {X} (L k : nat) (p : path) (f : path -> nat -> X -> X) (x : X) : (k < L)%nat ->
+  iterate_right 0 p f L x =
+    iterate_right 0 p f k
+      (f p k
+         (iterate_right (S k) p f (L - 1 - k) x)
+      ).
+Proof.
+  intro.
+  assert (L = k + S ((L - 1) - k))%nat by lia.
+  rewrite H0 at 1.
+  rewrite iterate_right_split.
+  rewrite <- (plus_n_O).
+  simpl.
+  reflexivity. 
+Qed.
+
+
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
     a <- dx ;; mreturn (a, st).
@@ -1070,10 +1109,25 @@ Qed.
 
 Lemma split_two : forall st start i_a i_b p,
     write_back_gradual st p start (i_a + i_b) =
-      write_back_gradual (write_back_gradual st p (start + i_a) i_b) p start i_b.
+      write_back_gradual (write_back_gradual st p (i_a + start) i_b) p start i_b.
 Proof.
 Admitted.
 
+Lemma split_three : forall st (lvl k : nat) p (Hk : (k < lvl)%nat),
+    write_back_gradual st p O lvl =
+      write_back_gradual
+        (blocks_selection p k
+           (write_back_gradual st p
+              (S k) (lvl - 1 - k))
+        ) p O k.
+Proof.
+  intros.
+  assert (lvl = k + S ((lvl - 1) - k))%nat by lia.
+  rewrite H at 1.
+  rewrite split_two.
+  rewrite <- plus_n_O.
+  simpl write_back_gradual.
+  reflexivity.
 
 
     
