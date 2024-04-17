@@ -734,7 +734,7 @@ Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h 
   State m' h''' o'.
 
 Definition get_post_wb_st (s : state) (id_path : path):=
-  write_back s id_path (length id_path).
+  write_back_gradual s id_path O (length id_path).
   
 
 Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
