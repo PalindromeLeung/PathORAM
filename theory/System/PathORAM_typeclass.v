@@ -1067,15 +1067,26 @@ Proof.
   left; auto.
 Qed.
 
-Lemma write_back_lemma : forall s p n id v,
+
+Lemma split_two : forall st start i_a i_b p,
+    write_back_gradual st p start (i_a + i_b) =
+      write_back_gradual (write_back_gradual st p (start + i_a) i_b) p start i_b.
+Proof.
+Admitted.
+
+
+
+    
+Lemma write_back_split : forall s p n id v,
     blk_in_stash id v s ->
-    kv_rel id v (write_back s p n).
+    kv_rel id v (write_back_gradual s p O n).
 Proof.
   intros.
   induction n; simpl.
   - left; auto.
   - Print get_write_back_blocks.
-    
+Admitted.
+
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
     kv_rel id v (get_post_wb_st s p).
