@@ -1123,15 +1123,8 @@ Proof.
   apply kv_in_delta_to_tree; auto.
 Qed.  
 
-
-
-(* Lemma in_stash_to_tree : forall s p id v, *)
-(*     blk_in_stash id v s ->  *)
-(*     blk_in_path id v (write_back_r O p (length p) s). *)
-(* Proof. *)
-(* Admitted. *)
     
-Lemma write_back_in_path : forall s p id v,
+Lemma write_back_in_stash_kv_rel : forall s p id v,
     blk_in_stash id v s ->
     (* blk_in_path id v (write_back_r O p (length p) s) -> *)
     kv_rel id v (write_back_r O p (length p) s).
@@ -1144,7 +1137,7 @@ Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : stat
 Proof.
   intros.
   unfold get_post_wb_st.
-  apply write_back_in_path; simpl; auto. 
+  apply write_back_in_stash_kv_rel; simpl; auto. 
 Qed.    
 
 Lemma zero_sum_stsh_tr_Wr
