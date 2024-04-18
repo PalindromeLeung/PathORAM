@@ -1111,15 +1111,21 @@ Proof.
   unfold write_back_r.
   intros. apply factor_lemma. auto.
 Qed.
-  
-Lemma write_back_lemma : forall s p n id v,
+
+Lemma in_stash_to_tree : forall s p id v,
     blk_in_stash id v s ->
-    (* blk_in_path id v (write_back_r s p O n) -> *)
-    kv_rel id v (write_back_r s p O n).
+    blk_in_path id v (write_back_r O p (length p) s).
+Admitted.
+
+Lemma write_back_in_path : forall s p id v,
+    (* blk_in_stash id v s -> *)
+    blk_in_path id v (write_back_r O p (length p) s) ->
+    kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
-  
-Admitted.
+  right.
+  auto.
+Qed.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
@@ -1127,7 +1133,7 @@ Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : stat
 Proof.
   intros.
   unfold get_post_wb_st.
-  apply write_back_lemma; auto. 
+  apply write_back_in_path; simpl. apply in_stash_to_tree; auto.
 Qed.    
 
 Lemma zero_sum_stsh_tr_Wr
