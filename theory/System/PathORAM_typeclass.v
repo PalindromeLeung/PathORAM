@@ -1198,25 +1198,26 @@ Compute get_max_prf_idx [true; false] [true; true].
 Compute get_max_prf_idx [true; false] [true; false].
 
 
-(iterate_right 1 p blocks_selection n s) = s'
+(* (iterate_right 1 p blocks_selection n s) = s' *)
                                              
 (* In {| block_blockid := id; block_payload := v |} *)
  (*    (get_write_back_blocks p (state_stash s') 4 0 *)
 (*       (state_position_map s')) *)
 
-Lemma get_write_back_blocks_lemma : forall s s'
+(* Lemma get_write_back_blocks_lemma : forall s s' *)
 Lemma write_back_in_stash_kv_rel : forall s p id v,
     blk_in_stash id v s ->
     (* blk_in_path id v (write_back_r O p (length p) s) -> *)
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
-  unfold write_back_r. induction (length p); simpl. 
+  unfold write_back_r. 
+  induction (length p); simpl. 
   - left. auto.
   - right. 
     apply block_selection_lemma.
     + 
-
+    +                           (* proof about coord_in_bound p O *)
       
     admit.
 Admitted.
