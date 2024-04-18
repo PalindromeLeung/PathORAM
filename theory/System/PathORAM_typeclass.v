@@ -1112,7 +1112,17 @@ Proof.
   intros. apply factor_lemma. auto.
 Qed.
 
-
+Lemma in_dlt_in_tree : forall id v s l,
+    In (Block id v) (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) -> 
+    coord_in_bound (state_oram s) (calc_path id s) l ->
+    blk_in_path id v (State (state_position_map s) (state_stash s)(up_oram_tr (state_oram s) l (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) (calc_path id s))).
+Proof.
+  intros.
+  unfold blk_in_path.
+  remember (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) as dlt.
+  apply kv_in_delta_to_tree; auto.
+Qed.  
+  
 Lemma in_stash_to_tree : forall s p id v,
     blk_in_stash id v s -> 
     blk_in_path id v (write_back_r O p (length p) s).
