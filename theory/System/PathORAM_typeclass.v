@@ -659,7 +659,7 @@ Fixpoint iterate_right {X} (start : nat) (p : path) (f : path -> nat -> X -> X) 
   | S m => f p start (iterate_right (S start) p f m x)
   end.
 
-Definition write_back_r (s : state) (p : path) (start : nat) (step : nat):=
+Definition write_back_r (start : nat) (p : path) (step : nat) (s : state):=
   iterate_right start p blocks_selection step s.
                         
 Lemma iterate_right_split {X} n : forall (start k : nat) (f : path -> nat -> X -> X) (p : path) (x : X),
@@ -767,7 +767,7 @@ Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h 
   State m' h''' o'.
 
 Definition get_post_wb_st (s : state) (id_path : path):=
-  write_back_r s id_path O (length id_path).
+  write_back_r O id_path (length id_path) s.
   
 
 Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
@@ -1100,11 +1100,24 @@ Proof.
   left; auto.
 Qed.
 
+
+Lemma write_back_split : forall lvl k p s,
+    (k < lvl)%nat -> 
+    write_back_r s p O lvl =
+    write_back_r (blocks_selection p k (write_back_r s p (S k) (lvl - 1 - k))) p O k.
+Proof.
+  unfold write_back_r.
+  apply factor_lemma.
+
+
+  
 Lemma write_back_lemma : forall s p n id v,
     blk_in_stash id v s ->
     (* blk_in_path id v (write_back_r s p O n) -> *)
     kv_rel id v (write_back_r s p O n).
 Proof.
+  intros.
+  
 Admitted.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
