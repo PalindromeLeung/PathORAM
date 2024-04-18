@@ -1122,22 +1122,21 @@ Proof.
   remember (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) as dlt.
   apply kv_in_delta_to_tree; auto.
 Qed.  
-  
-Lemma in_stash_to_tree : forall s p id v,
-    blk_in_stash id v s -> 
-    blk_in_path id v (write_back_r O p (length p) s).
-Proof.
-Admitted.
+
+
+
+(* Lemma in_stash_to_tree : forall s p id v, *)
+(*     blk_in_stash id v s ->  *)
+(*     blk_in_path id v (write_back_r O p (length p) s). *)
+(* Proof. *)
+(* Admitted. *)
     
 Lemma write_back_in_path : forall s p id v,
-    (* blk_in_stash id v s -> *)
-    blk_in_path id v (write_back_r O p (length p) s) ->
+    blk_in_stash id v s ->
+    (* blk_in_path id v (write_back_r O p (length p) s) -> *)
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
-  intros.
-  right.
-  auto.
-Qed.
+Admitted.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
@@ -1145,7 +1144,7 @@ Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : stat
 Proof.
   intros.
   unfold get_post_wb_st.
-  apply write_back_in_path; simpl. apply in_stash_to_tree; auto.
+  apply write_back_in_path; simpl; auto. 
 Qed.    
 
 Lemma zero_sum_stsh_tr_Wr
