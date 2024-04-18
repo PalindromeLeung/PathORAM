@@ -1101,15 +1101,16 @@ Proof.
 Qed.
 
 
-Lemma write_back_split : forall lvl k p s,
+Lemma write_back_split : forall lvl k p (s : state),
     (k < lvl)%nat -> 
-    write_back_r s p O lvl =
-    write_back_r (blocks_selection p k (write_back_r s p (S k) (lvl - 1 - k))) p O k.
+    write_back_r O p lvl s =
+      write_back_r O p k 
+      ((blocks_selection p k 
+         (write_back_r (S k) p (lvl - 1 - k) s))).
 Proof.
   unfold write_back_r.
-  apply factor_lemma.
-
-
+  intros. apply factor_lemma. auto.
+Qed.
   
 Lemma write_back_lemma : forall s p n id v,
     blk_in_stash id v s ->
