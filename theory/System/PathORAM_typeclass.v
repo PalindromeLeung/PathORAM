@@ -1115,7 +1115,7 @@ Qed.
 Lemma in_dlt_in_tree : forall id v s l,
     In (Block id v) (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) -> 
     coord_in_bound (state_oram s) (calc_path id s) l ->
-    blk_in_path id v (State (state_position_map s) (state_stash s)(up_oram_tr (state_oram s) l (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) (calc_path id s))).
+    blk_in_path id v (State (state_position_map s) (state_stash s) (up_oram_tr (state_oram s) l (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) (calc_path id s))).
 Proof.
   intros.
   unfold blk_in_path.
@@ -1123,12 +1123,68 @@ Proof.
   apply kv_in_delta_to_tree; auto.
 Qed.  
 
+ (* remove_list_sub (get_write_back_blocks p0 (state_stash s0) 4 lvl (state_position_map s0)) *)
+(*              (state_stash s0); *)
+
+Fixpoint in_aux (lst : option bucket) (x : block) : Prop.
+  refine (
+  match lst with
+  | None => False
+  | Some l => match l with
+             | [] => False
+             | h :: t =>
+                 if andb (Nat.eqb (block_blockid h) (block_blockid x))
+                      (Nat.eqb (block_payload h) (block_payload x))
+                 then True 
+                 else in_aux (Some t) x
+             end
+  end).
+ Admitted.
+
     
+Fixpoint dlt_in_bkt (bkt_lst: option bucket) (dlt : list block) : Prop :=
+  match dlt with
+  | [] => True
+  | h :: t => (in_aux bkt_lst h) /\ dlt_in_bkt bkt_lst t
+  end.
+
+Fixpoint locate_node_in_tr (o : oram) (lvl : nat) : path -> (option bucket):=
+  match o in oram return path -> (option bucket) with
+  | leaf => fun _ => None
+  | node d o_l o_r =>
+      fun p =>
+        match lvl with
+        | O => d
+        | S lv =>
+            match p with
+            | [] => None
+            | x :: xs =>
+                match x with
+                | true => locate_node_in_tr o_l lv xs
+                | false => locate_node_in_tr o_r lv xs
+                end
+            end
+        end
+  end.
+
+Lemma blocks_selection_lemma : forall (dlt : list block) s p lvl,
+    (* length of s is decreasing by dlt for a lvl *)
+    dlt_in_bkt
+      (locate_node_in_tr (state_oram (blocks_selection p lvl s)) lvl p)
+      (* bucket containing list of blocks *)
+      
+      (remove_list_sub (state_stash (blocks_selection p lvl s)) (state_stash s)) (* dlt *).
+Admitted.
+  
 Lemma write_back_in_stash_kv_rel : forall s p id v,
     blk_in_stash id v s ->
     (* blk_in_path id v (write_back_r O p (length p) s) -> *)
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
+  intros.
+  unfold write_back_r. induction (length p); simpl. 
+  - left. auto.
+  - admit.
 Admitted.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
