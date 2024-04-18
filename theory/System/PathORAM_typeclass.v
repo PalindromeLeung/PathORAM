@@ -1123,59 +1123,88 @@ Proof.
   apply kv_in_delta_to_tree; auto.
 Qed.  
 
- (* remove_list_sub (get_write_back_blocks p0 (state_stash s0) 4 lvl (state_position_map s0)) *)
-(*              (state_stash s0); *)
+Lemma block_selection_lemma : forall id v s l p ,
+    In (Block id v) (get_write_back_blocks p (state_stash s) 4 l (state_position_map s)) -> 
+    coord_in_bound (state_oram s) p l ->
+    blk_in_path id v (blocks_selection p l s).
+Proof.
+  intros.
+  unfold blk_in_path.
+  remember (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) as dlt.
+Admitted.
 
-Fixpoint in_aux (lst : option bucket) (x : block) : Prop.
-  refine (
-  match lst with
-  | None => False
-  | Some l => match l with
-             | [] => False
-             | h :: t =>
-                 if andb (Nat.eqb (block_blockid h) (block_blockid x))
-                      (Nat.eqb (block_payload h) (block_payload x))
-                 then True 
-                 else in_aux (Some t) x
-             end
-  end).
- Admitted.
+
+(* Fixpoint in_aux (lst : option bucket) (x : block) : Prop. *)
+(*   refine ( *)
+(*   match lst with *)
+(*   | None => False *)
+(*   | Some l => match l with *)
+(*              | [] => False *)
+(*              | h :: t => *)
+(*                  if andb (Nat.eqb (block_blockid h) (block_blockid x)) *)
+(*                       (Nat.eqb (block_payload h) (block_payload x)) *)
+(*                  then True  *)
+(*                  else in_aux (Some t) x *)
+(*              end *)
+(*   end). *)
+(*  Admitted. *)
 
     
-Fixpoint dlt_in_bkt (bkt_lst: option bucket) (dlt : list block) : Prop :=
-  match dlt with
-  | [] => True
-  | h :: t => (in_aux bkt_lst h) /\ dlt_in_bkt bkt_lst t
-  end.
+(* Fixpoint dlt_in_bkt (bkt_lst: option bucket) (dlt : list block) : Prop := *)
+(*   match dlt with *)
+(*   | [] => True *)
+(*   | h :: t => (in_aux bkt_lst h) /\ dlt_in_bkt bkt_lst t *)
+(*   end. *)
 
-Fixpoint locate_node_in_tr (o : oram) (lvl : nat) : path -> (option bucket):=
-  match o in oram return path -> (option bucket) with
-  | leaf => fun _ => None
-  | node d o_l o_r =>
-      fun p =>
-        match lvl with
-        | O => d
-        | S lv =>
-            match p with
-            | [] => None
-            | x :: xs =>
-                match x with
-                | true => locate_node_in_tr o_l lv xs
-                | false => locate_node_in_tr o_r lv xs
-                end
-            end
-        end
-  end.
+(* Fixpoint locate_node_in_tr (o : oram) (lvl : nat) : path -> (option bucket):= *)
+(*   match o in oram return path -> (option bucket) with *)
+(*   | leaf => fun _ => None *)
+(*   | node d o_l o_r => *)
+(*       fun p => *)
+(*         match lvl with *)
+(*         | O => d *)
+(*         | S lv => *)
+(*             match p with *)
+(*             | [] => None *)
+(*             | x :: xs => *)
+(*                 match x with *)
+(*                 | true => locate_node_in_tr o_l lv xs *)
+(*                 | false => locate_node_in_tr o_r lv xs *)
+(*                 end *)
+(*             end *)
+(*         end *)
+(*   end. *)
 
-Lemma blocks_selection_lemma : forall (dlt : list block) s p lvl,
-    (* length of s is decreasing by dlt for a lvl *)
-    dlt_in_bkt
-      (locate_node_in_tr (state_oram (blocks_selection p lvl s)) lvl p)
-      (* bucket containing list of blocks *)
+(* Lemma blocks_selection_lemma : forall (dlt : list block) s p lvl, *)
+(*     (* length of s is decreasing by dlt for a lvl *) *)
+(*     dlt_in_bkt *)
+(*       (locate_node_in_tr (state_oram (blocks_selection p lvl s)) lvl p) *)
+(*       (* bucket containing list of blocks *) *)
       
-      (remove_list_sub (state_stash (blocks_selection p lvl s)) (state_stash s)) (* dlt *).
-Admitted.
-  
+(*       (remove_list_sub (state_stash (blocks_selection p lvl s)) (state_stash s)) (* dlt *). *)
+(* Admitted. *)
+
+Fixpoint get_max_prf_idx (x : list bool) (y : list bool) : nat :=
+  match x, y with
+  | [], [] => O
+  | h :: t, [] => O 
+  | [], a :: b => O 
+  | h :: t, a :: b =>
+      if eqb h a then S (get_max_prf_idx t b )
+      else get_max_prf_idx t b
+  end.
+
+Compute get_max_prf_idx [true; false] [true; true].
+Compute get_max_prf_idx [true; false] [true; false].
+
+
+(iterate_right 1 p blocks_selection n s) = s'
+                                             
+(* In {| block_blockid := id; block_payload := v |} *)
+ (*    (get_write_back_blocks p (state_stash s') 4 0 *)
+(*       (state_position_map s')) *)
+
+Lemma get_write_back_blocks_lemma : forall s s'
 Lemma write_back_in_stash_kv_rel : forall s p id v,
     blk_in_stash id v s ->
     (* blk_in_path id v (write_back_r O p (length p) s) -> *)
@@ -1184,7 +1213,12 @@ Proof.
   intros.
   unfold write_back_r. induction (length p); simpl. 
   - left. auto.
-  - admit.
+  - right. 
+    apply block_selection_lemma.
+    + 
+
+      
+    admit.
 Admitted.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
