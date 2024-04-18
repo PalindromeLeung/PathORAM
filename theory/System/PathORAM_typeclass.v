@@ -1112,11 +1112,13 @@ Proof.
   intros. apply factor_lemma. auto.
 Qed.
 
-Lemma in_stash_to_tree : forall s p id v,
-    blk_in_stash id v s ->
-    blk_in_path id v (write_back_r O p (length p) s).
-Admitted.
 
+Lemma in_stash_to_tree : forall s p id v,
+    blk_in_stash id v s -> 
+    blk_in_path id v (write_back_r O p (length p) s).
+Proof.
+Admitted.
+    
 Lemma write_back_in_path : forall s p id v,
     (* blk_in_stash id v s -> *)
     blk_in_path id v (write_back_r O p (length p) s) ->
