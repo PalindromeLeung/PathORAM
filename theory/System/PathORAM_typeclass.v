@@ -1156,24 +1156,30 @@ Admitted.
 (*   | h :: t => (in_aux bkt_lst h) /\ dlt_in_bkt bkt_lst t *)
 (*   end. *)
 
-(* Fixpoint locate_node_in_tr (o : oram) (lvl : nat) : path -> (option bucket):= *)
-(*   match o in oram return path -> (option bucket) with *)
-(*   | leaf => fun _ => None *)
-(*   | node d o_l o_r => *)
-(*       fun p => *)
-(*         match lvl with *)
-(*         | O => d *)
-(*         | S lv => *)
-(*             match p with *)
-(*             | [] => None *)
-(*             | x :: xs => *)
-(*                 match x with *)
-(*                 | true => locate_node_in_tr o_l lv xs *)
-(*                 | false => locate_node_in_tr o_r lv xs *)
-(*                 end *)
-(*             end *)
-(*         end *)
-(*   end. *)
+Fixpoint locate_node_in_tr (o : oram) (lvl : nat) : path -> (option bucket):=
+  match o in oram return path -> (option bucket) with
+  | leaf => fun _ => None
+  | node d o_l o_r =>
+      fun p =>
+        match lvl with
+        | O => d
+        | S lv =>
+            match p with
+            | [] => None
+            | x :: xs =>
+                match x with
+                | true => locate_node_in_tr o_l lv xs
+                | false => locate_node_in_tr o_r lv xs
+                end
+            end
+        end
+  end.
+
+Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop :=
+  match locate_node_in_tr o lvl p with
+  | None => False
+  | Some v => In x v
+  end.
 
 (* Lemma blocks_selection_lemma : forall (dlt : list block) s p lvl, *)
 (*     (* length of s is decreasing by dlt for a lvl *) *)
@@ -1205,21 +1211,92 @@ Compute get_max_prf_idx [true; false] [true; false].
 (*       (state_position_map s')) *)
 
 (* Lemma get_write_back_blocks_lemma : forall s s' *)
+
+
+(* phase III *)
+Lemma in_tree_to_in_tree : forall id v k s p,
+    at_lvl_in_path (state_oram s) k p (Block id v) -> 
+    blk_in_path id v (write_back_r O p k s).
+Admitted.
+
+
+(* phase II *)
+Lemma in_stash_to_in_tree : forall id v k s p,
+    blk_in_stash id v s ->
+    get_max_prf_idx p (calc_path id s) = k ->
+    at_lvl_in_path (state_oram (blocks_selection p k s)) k p (Block id v).
+Admitted.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(* phase I *)
+Lemma in_stash_in_stash : forall id v k s p n,
+    blk_in_stash id v s ->
+    get_max_prf_idx p (calc_path id s) = k -> 
+    blk_in_stash id v (write_back_r (S k) p n s).
+Admitted.
+
+Lemma pos_map_stable_across_blk_sel : forall p lvl s,
+    state_position_map s = state_position_map (blocks_selection p lvl s).
+Proof.
+  reflexivity.
+Qed.
+
+Lemma pos_map_stable_across_wb : forall n p s start,
+    state_position_map s = state_position_map (write_back_r start p n s).
+Proof.
+  unfold write_back_r.
+  induction n; simpl; auto.
+Qed. 
+
+Lemma calc_path_pos_map_same : forall id s s',
+    state_position_map s = state_position_map s' ->
+    calc_path id s = calc_path id s'.
+Proof.
+  intros.
+  unfold calc_path.
+  congruence.
+Qed.
+
+
 Lemma write_back_in_stash_kv_rel : forall s p id v,
     blk_in_stash id v s ->
     (* blk_in_path id v (write_back_r O p (length p) s) -> *)
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
-  unfold write_back_r. 
-  induction (length p); simpl. 
-  - left. auto.
-  - right. 
-    apply block_selection_lemma.
-    + 
-    +                           (* proof about coord_in_bound p O *)
-      
-    admit.
+  unfold write_back_r. remember (get_max_prf_idx p (calc_path id s)) as k.
+  rewrite factor_lemma with ( k := k); simpl.
+  right.
+  apply in_tree_to_in_tree.
+  apply in_stash_to_in_tree.
+  apply in_stash_in_stash.
+  auto.
+  symmetry in Heqk.
+  auto.
+  rewrite calc_path_pos_map_same with (s' := s). 
+  symmetry in Heqk. 
+  auto.
+  symmetry.
+  apply pos_map_stable_across_wb.
+  rewrite Heqk. 
+  
 Admitted.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
