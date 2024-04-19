@@ -1274,30 +1274,79 @@ Proof.
   congruence.
 Qed.
 
+Lemma at_lvl_in_path_blocks_selection :
+  forall p lvl lvl' s b,
+  (lvl < lvl')%nat ->
+  at_lvl_in_path (state_oram s) lvl' p b ->
+  at_lvl_in_path (state_oram (blocks_selection p lvl s)) lvl' p b.
+Proof.
+  intros.
+  unfold at_lvl_in_path in *.
+  destruct locate_node_in_tr eqn:?.
+  - admit.
+  - destruct H0.
+Admitted.
+
+Lemma stash_block_selection : forall p s id v lvl,
+  blk_in_stash id v s ->
+  blk_in_stash id v (blocks_selection p lvl s) \/
+  at_lvl_in_path (state_oram
+    (blocks_selection p lvl s)) lvl p (Block id v).
+Proof.
+  intros.
+  remember (blocks_selection p lvl s) as s'.
+  unfold blocks_selection in Heqs'.
+  unfold blk_in_stash in Heqs'.
+  unfold blk_in_stash.
+  rewrite Heqs'.
+  simpl.
+Admitted.
+
+Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
+  blk_in_stash id v s ->
+  blk_in_stash id v (write_back_r start p n s) \/
+  exists k, (start <= k /\
+    at_lvl_in_path (state_oram (write_back_r start p n s)) k p (Block id v))%nat.
+Proof.
+  induction n; intros.
+  - left; auto.
+  - destruct (IHn s p id v (S start) H).
+    + unfold write_back_r at 1.
+      simpl iterate_right at 1.
+      destruct (stash_block_selection p _ id v start H0).
+      * left; auto.
+      * right.
+        exists start; auto.
+    + destruct H0 as [k [Hk1 Hk2]].
+      right; exists k.
+      split; [lia|].
+      unfold write_back_r; simpl iterate_right.
+      apply at_lvl_in_path_blocks_selection; auto; lia.
+Qed.
+
+Lemma weaken_at_lvl_in_path : forall s lvl p id v,
+  at_lvl_in_path (state_oram s) lvl p (Block id v) ->
+  blk_in_path id v s.
+Proof.
+  intros.
+  unfold at_lvl_in_path in *.
+  destruct locate_node_in_tr eqn:?; [|tauto].
+  unfold blk_in_path.
+  rewrite in_concat.
+  exists b. split; auto.
+Admitted.
 
 Lemma write_back_in_stash_kv_rel : forall s p id v,
     blk_in_stash id v s ->
-    (* blk_in_path id v (write_back_r O p (length p) s) -> *)
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
-  unfold write_back_r. remember (get_max_prf_idx p (calc_path id s)) as k.
-  rewrite factor_lemma with ( k := k); simpl.
-  right.
-  apply in_tree_to_in_tree.
-  apply in_stash_to_in_tree.
-  apply in_stash_in_stash.
-  auto.
-  symmetry in Heqk.
-  auto.
-  rewrite calc_path_pos_map_same with (s' := s). 
-  symmetry in Heqk. 
-  auto.
-  symmetry.
-  apply pos_map_stable_across_wb.
-  rewrite Heqk. 
-  
-Admitted.
+  destruct (write_back_in_stash_kv_rel_aux (length p) s p id v 0 H).
+  - left; auto.
+  - destruct H0 as [k [_ Hk]].
+    right.
+    eapply weaken_at_lvl_in_path; eauto.
+Qed.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
