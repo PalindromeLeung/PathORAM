@@ -707,49 +707,6 @@ Fixpoint concat_option (l : list (option bucket)) : list block :=
             | Some v => v ++ concat_option t
             end
   end.
-    
-
-(* Definition access_helper (id : block_id) (op : operation) (m : position_map) *)
-(*   (h : stash) (o : oram) (p : path)  (p_new : path) := *)
-(*   (* update the position map with the new path *) *)
-(*   let m' := update_dict id p_new m in *)
-(*   (* read the path for the index from the oram *) *)
-
-(*   let bkts := lookup_path_oram o p in *)
-(*   (* update the stash to include these blocks *) *)
-(*   let bkt_blocks := concat bkts in *)
-(*   let h' := bkt_blocks ++ h in *)
-  
-(*   (* look up payload inside the stash *) *)
-(*   let ret_data := lookup_ret_data id h' in *)
-(*   (* read the index from the stash *) *)
-(*   let h'' := remove_list dummy_block  *)
-(*                (fun blk => equiv_decb (block_blockid blk) id) h' in *)
-(*   (* write nnew data to the stash *) *)
-(*   let h''' := *)
-(*     match op with *)
-(*     | Read => h' *)
-(*     | Write d => (Block id d) ::  h'' *)
-(*     end in  *)
-(*   let o' := clear_path o p in  *)
-(*   let n_st := write_back (State m' h''' o') p (length p)in *)
-(*   (n_st, ret_data). *)
-
-(* Definition get_new_st (id : block_id) (op : operation) (m : position_map)(h : stash) (o : oram) (p : path)(p_new : path):= *)
-(*   let m' := update_dict id p_new m in *)
-(*   let bkts := lookup_path_oram o p in *)
-(*   let bkt_blocks := concat bkts in *)
-(*   let h' := bkt_blocks ++ h in *)
-(*   let h'' := remove_list dummy_block  *)
-(*                (fun blk => equiv_decb (block_blockid blk) id) h' in   *)
-(*   let h''' := *)
-(*     match op with *)
-(*     | Read => h' *)
-(*     | Write d => (Block id d) ::  h'' *)
-(*     end in *)
-(*   let o' := clear_path o p in  *)
-(*   let n_st := write_back (State m' h''' o') p (length p)in *)
-(*   n_st. *)
 
 Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
   let m' := update_dict id p_new m in
@@ -1112,50 +1069,6 @@ Proof.
   intros. apply factor_lemma. auto.
 Qed.
 
-Lemma in_dlt_in_tree : forall id v s l,
-    In (Block id v) (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) -> 
-    coord_in_bound (state_oram s) (calc_path id s) l ->
-    blk_in_path id v (State (state_position_map s) (state_stash s) (up_oram_tr (state_oram s) l (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) (calc_path id s))).
-Proof.
-  intros.
-  unfold blk_in_path.
-  remember (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) as dlt.
-  apply kv_in_delta_to_tree; auto.
-Qed.  
-
-Lemma block_selection_lemma : forall id v s l p ,
-    In (Block id v) (get_write_back_blocks p (state_stash s) 4 l (state_position_map s)) -> 
-    coord_in_bound (state_oram s) p l ->
-    blk_in_path id v (blocks_selection p l s).
-Proof.
-  intros.
-  unfold blk_in_path.
-  remember (get_write_back_blocks (calc_path id s) (state_stash s) 4 l (state_position_map s)) as dlt.
-Admitted.
-
-
-(* Fixpoint in_aux (lst : option bucket) (x : block) : Prop. *)
-(*   refine ( *)
-(*   match lst with *)
-(*   | None => False *)
-(*   | Some l => match l with *)
-(*              | [] => False *)
-(*              | h :: t => *)
-(*                  if andb (Nat.eqb (block_blockid h) (block_blockid x)) *)
-(*                       (Nat.eqb (block_payload h) (block_payload x)) *)
-(*                  then True  *)
-(*                  else in_aux (Some t) x *)
-(*              end *)
-(*   end). *)
-(*  Admitted. *)
-
-    
-(* Fixpoint dlt_in_bkt (bkt_lst: option bucket) (dlt : list block) : Prop := *)
-(*   match dlt with *)
-(*   | [] => True *)
-(*   | h :: t => (in_aux bkt_lst h) /\ dlt_in_bkt bkt_lst t *)
-(*   end. *)
-
 Fixpoint locate_node_in_tr (o : oram) (lvl : nat) : path -> (option bucket):=
   match o in oram return path -> (option bucket) with
   | leaf => fun _ => None
@@ -1180,16 +1093,6 @@ Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop 
   | None => False
   | Some v => In x v
   end.
-
-
-(* Lemma blocks_selection_lemma : forall (dlt : list block) s p lvl, *)
-(*     (* length of s is decreasing by dlt for a lvl *) *)
-(*     dlt_in_bkt *)
-(*       (locate_node_in_tr (state_oram (blocks_selection p lvl s)) lvl p) *)
-(*       (* bucket containing list of blocks *) *)
-      
-(*       (remove_list_sub (state_stash (blocks_selection p lvl s)) (state_stash s)) (* dlt *). *)
-(* Admitted. *)
 
 Fixpoint get_max_prf_idx (x : list bool) (y : list bool) : nat :=
   match x, y with
