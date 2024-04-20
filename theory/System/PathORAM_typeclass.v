@@ -1203,55 +1203,6 @@ Fixpoint get_max_prf_idx (x : list bool) (y : list bool) : nat :=
 Compute get_max_prf_idx [true; false] [true; true].
 Compute get_max_prf_idx [true; false] [true; false].
 
-
-(* (iterate_right 1 p blocks_selection n s) = s' *)
-                                             
-(* In {| block_blockid := id; block_payload := v |} *)
- (*    (get_write_back_blocks p (state_stash s') 4 0 *)
-(*       (state_position_map s')) *)
-
-(* Lemma get_write_back_blocks_lemma : forall s s' *)
-
-
-(* phase III *)
-Lemma in_tree_to_in_tree : forall id v k s p,
-    at_lvl_in_path (state_oram s) k p (Block id v) -> 
-    blk_in_path id v (write_back_r O p k s).
-Admitted.
-
-
-(* phase II *)
-Lemma in_stash_to_in_tree : forall id v k s p,
-    blk_in_stash id v s ->
-    get_max_prf_idx p (calc_path id s) = k ->
-    at_lvl_in_path (state_oram (blocks_selection p k s)) k p (Block id v).
-Admitted.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-(* phase I *)
-Lemma in_stash_in_stash : forall id v k s p n,
-    blk_in_stash id v s ->
-    get_max_prf_idx p (calc_path id s) = k -> 
-    blk_in_stash id v (write_back_r (S k) p n s).
-Admitted.
-
 Lemma pos_map_stable_across_blk_sel : forall p lvl s,
     state_position_map s = state_position_map (blocks_selection p lvl s).
 Proof.
