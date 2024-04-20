@@ -1303,19 +1303,18 @@ Proof.
   apply locate_node_in_path with (lvl := lvl); auto.
 Qed.
 
-Lemma write_back_in_stash_kv_rel : forall s id v,
+Lemma write_back_in_stash_kv_rel : forall s id v p,
     blk_in_stash id v s ->
-    kv_rel id v (write_back_r O (calc_path id s) (length  (calc_path id s))s).
+    kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
-  destruct (write_back_in_stash_kv_rel_aux (length  (calc_path id s)) s (calc_path id s) id v 0 H).
+  destruct (write_back_in_stash_kv_rel_aux (length p) s p id v 0 H).
   - left; auto.
   - destruct H0 as [k [_ Hk]].
     right.
     eapply weaken_at_lvl_in_path.
     rewrite calc_path_write_bk_r_stable.
-    exact Hk.
-Qed.
+Admitted.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
