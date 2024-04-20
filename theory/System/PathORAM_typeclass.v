@@ -1235,10 +1235,10 @@ Proof.
 Qed.
 
 Lemma at_lvl_in_path_blocks_selection :
-  forall p lvl lvl' s b,
+  forall p p' lvl lvl' s b,
   (lvl < lvl')%nat ->
   at_lvl_in_path (state_oram s) lvl' p b ->
-  at_lvl_in_path (state_oram (blocks_selection p lvl s)) lvl' p b.
+  at_lvl_in_path (state_oram (blocks_selection p' lvl s)) lvl' p b.
 Proof.
   intros.
   unfold at_lvl_in_path in *.
@@ -1250,8 +1250,12 @@ Admitted.
 Lemma stash_block_selection : forall p s id v lvl,
   blk_in_stash id v s ->
   blk_in_stash id v (blocks_selection p lvl s) \/
-  at_lvl_in_path (state_oram
-    (blocks_selection p lvl s)) lvl p (Block id v).
+  (at_lvl_in_path (state_oram
+                     (blocks_selection p lvl s)) lvl p (Block id v) /\
+     at_lvl_in_path (state_oram
+                       (blocks_selection p lvl s)) lvl (calc_path id s) (Block id v) 
+  ) .
+
 Proof.
   intros.
   remember (blocks_selection p lvl s) as s'.
@@ -1265,8 +1269,9 @@ Admitted.
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
   blk_in_stash id v s ->
   blk_in_stash id v (write_back_r start p n s) \/
-  exists k, (start <= k /\
-    at_lvl_in_path (state_oram (write_back_r start p n s)) k p (Block id v))%nat.
+  exists k, (start <= k /\ 
+        at_lvl_in_path (state_oram (write_back_r start p n s)) k p (Block id v) /\
+         at_lvl_in_path (state_oram (write_back_r start p n s)) k (calc_path id s) (Block id v))%nat.
 Proof.
   induction n; intros.
   - left; auto.
@@ -1277,11 +1282,16 @@ Proof.
       * left; auto.
       * right.
         exists start; auto.
+        repeat split; auto ; try tauto.
+        destruct H1. rewrite calc_path_write_bk_r_stable in H2.
+        exact H2.
     + destruct H0 as [k [Hk1 Hk2]].
       right; exists k.
       split; [lia|].
       unfold write_back_r; simpl iterate_right.
-      apply at_lvl_in_path_blocks_selection; auto; lia.
+      split; destruct Hk2.
+      * apply at_lvl_in_path_blocks_selection; auto.
+      * apply at_lvl_in_path_blocks_selection; auto.
 Qed.
 
 Lemma locate_node_in_path : forall o lvl p b,
@@ -1302,9 +1312,10 @@ Proof.
   exists b. split; auto.
   apply locate_node_in_path with (lvl := lvl); auto.
 Qed.
-
+  
 Lemma write_back_in_stash_kv_rel : forall s id v p,
     blk_in_stash id v s ->
+    (* get_max_prf_idx p (calc_path id s) >= lvl *)
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
@@ -1314,7 +1325,9 @@ Proof.
     right.
     eapply weaken_at_lvl_in_path.
     rewrite calc_path_write_bk_r_stable.
-Admitted.
+    destruct Hk.
+    eauto.
+Qed.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
     blk_in_stash id v s -> 
