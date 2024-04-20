@@ -495,13 +495,16 @@ Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
   | S m => b :: makeBoolList b m
   end.
 
+Definition calc_path (id : block_id) (s : state):=
+  let l := length (dict_elems (state_position_map s)) in
+  lookup_dict (makeBoolList false l) id (state_position_map s).
+
+Definition blk_in_p (id : block_id) (v : nat) (o : oram) (p: path) := 
+  let path_blks := concat(lookup_path_oram o p) in
+  In (Block id v) path_blks.
 
 Definition blk_in_path (id : block_id) (v : nat) (s : state): Prop :=
-  let m := state_position_map s in
-  let l := length(dict_elems m) in
-  let p := lookup_dict (makeBoolList false l) id m in
-  let path_blks := concat(lookup_path_oram (state_oram s) p) in
-  In (Block id v) path_blks.
+  blk_in_p id v (state_oram s) (calc_path id s).
 
 #[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
   {|mreturn A := retT; mbind X Y := bindT |}.
@@ -705,9 +708,6 @@ Fixpoint concat_option (l : list (option bucket)) : list block :=
             end
   end.
     
-Definition calc_path (id : block_id) (s : state):=
-  let l := length (dict_elems (state_position_map s)) in
-  lookup_dict (makeBoolList false l) id (state_position_map s).
 
 (* Definition access_helper (id : block_id) (op : operation) (m : position_map) *)
 (*   (h : stash) (o : oram) (p : path)  (p_new : path) := *)
@@ -1283,9 +1283,10 @@ Proof.
   unfold at_lvl_in_path in *.
   destruct locate_node_in_tr eqn:?; [|tauto].
   unfold blk_in_path.
+  unfold blk_in_p.
   rewrite in_concat.
   exists b. split; auto.
-Admitted.
+Admitted.  
 
 Lemma write_back_in_stash_kv_rel : forall s p id v,
     blk_in_stash id v s ->
