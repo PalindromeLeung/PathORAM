@@ -1225,6 +1225,15 @@ Proof.
   congruence.
 Qed.
 
+Lemma calc_path_write_bk_r_stable : forall start id s n p ,
+    calc_path id (write_back_r start p n s) = calc_path id s.
+Proof.
+  intros.
+  apply calc_path_pos_map_same.
+  symmetry.
+  apply pos_map_stable_across_wb.
+Qed.
+
 Lemma at_lvl_in_path_blocks_selection :
   forall p lvl lvl' s b,
   (lvl < lvl')%nat ->
@@ -1275,9 +1284,14 @@ Proof.
       apply at_lvl_in_path_blocks_selection; auto; lia.
 Qed.
 
-Lemma weaken_at_lvl_in_path : forall s lvl p id v,
-  at_lvl_in_path (state_oram s) lvl p (Block id v) ->
-  blk_in_path id v s.
+Lemma locate_node_in_path : forall o lvl p b,
+    locate_node_in_tr o lvl p = Some b ->
+    In b (lookup_path_oram o p).
+Admitted.
+
+Lemma weaken_at_lvl_in_path : forall o lvl p id v,
+  at_lvl_in_path o lvl p (Block id v) ->
+  blk_in_p id v o p.
 Proof.
   intros.
   unfold at_lvl_in_path in *.
@@ -1286,18 +1300,21 @@ Proof.
   unfold blk_in_p.
   rewrite in_concat.
   exists b. split; auto.
-Admitted.  
+  apply locate_node_in_path with (lvl := lvl); auto.
+Qed.
 
-Lemma write_back_in_stash_kv_rel : forall s p id v,
+Lemma write_back_in_stash_kv_rel : forall s id v,
     blk_in_stash id v s ->
-    kv_rel id v (write_back_r O p (length p) s).
+    kv_rel id v (write_back_r O (calc_path id s) (length  (calc_path id s))s).
 Proof.
   intros.
-  destruct (write_back_in_stash_kv_rel_aux (length p) s p id v 0 H).
+  destruct (write_back_in_stash_kv_rel_aux (length  (calc_path id s)) s (calc_path id s) id v 0 H).
   - left; auto.
   - destruct H0 as [k [_ Hk]].
     right.
-    eapply weaken_at_lvl_in_path; eauto.
+    eapply weaken_at_lvl_in_path.
+    rewrite calc_path_write_bk_r_stable.
+    exact Hk.
 Qed.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
