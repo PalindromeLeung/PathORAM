@@ -1265,8 +1265,10 @@ Lemma takeL_in : forall {X} (x : X) n l,
    In x (takeL n l) -> In x l. 
 Admitted.
 
-(* Lemma path_eq_get_cand_bs : forall , *)
-(*     get_cand_bs h p stop  *)
+Lemma path_eq_get_cand_bs : forall id v h p stop m,
+    In (Block id v) (get_cand_bs h p stop m) ->
+    isEqvPath p (lookup_dict (makeBoolList false (length (dict_elems m))) id m) stop = true.
+Admitted.              
   
 Lemma stash_block_selection : forall p s id v lvl,
   blk_in_stash id v s ->
@@ -1296,16 +1298,10 @@ Proof.
       * rewrite Heqdlt in H. unfold get_write_back_blocks in H.
         destruct (length (state_stash s)); try contradiction.
         apply takeL_in in H.
-        
-        unfold get_cand_bs in H.
-        induction (state_stash s). contradiction.
-        destruct (isEqvPath p
-            (lookup_dict (makeBoolList false (length (dict_elems (state_position_map s))))
-               (block_blockid a) (state_position_map s)) lvl) eqn:eq_path.
-        -- unfold calc_path. auto. destruct H.
-           ++ rewrite H in eq_path. auto.
-           ++ apply IHs0. exact H. 
-           
+        unfold calc_path.
+        apply path_eq_get_cand_bs with (v := v )(h := state_stash s); auto.
+      * apply kv_in_delta_in_tree; auto.
+        admit.                  (* coord in bound *)
  Admitted.
 
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
