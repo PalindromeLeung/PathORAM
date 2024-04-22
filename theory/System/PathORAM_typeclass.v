@@ -1158,6 +1158,16 @@ Lemma kv_in_delta_in_tree :
     at_lvl_in_path (up_oram_tr o lvl del p) lvl p (Block id v).
 Admitted.
 
+Lemma pathEqv_contraction : forall p p' n b,
+    isEqvPath (b :: p) (b :: p') (S n) = true -> isEqvPath p p' n = true.
+Proof.
+  intros.
+  unfold isEqvPath in *. simpl in *.
+  apply andb_prop in H.
+  destruct H.
+  auto.
+Qed.
+
 Lemma path_conversion : forall o lvl p p' b,
     isEqvPath p p' lvl = true -> 
     at_lvl_in_path o lvl p b -> at_lvl_in_path o lvl p' b.
@@ -1172,7 +1182,7 @@ Proof.
     destruct b0. 
     + destruct p'.  inversion H.
       destruct b0.
-      * eapply IHo1; eauto. admit. (* should be true from H *)
+      * eapply IHo1; eauto. apply pathEqv_contraction with (b := true); auto.
       * inversion H.
     + destruct p'. inversion H.
       destruct b0.
