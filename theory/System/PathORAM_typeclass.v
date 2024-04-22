@@ -1166,6 +1166,7 @@ Admitted.
 
 Lemma takeL_in : forall {X} (x : X) n l,
    In x (takeL n l) -> In x l. 
+Proof.
 Admitted.
 
 Lemma path_eq_get_cand_bs : forall id v h p stop m,
@@ -1238,8 +1239,32 @@ Qed.
 Lemma locate_node_in_path : forall o lvl p b,
     locate_node_in_tr o lvl p = Some b ->
     In b (lookup_path_oram o p).
-Admitted.
-
+Proof.
+  induction o.
+  - intros.
+    destruct p.
+    + inversion H.
+    + destruct b0; simpl in *; discriminate.
+  - intros.
+    destruct p.
+    + admit.                    (* locate node on an empty path should be false  *)
+    + destruct lvl; simpl in *.
+      destruct b0; simpl.
+      destruct payload; simpl.
+      * left. inversion H. reflexivity.
+      * discriminate.
+      * destruct payload; simpl.
+        -- left. inversion H. reflexivity.
+        -- discriminate.
+      * destruct b0; simpl in *.
+        destruct payload; simpl.
+        -- right. eapply IHo1; eauto.
+        -- eapply IHo1; eauto.
+        -- destruct payload; simpl.
+           ++ right.  eapply IHo2; eauto.
+           ++ eapply IHo2; eauto.
+Admitted.           
+      
 Lemma weaken_at_lvl_in_path : forall o lvl p id v,
   at_lvl_in_path o lvl p (Block id v) ->
   blk_in_p id v o p.
