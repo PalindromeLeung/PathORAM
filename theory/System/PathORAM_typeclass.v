@@ -1161,9 +1161,25 @@ Admitted.
 Lemma path_conversion : forall o lvl p p' b,
     isEqvPath p p' lvl = true -> 
     at_lvl_in_path o lvl p b -> at_lvl_in_path o lvl p' b.
+Proof.
+  induction o.
+  - intros. auto.
+  - intros.
+    destruct lvl; auto.
+    destruct p.
+    destruct p'; simpl in *; auto.
+    inversion H.
+    destruct b0. 
+    + destruct p'.  inversion H.
+      destruct b0.
+      * eapply IHo1; eauto. admit. (* should be true from H *)
+      * inversion H.
+    + destruct p'. inversion H.
+      destruct b0.
+      * inversion H.
+      * admit.
 Admitted.
-
-
+        
 Lemma takeL_in : forall {X} (x : X) n l,
    In x (takeL n l) -> In x l. 
 Proof.
