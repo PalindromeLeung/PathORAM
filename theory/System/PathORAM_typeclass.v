@@ -1156,7 +1156,15 @@ Lemma kv_in_delta_in_tree :
     In (Block id v) del ->
     coord_in_bound o p lvl ->
     at_lvl_in_path (up_oram_tr o lvl del p) lvl p (Block id v).
-Admitted.
+Proof.
+  induction o; simpl in *; try contradiction. (* discharged the first case *)
+  - unfold at_lvl_in_path in *.
+    destruct lvl; simpl in *; auto.
+    + destruct p; simpl in *; auto.
+      destruct b; simpl in *.
+      * intros. apply IHo1; auto. (* yep I can tell that the IHp is not strong enough *)
+      * intros. apply IHo2; auto.
+Qed.
 
 Lemma pathEqv_contraction : forall p p' n b,
     isEqvPath (b :: p) (b :: p') (S n) = true -> isEqvPath p p' n = true.
