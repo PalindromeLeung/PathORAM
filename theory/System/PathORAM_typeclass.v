@@ -1198,8 +1198,16 @@ Admitted.
 Lemma path_eq_get_cand_bs : forall id v h p stop m,
     In (Block id v) (get_cand_bs h p stop m) ->
     isEqvPath p (lookup_dict (makeBoolList false (length (dict_elems m))) id m) stop = true.
-Admitted.              
-  
+Proof.
+  induction h; intros; simpl in *.
+  - exfalso; auto.
+  - destruct isEqvPath eqn : pEqv_cond.
+    + destruct H; simpl in *.
+      * rewrite H in pEqv_cond. auto.
+      * apply IHh. auto.
+    + apply IHh; auto.
+Qed.
+      
 Lemma stash_block_selection : forall p s id v lvl,
   blk_in_stash id v s ->
   blk_in_stash id v (blocks_selection p lvl s) \/
