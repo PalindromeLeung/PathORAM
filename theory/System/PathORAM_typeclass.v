@@ -1079,22 +1079,26 @@ Proof.
       * eapply IHo2; eauto. exact H.
 Qed.
 
-Lemma at_lvl_in_path_disjoint_lvl :
-  forall s p lvl lvl' b,
-    (lvl < lvl')%nat -> 
-    at_lvl_in_path (state_oram s) lvl' p b ->
-    at_lvl_in_path (state_oram (blocks_selection p lvl s)) lvl' p b.
+Lemma locate_comp_block_selection :
+  forall o p p' lvl lvl' dlt,
+    (lvl < lvl')%nat ->    
+    locate_node_in_tr (up_oram_tr o lvl dlt p') lvl' p =
+      locate_node_in_tr o lvl' p.
 Proof.
-Admitted.
-
-Lemma at_lvl_in_path_disjoint_path :
-  forall s p p' lvl b,
-    p <> p' ->
-    at_lvl_in_path (state_oram s) lvl p b ->
-    at_lvl_in_path (state_oram (blocks_selection p' lvl s)) lvl p b.
-Proof.
-Admitted.
-
+  intro o.
+  induction o; simpl; auto.
+  - intros.
+    destruct lvl'.
+    + lia.
+    + destruct lvl; simpl in *; auto.
+      destruct p; simpl in *. 
+      * destruct p'; simpl in *; auto.
+        destruct b; simpl in *; auto.
+      * apply Arith_prebase.lt_S_n in H.
+        destruct p'; simpl; auto.
+        destruct b0, b; simpl; auto.
+Qed.
+        
 Lemma at_lvl_in_path_blocks_selection :
   forall s p p' lvl lvl' b,
   (lvl < lvl')%nat ->
@@ -1103,10 +1107,9 @@ Lemma at_lvl_in_path_blocks_selection :
 Proof.
   intros.
   unfold at_lvl_in_path in *.
-  destruct locate_node_in_tr; simpl in *.
-  - admit.
-  - exfalso; auto.
-Admitted.
+  unfold blocks_selection; simpl.
+  rewrite locate_comp_block_selection; auto.
+Qed.
 
 Lemma kv_in_delta_in_tree :
   forall (o : oram) (id : block_id) (v : nat) (del : list block) (lvl: nat )(p :path),
