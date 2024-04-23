@@ -1052,32 +1052,9 @@ Proof.
   apply pos_map_stable_across_wb.
 Qed.
 
-Lemma at_lvl_in_path_blocks_selection :
-  forall p p' lvl lvl' s b,
-  (lvl < lvl')%nat ->
-  at_lvl_in_path (state_oram s) lvl' p b ->
-  at_lvl_in_path (state_oram (blocks_selection p' lvl s)) lvl' p b.
+Lemma takeL_nil : forall {X} n, @takeL X n [] = [].
 Proof.
-  intros.
-  unfold at_lvl_in_path in *.
-  destruct locate_node_in_tr eqn:?.
-  - admit.
-  - destruct H0.
-Admitted.
-
-Lemma kv_in_delta_in_tree :
-  forall (o : oram) (id : block_id) (v : nat) (del : list block) (lvl: nat )(p :path),
-    In (Block id v) del ->
-    coord_in_bound o p lvl ->
-    at_lvl_in_path (up_oram_tr o lvl del p) lvl p (Block id v).
-Proof.
-  induction o; simpl in *; try contradiction. (* discharged the first case *)
-  - unfold at_lvl_in_path in *.
-    destruct lvl; simpl in *; auto.
-    + destruct p; simpl in *; auto.
-      destruct b; simpl in *.
-      * intros. apply IHo1; auto. (* yep I can tell that the IHp is not strong enough *)
-      * intros. apply IHo2; auto.
+  induction n; simpl; auto.
 Qed.
 
 Lemma path_conversion : forall o lvl p p' b,
@@ -1101,6 +1078,51 @@ Proof.
       * inversion H.
       * eapply IHo2; eauto. exact H.
 Qed.
+
+Lemma at_lvl_in_path_disjoint_lvl :
+  forall s p lvl lvl' b,
+    (lvl < lvl')%nat -> 
+    at_lvl_in_path (state_oram s) lvl' p b ->
+    at_lvl_in_path (state_oram (blocks_selection p lvl s)) lvl' p b.
+Proof.
+Admitted.
+
+Lemma at_lvl_in_path_disjoint_path :
+  forall s p p' lvl b,
+    p <> p' ->
+    at_lvl_in_path (state_oram s) lvl p b ->
+    at_lvl_in_path (state_oram (blocks_selection p' lvl s)) lvl p b.
+Proof.
+Admitted.
+
+Lemma at_lvl_in_path_blocks_selection :
+  forall s p p' lvl lvl' b,
+  (lvl < lvl')%nat ->
+  at_lvl_in_path (state_oram s) lvl' p b ->
+  at_lvl_in_path (state_oram (blocks_selection p' lvl s)) lvl' p b.
+Proof.
+  intros.
+  unfold at_lvl_in_path in *.
+  destruct locate_node_in_tr; simpl in *.
+  - admit.
+  - exfalso; auto.
+Admitted.
+
+Lemma kv_in_delta_in_tree :
+  forall (o : oram) (id : block_id) (v : nat) (del : list block) (lvl: nat )(p :path),
+    In (Block id v) del ->
+    coord_in_bound o p lvl ->
+    at_lvl_in_path (up_oram_tr o lvl del p) lvl p (Block id v).
+Proof.
+  induction o; simpl in *; try contradiction. (* discharged the first case *)
+  - unfold at_lvl_in_path in *.
+    destruct lvl; simpl in *; auto.
+    + destruct p; simpl in *; auto.
+      destruct b; simpl in *.
+      * intros. apply IHo1; auto. (* yep I can tell that the IHp is not strong enough *)
+      * intros. apply IHo2; auto.
+Qed.
+
         
 Lemma takeL_in : forall {X} (x : X) n l,
    In x (takeL n l) -> In x l. 
@@ -1313,7 +1335,7 @@ Proof.
     + rewrite H; auto.
     + inversion ND; subst.
       rewrite Nat.eqb_eq in id_cond.
-      rewrite id_cond in H2. Search In List.map.
+      rewrite id_cond in H2.
       apply List.in_map with (f := block_blockid) in H.
       simpl in *. contradiction.
   - apply IHl.
