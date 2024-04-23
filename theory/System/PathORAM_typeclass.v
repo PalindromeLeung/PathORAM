@@ -980,54 +980,54 @@ Fixpoint coord_in_bound (o : oram) (p : path) (stop: nat) : Prop :=
       end
   end.
 
-Lemma kv_in_delta_to_tree :
-  forall (s : state) (id : block_id) (v : nat) (del : list block)
-    (lvl: nat )(p :path),
-    In (Block id v) del ->
-    coord_in_bound (state_oram s) p lvl ->
-    In (Block id v)
-      (concat (lookup_path_oram (up_oram_tr (state_oram s) lvl del p)p)).
-Proof.
-  (* current *)
-  intros s.
-  induction (state_oram s); intros ; simpl. try contradiction.
-  - (* node case  *)
-    simpl in H0.
-    destruct lvl; simpl in *.
-    + (* lvl is O *)
-      simpl.
-      unfold blk_in_path. simpl.
-      rewrite in_concat. 
-      destruct p.
-      *  admit.
-      (* we are in node of height 1,
-         so the length of this list should not be empty *)
-      * destruct b.
-        -- exists del. split; auto. left; auto.
-        -- exists del. split; auto. left; auto.
-    + destruct p; simpl; auto.
-      destruct b; simpl.
-      * destruct payload.
-        -- rewrite in_concat.
-           pose proof (IHo1 id v del lvl p H H0).
-           rewrite in_concat in H1. destruct H1. exists x. split.
-           destruct H1.
-           right. auto. tauto.
-        -- rewrite in_concat. 
-           pose proof (IHo1 id v del lvl p H H0).
-           rewrite in_concat in H1. destruct H1. exists x. split.
-           destruct H1. auto. tauto.
-      * destruct payload.
-        -- rewrite in_concat.
-           pose proof (IHo2 id v del lvl p H H0).
-           rewrite in_concat in H1. destruct H1. exists x. split.
-           destruct H1.
-           right. auto. tauto.
-        -- rewrite in_concat. 
-           pose proof (IHo2 id v del lvl p H H0).
-           rewrite in_concat in H1. destruct H1. exists x. split.
-           destruct H1. auto. tauto.
-Admitted.
+(* Lemma kv_in_delta_to_tree : *)
+(*   forall (s : state) (id : block_id) (v : nat) (del : list block) *)
+(*     (lvl: nat )(p :path), *)
+(*     In (Block id v) del -> *)
+(*     coord_in_bound (state_oram s) p lvl -> *)
+(*     In (Block id v) *)
+(*       (concat (lookup_path_oram (up_oram_tr (state_oram s) lvl del p)p)). *)
+(* Proof. *)
+(*   (* current *) *)
+(*   intros s. *)
+(*   induction (state_oram s); intros ; simpl. try contradiction. *)
+(*   - (* node case  *) *)
+(*     simpl in H0. *)
+(*     destruct lvl; simpl in *. *)
+(*     + (* lvl is O *) *)
+(*       simpl. *)
+(*       unfold blk_in_path. simpl. *)
+(*       rewrite in_concat.  *)
+(*       destruct p. *)
+(*       *  admit. *)
+(*       (* we are in node of height 1, *)
+(*          so the length of this list should not be empty *) *)
+(*       * destruct b. *)
+(*         -- exists del. split; auto. left; auto. *)
+(*         -- exists del. split; auto. left; auto. *)
+(*     + destruct p; simpl; auto. *)
+(*       destruct b; simpl. *)
+(*       * destruct payload. *)
+(*         -- rewrite in_concat. *)
+(*            pose proof (IHo1 id v del lvl p H H0). *)
+(*            rewrite in_concat in H1. destruct H1. exists x. split. *)
+(*            destruct H1. *)
+(*            right. auto. tauto. *)
+(*         -- rewrite in_concat.  *)
+(*            pose proof (IHo1 id v del lvl p H H0). *)
+(*            rewrite in_concat in H1. destruct H1. exists x. split. *)
+(*            destruct H1. auto. tauto. *)
+(*       * destruct payload. *)
+(*         -- rewrite in_concat. *)
+(*            pose proof (IHo2 id v del lvl p H H0). *)
+(*            rewrite in_concat in H1. destruct H1. exists x. split. *)
+(*            destruct H1. *)
+(*            right. auto. tauto. *)
+(*         -- rewrite in_concat.  *)
+(*            pose proof (IHo2 id v del lvl p H H0). *)
+(*            rewrite in_concat in H1. destruct H1. exists x. split. *)
+(*            destruct H1. auto. tauto. *)
+(* Admitted. *)
 
 Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
     kv_rel id v s ->
@@ -1094,18 +1094,18 @@ Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop 
   | Some v => In x v
   end.
 
-Fixpoint get_max_prf_idx (x : list bool) (y : list bool) : nat :=
-  match x, y with
-  | [], [] => O
-  | h :: t, [] => O 
-  | [], a :: b => O 
-  | h :: t, a :: b =>
-      if eqb h a then S (get_max_prf_idx t b )
-      else get_max_prf_idx t b
-  end.
+(* Fixpoint get_max_prf_idx (x : list bool) (y : list bool) : nat := *)
+(*   match x, y with *)
+(*   | [], [] => O *)
+(*   | h :: t, [] => O  *)
+(*   | [], a :: b => O  *)
+(*   | h :: t, a :: b => *)
+(*       if eqb h a then S (get_max_prf_idx t b ) *)
+(*       else get_max_prf_idx t b *)
+(*   end. *)
 
-Compute get_max_prf_idx [true; false] [true; true].
-Compute get_max_prf_idx [true; false] [true; false].
+(* Compute get_max_prf_idx [true; false] [true; true]. *)
+(* Compute get_max_prf_idx [true; false] [true; false]. *)
 
 Lemma pos_map_stable_across_blk_sel : forall p lvl s,
     state_position_map s = state_position_map (blocks_selection p lvl s).
@@ -1166,15 +1166,15 @@ Proof.
       * intros. apply IHo2; auto.
 Qed.
 
-Lemma pathEqv_contraction : forall p p' n b,
-    isEqvPath (b :: p) (b :: p') (S n) = true -> isEqvPath p p' n = true.
-Proof.
-  intros.
-  unfold isEqvPath in *. simpl in *.
-  apply andb_prop in H.
-  destruct H.
-  auto.
-Qed.
+(* Lemma pathEqv_contraction : forall p p' n b, *)
+(*     isEqvPath (b :: p) (b :: p') (S n) = true -> isEqvPath p p' n = true. *)
+(* Proof. *)
+(*   intros. *)
+(*   unfold isEqvPath in *. simpl in *. *)
+(*   apply andb_prop in H. *)
+(*   destruct H. *)
+(*   auto. *)
+(* Qed. *)
 
 Lemma path_conversion : forall o lvl p p' b,
     isEqvPath p p' lvl = true -> 
@@ -1190,13 +1190,13 @@ Proof.
     destruct b0. 
     + destruct p'.  inversion H.
       destruct b0.
-      * eapply IHo1; eauto. apply pathEqv_contraction with (b := true); auto.
+      * eapply IHo1; eauto. exact H.
       * inversion H.
     + destruct p'. inversion H.
       destruct b0.
       * inversion H.
-      * admit.
-Admitted.
+      * eapply IHo2; eauto. exact H.
+Qed.
         
 Lemma takeL_in : forall {X} (x : X) n l,
    In x (takeL n l) -> In x l. 
@@ -1289,7 +1289,9 @@ Proof.
     + destruct b0; simpl in *; discriminate.
   - intros.
     destruct p.
-    + admit.                    (* locate node on an empty path should be false  *)
+    + unfold locate_node_in_tr in H.
+      simpl.
+      admit.                    (* locate node on an empty path should be false  *)
     + destruct lvl; simpl in *.
       destruct b0; simpl.
       destruct payload; simpl.
@@ -1323,7 +1325,6 @@ Qed.
   
 Lemma write_back_in_stash_kv_rel : forall s id v p,
     blk_in_stash id v s ->
-    (* get_max_prf_idx p (calc_path id s) >= lvl *)
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
