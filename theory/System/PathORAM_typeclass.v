@@ -890,9 +890,16 @@ Qed.
 
 Lemma put_wf {Pre Pre' : state -> Prop} {s : state}:
   Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
+Proof.
+  intros.
+  unfold state_prob_lift; intros.
+  unfold plift.
+  unfold Pred_Dist_Lift.
+  unfold dist_lift.
+  destruct Poram_st_put.
+  rewrite Forall_map.
 Admitted.
-
-
+  
 Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
   match dist_pmf dist_a with 
   | [] => None
