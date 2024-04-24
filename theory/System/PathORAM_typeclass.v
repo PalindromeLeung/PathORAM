@@ -898,6 +898,14 @@ Proof.
   unfold dist_lift.
   destruct Poram_st_put.
   rewrite Forall_map.
+  induction dist_pmf0.
+  - apply Forall_nil.
+  - rewrite Forall_cons_iff.
+    split.
+    destruct a; simpl.
+    destruct p; simpl.
+    split; auto. admit.
+    auto.
 Admitted.
   
 Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
