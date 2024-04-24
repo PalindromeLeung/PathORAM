@@ -803,14 +803,13 @@ Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S ->
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
 
-Lemma state_prob_lift_weaken {S M X} `{Monad M} `{PredLift M}{Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
+Lemma state_prob_lift_weaken {S M X} `{Monad M} `{PredLift M} {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
   (P : X -> Prop) (m : Poram_st S M X) :
   (forall s, Post s -> Post' s) ->
   state_prob_lift Pre Post P m ->
   state_prob_lift Pre Post' P m.
 Proof.
-  Admitted.
-                             
+Admitted.
 
 Definition read_access (id : block_id) :
   Poram_st state dist (path * nat) := access id Read.
@@ -838,7 +837,14 @@ Admitted.
 
 Lemma state_prob_ret {S X} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop} {P : X -> Prop} {x : X}:
   P x -> state_prob_lift Pre Pre P (retT x).
-Admitted.
+Proof.
+  intros.
+  unfold state_prob_lift. intros.
+  unfold plift.
+  destruct H1.
+  apply lift_ret0.
+  split; auto.
+Qed.
 
 Lemma get_State_wf {Pre : state-> Prop} :
   state_prob_lift Pre Pre Pre get_State.
