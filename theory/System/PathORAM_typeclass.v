@@ -848,7 +848,18 @@ Qed.
 
 Lemma get_State_wf {Pre : state-> Prop} :
   state_prob_lift Pre Pre Pre get_State.
-Admitted.
+Proof.
+  intros.
+  unfold state_prob_lift; intros.
+  unfold plift.
+  simpl. 
+  apply Forall_forall.
+  intros.
+  destruct x.
+  inversion H0. inversion H1.
+  split; rewrite H4 in H3;rewrite H3  in H; auto.
+  inversion H1.
+Qed.
 
 Lemma dist2Poram_wf {X} (dx : dist X) {Pre : state -> Prop}:
   state_prob_lift Pre Pre (fun _ => True) (dist2Poram dx).
