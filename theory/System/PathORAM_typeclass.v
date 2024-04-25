@@ -233,10 +233,8 @@ Fixpoint fold_l {X Y: Type} (f : X -> Y -> Y) (b : Y)(l : list X) : Y :=
   | h ::t => f h (fold_l f b t)
   end.
       
-Definition sum_dist {A} (d: dist A) : Q := fold_l Qplus (0 / 0) (List.map snd (getsupp d)).
+Definition sum_dist {A} (d: dist A) : Q := fold_l Qplus 0 (List.map snd (getsupp d)).
 
-
-Print map_alist.
 Definition norm_dist {A} (d: dist A) : dist A :=
   let supp := dist_pmf d in
   let sum_tot := sum_dist d in
