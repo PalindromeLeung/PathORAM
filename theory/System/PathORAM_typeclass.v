@@ -469,12 +469,25 @@ Fixpoint coord_in_bound (o : oram) (p : path) (stop: nat) : Prop :=
       end
   end.
 
-(* Lemma pb_coord_in_bound : forall (o : oram) (p : path) (lvl : nat) : Prop := *)
-(*     is_p_b_tr o -> *)
-(*     Nat.lt (length p) (get_height o) -> *)
-(*     Nat.lt lvl -> *)
-(*       coord_in_boud p lvl *)
-    
+Lemma pb_coord_in_bound : forall (o : oram) (p : path) (k lvl : nat), 
+    is_p_b_tr o (S k) ->
+    (length p) = k -> 
+    Nat.le lvl k ->
+    coord_in_bound o p lvl.
+Proof.
+  intro o.
+  induction o; simpl.
+  - intros. inversion H.
+  - intros. destruct lvl; simpl; auto.
+    destruct p; simpl in *; try lia.
+    destruct b; simpl in *.
+    + apply IHo1 with (k := (length p)); try rewrite H0.
+      tauto. reflexivity.
+      rewrite <- H0 in H1. lia.
+    + apply IHo2 with (k := (length p)); try lia.
+      destruct H. rewrite H0. auto.
+Qed.
+
 Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
   match o with
   | leaf => fun _ => []
