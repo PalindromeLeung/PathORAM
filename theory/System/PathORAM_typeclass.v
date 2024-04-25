@@ -446,13 +446,35 @@ Fixpoint get_height (o : oram) : nat :=
   end.
 
 
-Fixpoint is_p_b_tr (o : oram) : Prop :=
-  match o with
-  | leaf => True
-  | node _ l r => get_height l = get_height r
-                 /\ (is_p_b_tr l) /\( is_p_b_tr r)
+Fixpoint is_p_b_tr (o : oram) (l : nat) : Prop :=
+  match o, l with
+  | leaf, O => True
+  | node _ o_l o_r, S l' =>
+      is_p_b_tr o_l l' /\ is_p_b_tr o_r l'
+  | _, _ => False
   end.    
 
+Fixpoint coord_in_bound (o : oram) (p : path) (stop: nat) : Prop :=
+  match o with
+  | leaf => False 
+  | node d_o o_l o_r =>
+      match stop with
+      | 0%nat => True 
+      | S stop' =>
+          match p with
+          | [] => False 
+          | true :: xs => coord_in_bound o_l xs stop' 
+          | false :: xs => coord_in_bound o_r xs stop'
+          end
+      end
+  end.
+
+(* Lemma pb_coord_in_bound : forall (o : oram) (p : path) (lvl : nat) : Prop := *)
+(*     is_p_b_tr o -> *)
+(*     Nat.lt (length p) (get_height o) -> *)
+(*     Nat.lt lvl -> *)
+(*       coord_in_boud p lvl *)
+    
 Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
   match o with
   | leaf => fun _ => []
@@ -1000,20 +1022,6 @@ Proof.
   auto.
 Qed.  
 
-Fixpoint coord_in_bound (o : oram) (p : path) (stop: nat) : Prop :=
-  match o with
-  | leaf => False 
-  | node d_o o_l o_r =>
-      match stop with
-      | 0%nat => True 
-      | S stop' =>
-          match p with
-          | [] => False 
-          | true :: xs => coord_in_bound o_l xs stop' 
-          | false :: xs => coord_in_bound o_r xs stop'
-          end
-      end
-  end.
 
 Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
     kv_rel id v s ->
