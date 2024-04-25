@@ -234,46 +234,46 @@ Proof.
   intros. reflexivity.
 Defined.
 
-(* TODO clean me, this is fixed but it's gross looking *)
-Definition mbind_dist_pmf {A B : Type} (dA : dist A) (f : A -> dist B) : list (B * Q) :=
-  (fix F l :=
-  match l with
-  | [] => []
-  | (a, q) :: t =>
-      let dB := f a in
-      (((fix update_probs l :=
-           match l with
-           | [] => []
-           | (b, q') :: t => (b , Qmult q q') :: update_probs t
-           end)
-         (dist_pmf dB)) ++ F t)
-  end) (dist_pmf dA).
+Lemma sum_dist_app:
+  forall {A} (l1 l2 : list (A * Q)),
+    Qeq (sum_dist (l1 ++ l2)) (sum_dist l1 + sum_dist l2).
+Proof.
+  induction l1; intros.
+  - rewrite Qplus_0_l. reflexivity.
+  - simpl. destruct a. rewrite refold_sum_dist. rewrite refold_sum_dist.
+    rewrite IHl1. apply Qplus_assoc.
+Defined.
+
+Definition mbind_dist_pmf {A B : Type} (xM : dist A) (f : A -> dist B) : list (B * Q) :=
+  flat_map
+   (fun (xq : A * Q) => 
+     let (x , q) := xq in 
+     List.map
+       (fun (yq' : B * Q) => 
+          let (y , q') := yq' in
+          (y , Qmult q q'))
+       (dist_pmf (f x)))
+   (dist_pmf xM).
 
 Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B.
  refine (Dist (mbind_dist_pmf xM f) _ ).
 Proof.
   destruct xM. unfold mbind_dist_pmf. simpl. rewrite <- dist_law0. generalize dist_pmf0 as l. induction l.
   - reflexivity.
-  - simpl. destruct a. rewrite refold_sum_dist. simpl. rewrite sum_dist_app.
+  - simpl. destruct a. rewrite refold_sum_dist. rewrite sum_dist_app.
     remember (f a). destruct d. simpl. rewrite IHl.
-    assert (Qeq (sum_dist ((fix update_probs (l0 : list (B * Q)) :
-         list (B * Q) :=
-       match l0 with
-       | [] => []
-       | (b, q') :: t => (b, q * q') :: update_probs t
-       end) dist_pmf1)) q).
+    assert (Qeq (sum_dist (List.map
+      (fun yq' : B * Q =>
+       let (y, q') := yq' in (y, q * q')) dist_pmf1)) q).
     + 
  assert (Qeq (sum_dist
-   ((fix update_probs (l0 : list (B * Q)) :
-         list (B * Q) :=
-       match l0 with
-       | [] => []
-       | (b, q') :: t => (b, q * q') :: update_probs t
-       end) dist_pmf1)) 
+   ( (List.map
+      (fun yq' : B * Q =>
+       let (y, q') := yq' in (y, q * q')) dist_pmf1))) 
        (q * sum_dist dist_pmf1)).
        * generalize dist_pmf1 as l1. induction l1.
          -- unfold sum_dist. simpl. ring.
-         -- destruct a0. rewrite refold_sum_dist. rewrite refold_sum_dist.
+         -- destruct a0. simpl. rewrite refold_sum_dist. rewrite refold_sum_dist.
             rewrite IHl1. ring.
        * rewrite H. rewrite dist_law1. ring.
     + rewrite H. reflexivity.
