@@ -802,13 +802,30 @@ Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S ->
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
 
-Lemma state_prob_lift_weaken {S M X} `{Monad M} `{PredLift M} {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
-  (P : X -> Prop) (m : Poram_st S M X) :
+Lemma dist_lift_weaken {X} (P Q : X -> Prop) (d : dist X) :
+  (forall x, P x -> Q x) -> 
+  dist_lift P d -> dist_lift Q d.
+  
+Admitted. 
+
+Lemma state_prob_lift_weaken {S X} {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
+  (P : X -> Prop) (m : Poram_st S dist X) :
   (forall s, Post s -> Post' s) ->
   state_prob_lift Pre Post P m ->
   state_prob_lift Pre Post' P m.
 Proof.
-Admitted.
+  intros.
+  unfold state_prob_lift.
+  intros.
+  unfold plift.
+  unfold Pred_Dist_Lift. simpl.
+  apply dist_lift_weaken with (P := (fun '(x, s') => P x /\ Post s')).
+  - intros.
+    destruct x. 
+    destruct H2; auto.
+  - unfold state_prob_lift in H0. apply H0.
+    apply H1.
+Qed.    
 
 Definition read_access (id : block_id) :
   Poram_st state dist (path * nat) := access id Read.
@@ -835,10 +852,11 @@ Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
 Proof.
   intros.
   unfold state_prob_lift. intros.
-  unfold plift.
-  destruct H1.
-  eapply lift_bind0.
-Admitted.
+  eapply lift_bind; eauto.
+  intros.
+  destruct x.
+  apply H3; tauto.
+Qed.
 
 Lemma state_prob_ret {S X} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop} {P : X -> Prop} {x : X}:
   P x -> state_prob_lift Pre Pre P (retT x).
