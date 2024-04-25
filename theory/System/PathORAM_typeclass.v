@@ -244,15 +244,27 @@ Proof.
     rewrite IHl1. apply Qplus_assoc.
 Defined.
 
+Definition update_probs {B} q l :=
+  List.map
+    (fun yq' : B * Q => let (y, q') := yq' in (y, q * q'))
+    l.
+
+Lemma update_probs_OK:
+  forall {B} q l,
+    Qeq (sum_dist (@update_probs B q l)) (q * sum_dist l).
+Proof.
+  intros. induction l.
+  - unfold sum_dist. simpl. ring.
+  - destruct a. simpl. 
+    rewrite refold_sum_dist. rewrite refold_sum_dist.
+    rewrite IHl. ring.
+Defined.
+
 Definition mbind_dist_pmf {A B : Type} (xM : dist A) (f : A -> dist B) : list (B * Q) :=
   flat_map
    (fun (xq : A * Q) => 
      let (x , q) := xq in 
-     List.map
-       (fun (yq' : B * Q) => 
-          let (y , q') := yq' in
-          (y , Qmult q q'))
-       (dist_pmf (f x)))
+     (update_probs q (dist_pmf (f x))))
    (dist_pmf xM).
 
 Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B.
@@ -262,21 +274,7 @@ Proof.
   - reflexivity.
   - simpl. destruct a. rewrite refold_sum_dist. rewrite sum_dist_app.
     remember (f a). destruct d. simpl. rewrite IHl.
-    assert (Qeq (sum_dist (List.map
-      (fun yq' : B * Q =>
-       let (y, q') := yq' in (y, q * q')) dist_pmf1)) q).
-    + 
- assert (Qeq (sum_dist
-   ( (List.map
-      (fun yq' : B * Q =>
-       let (y, q') := yq' in (y, q * q')) dist_pmf1))) 
-       (q * sum_dist dist_pmf1)).
-       * generalize dist_pmf1 as l1. induction l1.
-         -- unfold sum_dist. simpl. ring.
-         -- destruct a0. simpl. rewrite refold_sum_dist. rewrite refold_sum_dist.
-            rewrite IHl1. ring.
-       * rewrite H. rewrite dist_law1. ring.
-    + rewrite H. reflexivity.
+    rewrite update_probs_OK. rewrite dist_law1. ring.
 Defined.
  
 #[export] Instance Monad_dist : Monad dist := { mreturn {_} x := mreturn_dist x ; mbind {_ _} := mbind_dist }.
