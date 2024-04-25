@@ -202,43 +202,52 @@ Definition update_dict {K V : Type} `{Ord K} (k : K) (v : V) (kvs : dict K V) : 
  * Oblivious Computation" paper (Fig 10). 
  *)
 
-Record dist (A : Type) : Type := Dist
-  { dist_pmf : list (A * Q)
-  }.
-Arguments Dist {A} _.
-Arguments dist_pmf {A} _.
-
-Definition mreturn_dist {A : Type} (x : A) : dist A := Dist [ (x, 1 / 1) ].
-
-Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B :=
-  Dist (concat (List.map (fun (xq : A * Q) => 
-    let (x , q) := xq in 
-    List.map (fun (yq' : B * Q) => 
-           let (y , q') := yq' in
-           (y , q ++ q')) (dist_pmf (f x))) (dist_pmf xM))).
-
-#[export] Instance Monad_dist : Monad dist := { mreturn {_} x := mreturn_dist x ; mbind {_ _} := mbind_dist }.
-
-Definition coin_flip : dist bool := Dist [ (true, 1 // 2) ; (false , 1 // 2) ].
-(* TODO need a way to express the laws that the distribution needs to obey *)
-(* 1. all prob must be greater than 0 *)
-Definition getsupp {A} (d: dist A) : list (A * Q) :=
-  match d with
-  | Dist xs => xs
-  end.
-
-Fixpoint fold_l {X Y: Type} (f : X -> Y -> Y) (b : Y)(l : list X) : Y :=
+Fixpoint fold_l {X Y: Type} (f : X -> Y -> Y) (b : Y) (l : list X) : Y :=
   match l with
   | [] => b
   | h ::t => f h (fold_l f b t)
   end.
-      
-Definition sum_dist {A} (d: dist A) : Q := fold_l Qplus 0 (List.map snd (getsupp d)).
 
-Definition norm_dist {A} (d: dist A) : dist A :=
-  let supp := dist_pmf d in
-  let sum_tot := sum_dist d in
-  Dist(map_alist (fun x : Q => x / sum_tot) supp).
+Definition sum_dist {A} (l : list (A * Q)) : Q := fold_l Qplus 0 (List.map snd l).
+
+Record dist (A : Type) : Type :=
+  Dist
+    { dist_pmf : list (A * Q); 
+      dist_law : Qeq (sum_dist dist_pmf) 1
+    }.
+Arguments Dist {A} _.
+Arguments dist_pmf {A} _.
+
+Definition mreturn_dist {A : Type} (x : A) : dist A.
+  refine (Dist [ (x, 1 / 1) ] _ ).
+  Proof.
+    unfold sum_dist. simpl.
+    unfold Qeq. simpl. reflexivity.
+  Defined.
+
+ Axiom cheat : forall X, X.
+  
+Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B.
+ refine(
+ Dist (concat (List.map (fun (xq : A * Q) => 
+   let (x , q) := xq in 
+   List.map (fun (yq' : B * Q) => 
+          let (y , q') := yq' in
+          (y , q ++ q')) (dist_pmf (f x))) (dist_pmf xM))) _ ).
+ Proof.
+   unfold sum_dist. simpl.
+   unfold Qeq.
+   apply cheat.
+Defined.
+ 
+#[export] Instance Monad_dist : Monad dist := { mreturn {_} x := mreturn_dist x ; mbind {_ _} := mbind_dist }.
+
+Definition coin_flip : dist bool := Dist [ (true, 1 / 2) ; (false , 1 / 2) ] eq_refl.
+
+(* Definition norm_dist {A} (d: dist A) : dist A := *)
+(*   let supp := dist_pmf d in *)
+(*   let sum_tot := sum_dist d in *)
+(*   Dist(map_alist (fun x : Q => x / sum_tot) supp). *)
 
 Definition event (A : Type) := A -> bool.
 
@@ -292,11 +301,11 @@ Fixpoint filter_dist {A} (l: list (A * Q))
       end
   end.
     
-Definition evalDist {A} (x: event A) (d: dist A): Q :=
-   sum_dist(Dist(filter_dist (dist_pmf d) x)).
+(* Definition evalDist {A} (x: event A) (d: dist A): Q := *)
+(*    sum_dist(Dist(filter_dist (dist_pmf d) x)). *)
 
-Definition uniform_dist {A} (l: list A) :dist A:=
- norm_dist(Dist(map_l (fun x => (x, 1)) l)).
+(* Definition uniform_dist {A} (l: list A) :dist A:= *)
+(*  norm_dist(Dist(map_l (fun x => (x, 1)) l)). *)
 
 Fixpoint mk_n_list (n: nat):list nat :=
   match n with
@@ -304,12 +313,12 @@ Fixpoint mk_n_list (n: nat):list nat :=
   | S n' => [n'] ++ mk_n_list n'
   end.
 
-Definition coin_flip' := uniform_dist (mk_n_list 2).
+(* Definition coin_flip' := uniform_dist (mk_n_list 2). *)
 
 (* How to disply the distribution?  *)
 
-Definition cond_dist {A}(p: event A) (d: dist A) : dist A :=
-  norm_dist (Dist(filter_dist (dist_pmf d) p)).
+(* Definition cond_dist {A}(p: event A) (d: dist A) : dist A := *)
+(*   norm_dist (Dist(filter_dist (dist_pmf d) p)). *)
 
 
 (*** PATH ORAM ***)
@@ -842,14 +851,7 @@ Proof.
   intros.
   unfold dist_lift in *.
   destruct d.
-  induction dist_pmf0.
-  - apply Forall_map. apply Forall_nil.
-  - apply Forall_map.
-    rewrite Forall_cons_iff.
-    split; auto.
-    + inversion H0. apply H in H3; auto.
-    + repeat rewrite Forall_map in *.
-      inversion H0. auto.
+  eapply Forall_impl; eauto.
 Qed.
 
 Lemma state_prob_lift_weaken {S X} {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
@@ -1513,10 +1515,10 @@ Proof.
   intros ops_on_s.
   destruct (write_and_read_access id v s). unfold get_payload.
   simpl in *. destruct dist_pmf0.
-  - simpl in *. admit.         (* need distribution well-formedness. i.e. all Qs add up to 1.0 *)
+  - simpl in *. inversion dist_law0.
   - simpl in *.  destruct p.  destruct p.  destruct p. simpl in ops_on_s. inversion ops_on_s.
     destruct H1. simpl in H1. congruence.
-Admitted.
+Qed. 
 
 Theorem PathORAM_simulates_RAM (id : block_id) (v : nat) (s : state) :
   well_formed s ->
