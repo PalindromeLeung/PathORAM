@@ -225,8 +225,6 @@ Definition mreturn_dist {A : Type} (x : A) : dist A.
     unfold Qeq. simpl. reflexivity.
   Defined.
 
- Axiom cheat : forall X, X.
-
 Lemma refold_sum_dist:
   forall {A} (a : A) (q : Q) (l : list (A * Q)),
     sum_dist ((a, q) :: l) = q + sum_dist l.
