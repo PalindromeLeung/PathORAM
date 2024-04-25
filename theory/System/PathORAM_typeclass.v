@@ -782,7 +782,6 @@ refine
     plift {X} := dist_lift;
     lift_ret := _;
     lift_bind := _;
-                          
   |}.
 Proof.
   - intros. simpl mreturn. unfold mreturn_dist. unfold dist_lift. simpl. constructor.
@@ -832,7 +831,13 @@ Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
       {mx : Poram_st S M X} {f : X -> Poram_st S M Y} : 
   state_prob_lift Pre Mid P mx ->
   (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
-  state_prob_lift Pre Post Q (bindT mx f). 
+  state_prob_lift Pre Post Q (bindT mx f).
+Proof.
+  intros.
+  unfold state_prob_lift. intros.
+  unfold plift.
+  destruct H1.
+  eapply lift_bind0.
 Admitted.
 
 Lemma state_prob_ret {S X} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop} {P : X -> Prop} {x : X}:
@@ -857,7 +862,7 @@ Proof.
   intros.
   destruct x.
   inversion H0. inversion H1.
-  split; rewrite H4 in H3;rewrite H3  in H; auto.
+  split; rewrite H4 in H3; rewrite H3 in H; auto.
   inversion H1.
 Qed.
 
@@ -896,18 +901,11 @@ Proof.
   unfold plift.
   unfold Pred_Dist_Lift.
   unfold dist_lift.
-  destruct Poram_st_put.
-  rewrite Forall_map.
-  induction dist_pmf0.
-  - apply Forall_nil.
-  - rewrite Forall_cons_iff.
-    split.
-    destruct a; simpl.
-    destruct p; simpl.
-    split; auto. admit.
-    auto.
-Admitted.
-  
+  unfold Poram_st_put. simpl.
+  constructor. split; auto.
+  apply Forall_nil.
+Qed.
+
 Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
   match dist_pmf dist_a with 
   | [] => None
