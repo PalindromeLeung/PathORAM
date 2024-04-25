@@ -226,7 +226,27 @@ Definition mreturn_dist {A : Type} (x : A) : dist A.
   Defined.
 
  Axiom cheat : forall X, X.
-  
+
+Print sum_dist.
+
+
+Lemma refold_sum_dist:
+  forall {A} (a : A) (q : Q) (l : list (A * Q)),
+    sum_dist ((a, q) :: l) = q + sum_dist l.
+Proof.
+  intros. reflexivity.
+Defined.
+
+Lemma sum_dist_app:
+  forall {A} (l1 l2 : list (A * Q)),
+    Qeq (sum_dist (l1 ++ l2)) (sum_dist l1 + sum_dist l2).
+Proof.
+  induction l1; intros.
+  - rewrite Qplus_0_l. reflexivity.
+  - simpl. destruct a. rewrite refold_sum_dist. rewrite refold_sum_dist.
+    rewrite IHl1. apply Qplus_assoc.
+Defined.
+
 Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B.
  refine(
  Dist (concat (List.map (fun (xq : A * Q) => 
@@ -234,10 +254,14 @@ Definition mbind_dist {A B : Type} (xM : dist A) (f : A -> dist B) : dist B.
    List.map (fun (yq' : B * Q) => 
           let (y , q') := yq' in
           (y , q ++ q')) (dist_pmf (f x))) (dist_pmf xM))) _ ).
- Proof.
-   unfold sum_dist. simpl.
-   unfold Qeq.
-   apply cheat.
+Proof.
+  destruct xM. simpl. destruct dist_pmf0.
+  - inversion dist_law0.
+  - destruct p. rewrite refold_sum_dist in dist_law0.
+    simpl. rewrite sum_dist_app.
+    (* TODO WIP *)
+    apply cheat.
+  (* unfold sum_dist. simpl. unfold Qeq. *)
 Defined.
  
 #[export] Instance Monad_dist : Monad dist := { mreturn {_} x := mreturn_dist x ; mbind {_ _} := mbind_dist }.
