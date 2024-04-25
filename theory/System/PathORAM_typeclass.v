@@ -805,8 +805,19 @@ Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S ->
 Lemma dist_lift_weaken {X} (P Q : X -> Prop) (d : dist X) :
   (forall x, P x -> Q x) -> 
   dist_lift P d -> dist_lift Q d.
-  
-Admitted. 
+Proof.
+  intros.
+  unfold dist_lift in *.
+  destruct d.
+  induction dist_pmf0.
+  - apply Forall_map. apply Forall_nil.
+  - apply Forall_map.
+    rewrite Forall_cons_iff.
+    split; auto.
+    + inversion H0. apply H in H3; auto.
+    + repeat rewrite Forall_map in *.
+      inversion H0. auto.
+Qed.
 
 Lemma state_prob_lift_weaken {S X} {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
   (P : X -> Prop) (m : Poram_st S dist X) :
