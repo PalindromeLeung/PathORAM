@@ -865,10 +865,10 @@ Proof.
     + assumption.
     + constructor.
   - intros. simpl mbind. unfold mbind_dist.
-    unfold dist_lift. rewrite Forall_map. rewrite Forall_concat. rewrite Forall_map.
+    unfold dist_lift. rewrite Forall_map. unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat. rewrite Forall_map.
     eapply Forall_impl.
     2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H. }
-    intros (k,v) pk. simpl. rewrite Forall_map.
+    intros (k,v) pk. simpl. unfold update_probs. rewrite Forall_map.
     specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
     2:{exact H0. }
     intros (a, b) pa. exact pa.
@@ -972,7 +972,7 @@ Proof.
   intros. unfold plift. unfold Pred_Dist_Lift. unfold dist_lift.
   unfold dist2Poram. simpl. 
   rewrite Forall_map.
-  rewrite Forall_concat.
+  unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat.
   rewrite Forall_map.
   destruct dx; simpl.
   rewrite Forall_forall; intros.
