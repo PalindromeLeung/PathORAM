@@ -1255,7 +1255,11 @@ Proof.
   - left; auto.
   - right.
     split.
-    + apply kv_in_delta_in_tree; auto. admit.                  (* coord in bound *)
+    + apply kv_in_delta_in_tree; auto.
+      apply pb_coord_in_bound with (k := (get_height(state_oram s) - 1)%nat).
+      * admit.                  (* derivable from well_formedness of s *)
+      * admit.                  (* derivable from well_formedness of s *)
+      * admit.                  (* assumption about level *)
     + apply path_conversion with (p := p).
       * rewrite Heqdlt in H. unfold get_write_back_blocks in H.
         destruct (length (state_stash s)); try contradiction.
@@ -1263,7 +1267,10 @@ Proof.
         unfold calc_path.
         apply path_eq_get_cand_bs with (v := v )(h := state_stash s); auto.
       * apply kv_in_delta_in_tree; auto.
-        admit.                  (* coord in bound *)
+        apply pb_coord_in_bound with (k := (get_height(state_oram s) - 1)%nat).
+        --  admit.                  (* derivable from well_formedness of s *)
+        --  admit.                  (* derivable from well_formedness of s *)
+        --  admit.                  (* assumption about level *)
  Admitted.
 
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
