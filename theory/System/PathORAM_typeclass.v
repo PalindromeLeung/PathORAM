@@ -1508,15 +1508,54 @@ Proof.
     apply in_or_app. left. auto.
 Admitted.
 
+Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
+    well_formed (State m h o) ->
+    well_formed
+      {|
+        state_position_map := update_dict id p_new m;
+        state_stash := (concat (lookup_path_oram o p) ++ h)%list;
+        state_oram := clear_path o p
+      |}.
+Admitted.
+
+Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
+    well_formed (State m h o) -> 
+    well_formed
+    {|
+      state_position_map := update_dict id p_new m;
+      state_stash :=
+        {| block_blockid := id; block_payload := v |}
+        :: remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
+             (concat (lookup_path_oram o p) ++ h);
+      state_oram := clear_path o p
+    |}.
+Admitted.   
+  
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
     well_formed (get_pre_wb_st id op m h o p p_new).
+Proof.
+  intros.
+  unfold get_pre_wb_st.
+  destruct op. 
+  - simpl. apply rd_op_wf. auto.
+  - simpl. apply wr_op_wf. auto.
+Qed.
+    
+Lemma write_back_wf : forall (s : state) (p : path), 
+  well_formed s -> 
+  well_formed (write_back_r 0 p (length p) s).
 Admitted.
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
     well_formed (get_post_wb_st s p).
-Admitted.
+Proof.
+  intros.
+  unfold get_post_wb_st.
+  apply write_back_wf; auto.
+Qed.
+  
 
 Lemma read_access_wf (id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
