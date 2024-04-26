@@ -1507,7 +1507,17 @@ Proof.
     + unfold blk_in_path in H. simpl in *.
     apply in_or_app. left. auto.
 Admitted.
-        
+
+Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
+    well_formed (State m h o) ->
+    well_formed (get_pre_wb_st id op m h o p p_new).
+Admitted.
+
+Lemma get_post_wb_st_wf : forall (s : state) (p : path),
+    well_formed s ->
+    well_formed (get_post_wb_st s p).
+Admitted.
+
 Lemma read_access_wf (id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
@@ -1520,7 +1530,9 @@ Proof.
     + intros. simpl.
       apply (state_prob_bind Inv (fun _ => True)).
       * apply put_wf. rewrite HeqInv in H; destruct H.
-        rewrite HeqInv. split. exact H.
+        rewrite HeqInv. split.
+        apply get_post_wb_st_wf. 
+        apply get_pre_wb_st_wf. destruct x. exact H.
         apply zero_sum_stsh_tr_Rd_rev. auto.
       * intros. rewrite HeqInv. apply state_prob_ret.
         rewrite HeqInv in H. destruct H. simpl.
@@ -1539,7 +1551,9 @@ Proof.
     + apply coin_flip_wf.
     + intros. simpl.
       apply (state_prob_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
-      * apply put_wf; simpl; split. rewrite HeqInv in H. exact H.  
+      * apply put_wf; simpl; split. rewrite HeqInv in H.
+        apply get_post_wb_st_wf. 
+        apply get_pre_wb_st_wf. destruct x. exact H.
         apply zero_sum_stsh_tr_Wr.
       * intros. rewrite HeqInv. eapply state_prob_ret. auto.
 Qed.
