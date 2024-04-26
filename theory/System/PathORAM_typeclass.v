@@ -835,7 +835,33 @@ Definition access (id : block_id) (op : operation) :
   (* return the path l and the return value *)
   mreturn((p, ret_data)).
 
-Definition well_formed (s : state ) : Prop := True. (* placeholder for invariant of the state *)
+Fixpoint get_all_blks_tree (o : oram) : list block :=
+  match o with
+  | leaf => []
+  | node obkt o_l o_r => 
+      match obkt with
+      | None => get_all_blks_tree o_l ++ get_all_blks_tree o_r
+      | Some bkt => bkt ++ (get_all_blks_tree o_l ++ get_all_blks_tree o_r)
+      end
+  end.
+      
+Record well_formed (s : state ) : Prop := 
+  {
+    not_leaf : state_oram s <> leaf;
+    no_dup_stash : NoDup (List.map block_blockid (state_stash s)); 
+    no_dup_tree : NoDup (get_all_blks_tree (state_oram s));
+    is_pb_tr : is_p_b_tr (state_oram s) (get_height (state_oram s));
+    path_length :
+    let m := (state_position_map s) in
+     let len_m := length (dict_elems m) in
+     forall id, length(lookup_dict (makeBoolList false len_m) id m) = (get_height (state_oram s) - 1)%nat; 
+  }.
+
+(state_oram s <> leaf O) /\ NoDup
+(is_p_b_tr
+  (state_oram s) (get_height (state_oram s))) /\
+    
+      
 
 Class PredLift M `{Monad M} := {
   plift {X} : (X -> Prop) -> M X -> Prop;
