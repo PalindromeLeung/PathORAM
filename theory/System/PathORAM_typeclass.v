@@ -857,12 +857,6 @@ Record well_formed (s : state ) : Prop :=
      forall id, length(lookup_dict (makeBoolList false len_m) id m) = (get_height (state_oram s) - 1)%nat; 
   }.
 
-(state_oram s <> leaf O) /\ NoDup
-(is_p_b_tr
-  (state_oram s) (get_height (state_oram s))) /\
-    
-      
-
 Class PredLift M `{Monad M} := {
   plift {X} : (X -> Prop) -> M X -> Prop;
   lift_ret {X} : forall x (P : X -> Prop), P x -> plift P (mreturn x);
