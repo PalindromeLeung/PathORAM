@@ -844,12 +844,17 @@ Fixpoint get_all_blks_tree (o : oram) : list block :=
       | Some bkt => bkt ++ (get_all_blks_tree o_l ++ get_all_blks_tree o_r)
       end
   end.
-      
+
+Definition disjoint_list {A} (l1 l2 : list A) :=
+  forall a, ~ (In a l1 /\ In a l2).
+
 Record well_formed (s : state ) : Prop := 
   {
     not_leaf : state_oram s <> leaf;
     no_dup_stash : NoDup (List.map block_blockid (state_stash s)); 
-    no_dup_tree : NoDup (get_all_blks_tree (state_oram s));
+    no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
+    tree_stash_disj : disjoint_list (List.map block_blockid (state_stash s))
+                        (List.map block_blockid (get_all_blks_tree (state_oram s))); 
     is_pb_tr : is_p_b_tr (state_oram s) (get_height (state_oram s));
     path_length :
     let m := (state_position_map s) in
@@ -1513,8 +1518,6 @@ Lemma clear_path_o_not_leaf : forall o p,
     clear_path o p <> leaf.
 Admitted.
 
-Definition disjoint_list {A} (l1 l2 : list A) :=
-  forall a, ~ (In a l1 /\ In a l2).
 
 Lemma NoDup_disjointness: forall A (l1 : list A) (l2 : list A),
     NoDup l1 ->
