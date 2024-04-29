@@ -1508,6 +1508,39 @@ Proof.
     apply in_or_app. left. auto.
 Admitted.
 
+Lemma clear_path_o_not_leaf : forall o p,
+    o <> leaf ->
+    clear_path o p <> leaf.
+Admitted.
+
+Definition disjoint_list {A} (l1 l2 : list A) :=
+  forall a, ~ (In a l1 /\ In a l2).
+
+Lemma NoDup_disjointness: forall A (l1 : list A) (l2 : list A),
+    NoDup l1 ->
+    NoDup l2 ->
+    disjoint_list l1 l2 ->
+    NoDup (l1 ++ l2).
+Admitted.
+
+Lemma NoDup_map : forall {A B} (l : list A) (f : A -> B) ,
+    NoDup l -> NoDup (List.map f l).
+Admitted.
+
+Lemma NoDup_path_oram : forall o p,
+    NoDup (get_all_blks_tree o) -> NoDup (concat (lookup_path_oram o p)).
+Admitted.
+
+Lemma NoDup_clear_path : forall o p,
+  NoDup (get_all_blks_tree o) ->
+  NoDup (get_all_blks_tree (clear_path o p)).
+Admitted.
+
+Lemma clear_path_p_b_tree : forall o p, 
+  is_p_b_tr o (get_height o) ->
+  is_p_b_tr (clear_path o p) (get_height (clear_path o p)).
+Admitted.
+
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
     well_formed
@@ -1516,6 +1549,18 @@ Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram
         state_stash := (concat (lookup_path_oram o p) ++ h)%list;
         state_oram := clear_path o p
       |}.
+Proof.
+  intros.
+  destruct H.
+  constructor; simpl in *.
+  - apply clear_path_o_not_leaf; auto.
+  - apply NoDup_map. apply NoDup_disjointness.
+    + apply NoDup_path_oram. auto.
+    + apply NoDup_map_inv with (B := nat) (f := block_blockid). auto.
+    + admit.                    (* need to add this in the well_formedness *)
+  - apply NoDup_clear_path. auto.
+  - apply clear_path_p_b_tree. auto.
+  - intro addr. admit.
 Admitted.
 
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
