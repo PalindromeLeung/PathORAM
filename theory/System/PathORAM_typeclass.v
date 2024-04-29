@@ -1528,6 +1528,12 @@ Admitted.
 
 Lemma NoDup_map : forall {A B} (l : list A) (f : A -> B) ,
     NoDup l -> NoDup (List.map f l).
+Proof.
+  induction l; intros.
+  - apply NoDup_nil.
+  - apply NoDup_cons.
+    + admit.
+    +  apply IHl. inversion H; auto.
 Admitted.
 
 Lemma NoDup_path_oram : forall o p,
