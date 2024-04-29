@@ -1560,7 +1560,22 @@ Proof.
     + admit.                    (* need to add this in the well_formedness *)
   - apply NoDup_clear_path. auto.
   - apply clear_path_p_b_tree. auto.
-  - intro addr. admit.
+  - (* newly added random path should be of the same length. cannot be infered from the well_formedness  *)
+    admit.
+Admitted.
+
+Lemma not_in_removed : forall id o p h, 
+ ~ In id
+  (List.map block_blockid
+     (remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
+        (concat (lookup_path_oram o p) ++ h))).
+Admitted.
+
+Lemma NoDup_remove_list : forall id o p h, 
+   NoDup
+    (List.map block_blockid
+       (remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
+          (concat (lookup_path_oram o p) ++ h))).
 Admitted.
 
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
@@ -1574,7 +1589,19 @@ Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash)
              (concat (lookup_path_oram o p) ++ h);
       state_oram := clear_path o p
     |}.
-Admitted.   
+Proof.
+  intros.
+  destruct H.
+  constructor; simpl in *.
+  - apply clear_path_o_not_leaf; auto.
+  - rewrite NoDup_cons_iff; split.
+    + apply not_in_removed.
+    + apply NoDup_remove_list.
+  - apply NoDup_clear_path; auto.
+  - apply clear_path_p_b_tree; auto.
+  - intro.                      (* same as above *)
+    admit.
+Admitted.
   
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
