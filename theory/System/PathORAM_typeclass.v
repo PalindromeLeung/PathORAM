@@ -1516,8 +1516,11 @@ Admitted.
 Lemma clear_path_o_not_leaf : forall o p,
     o <> leaf ->
     clear_path o p <> leaf.
-Admitted.
-
+Proof. 
+  induction o; try contradiction.
+  destruct p; simpl; auto; intro. 
+  destruct b; simpl; auto; simpl; discriminate.
+Qed.
 
 Lemma NoDup_disjointness: forall A (l1 : list A) (l2 : list A),
     NoDup l1 ->
