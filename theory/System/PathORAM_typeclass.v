@@ -853,8 +853,8 @@ Record well_formed (s : state ) : Prop :=
     not_leaf : state_oram s <> leaf;
     no_dup_stash : NoDup (List.map block_blockid (state_stash s)); 
     no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
-    tree_stash_disj : disjoint_list (List.map block_blockid (state_stash s))
-                        (List.map block_blockid (get_all_blks_tree (state_oram s))); 
+    tree_stash_disj : disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
+                        (List.map block_blockid (state_stash s)); 
     is_pb_tr : is_p_b_tr (state_oram s) (get_height (state_oram s));
     path_length :
     let m := (state_position_map s) in
@@ -990,9 +990,11 @@ Proof.
   inversion H1.
 Qed.
 
-Lemma dist2Poram_wf {X} (dx : dist X) {Pre : state -> Prop}:
-  state_prob_lift Pre Pre (fun _ => True) (dist2Poram dx).
+Lemma dist2Poram_wf {X} (dx : dist X) (P : X -> Prop) {Pre : state -> Prop}:
+  dist_lift P dx ->
+  state_prob_lift Pre Pre P (dist2Poram dx).
 Proof.
+  intros. 
   unfold state_prob_lift.
   intros. unfold plift. unfold Pred_Dist_Lift. unfold dist_lift.
   unfold dist2Poram. simpl. 
@@ -1004,15 +1006,19 @@ Proof.
   rewrite Forall_forall; intros.
   destruct x0; simpl.
   destruct p; simpl.
-  split. exact I.
-  destruct x.
-  inversion H1.
-  - inversion H2. rewrite H5 in H. auto.
-  - simpl in H2. exfalso. auto.
+  split. unfold dist_lift in H.
+  rewrite Forall_forall in H. apply H. destruct x. destruct H2. inversion H2; subst.
+  assert (Hpair : x0 = fst (x0, q0)). { simpl. reflexivity.} rewrite Hpair.
+  apply in_map; auto.
+  destruct H2.
+  destruct x. 
+  destruct H2.
+  inversion H2; subst; auto.
+  inversion H2. 
 Qed.
 
 Lemma coin_flip_wf {Pre : state -> Prop} (l : nat):
-  state_prob_lift Pre Pre (fun _ => True) (dist2Poram (constm_vec coin_flip l)).
+  state_prob_lift Pre Pre (fun p => length p = l) (dist2Poram (constm_vec coin_flip l)).
 Proof.
   eapply dist2Poram_wf.
 Qed.
@@ -1529,18 +1535,20 @@ Lemma NoDup_disjointness: forall A (l1 : list A) (l2 : list A),
     NoDup (l1 ++ l2).
 Admitted.
 
-Lemma NoDup_map : forall {A B} (l : list A) (f : A -> B) ,
-    NoDup l -> NoDup (List.map f l).
-Proof.
-  induction l; intros.
-  - apply NoDup_nil.
-  - apply NoDup_cons.
-    + admit.
-    +  apply IHl. inversion H; auto.
+Lemma NoDup_map:
+  forall A B (f: A -> B) (l: list A),
+  NoDup l -> 
+  (forall x y, In x l -> In y l -> f x = f y -> x = y) ->
+  NoDup (List.map f l).
 Admitted.
 
 Lemma NoDup_path_oram : forall o p,
     NoDup (get_all_blks_tree o) -> NoDup (concat (lookup_path_oram o p)).
+Admitted.
+
+Lemma disj_path_oram : forall o p h,
+  disjoint_list (get_all_blks_tree o) h ->
+  disjoint_list (concat (lookup_path_oram o p)) h.
 Admitted.
 
 Lemma NoDup_clear_path : forall o p,
@@ -1553,8 +1561,13 @@ Lemma clear_path_p_b_tree : forall o p,
   is_p_b_tr (clear_path o p) (get_height (clear_path o p)).
 Admitted.
 
+Lemma disj_map : forall A B (l1 l2 : list A) (f : A -> B),
+  disjoint_list (List.map f l1) (List.map f l2) ->
+  disjoint_list l1 l2.
+Admitted.
+
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
-    well_formed (State m h o) ->
+    well_formed (State m h o) -> length p_new = (get_height o - 1)%nat -> 
     well_formed
       {|
         state_position_map := update_dict id p_new m;
@@ -1567,10 +1580,14 @@ Proof.
   constructor; simpl in *.
   - apply clear_path_o_not_leaf; auto.
   - apply NoDup_map. apply NoDup_disjointness.
-    + apply NoDup_path_oram. auto.
+    + apply NoDup_path_oram.
+      apply NoDup_map_inv with (B := nat) (f := block_blockid) in no_dup_tree0. auto.
     + apply NoDup_map_inv with (B := nat) (f := block_blockid). auto.
-    + admit.                    (* need to add this in the well_formedness *)
-  - apply NoDup_clear_path. auto.
+    + apply disj_map with (B := nat) (f := block_blockid) in tree_stash_disj0. apply disj_path_oram; auto.
+    + admit.
+  - apply NoDup_map. apply NoDup_clear_path.
+    apply NoDup_map_inv with (B := nat) (f := block_blockid) in no_dup_tree0. auto. admit.
+  - admit.
   - apply clear_path_p_b_tree. auto.
   - (* newly added random path should be of the same length. cannot be infered from the well_formedness  *)
     admit.
@@ -1609,20 +1626,21 @@ Proof.
   - rewrite NoDup_cons_iff; split.
     + apply not_in_removed.
     + apply NoDup_remove_list.
-  - apply NoDup_clear_path; auto.
-  - apply clear_path_p_b_tree; auto.
-  - intro.                      (* same as above *)
-    admit.
+  - admit.
+  (* - admit. apply NoDup_clear_path; auto. *)
+  - admit. (* apply clear_path_p_b_tree; auto. *)
+  - admit.
 Admitted.
   
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
+    length p_new = (get_height o - 1)%nat -> 
     well_formed (get_pre_wb_st id op m h o p p_new).
 Proof.
   intros.
   unfold get_pre_wb_st.
   destruct op. 
-  - simpl. apply rd_op_wf. auto.
+  - simpl. apply rd_op_wf; auto.
   - simpl. apply wr_op_wf. auto.
 Qed.
     
@@ -1648,7 +1666,7 @@ Proof.
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
-    apply (state_prob_bind Inv (fun _ => True)).
+    apply (state_prob_bind Inv (fun p => length p = (get_height (state_oram x) - 1)%nat)).
     + apply coin_flip_wf.
     + intros. simpl.
       apply (state_prob_bind Inv (fun _ => True)).
