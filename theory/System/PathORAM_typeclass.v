@@ -1559,14 +1559,52 @@ Lemma NoDup_clear_path : forall o p,
   NoDup (get_all_blks_tree (clear_path o p)).
 Admitted.
 
+Lemma get_height_stable : forall o p,
+    get_height (clear_path o p) = get_height o.
+Proof.
+  induction o; simpl; auto.
+  - destruct p.
+    simpl; auto.
+    destruct b; simpl.
+    + rewrite IHo1; auto.
+    + rewrite IHo2; auto.
+Qed.
+    
 Lemma clear_path_p_b_tree : forall o p, 
   is_p_b_tr o (get_height o) ->
   is_p_b_tr (clear_path o p) (get_height (clear_path o p)).
+Proof.
+  intros.
+  rewrite get_height_stable.
+  generalize p.
+  induction o; auto.
+  intro. simpl.
+  destruct p0.
+  - destruct H.
+    simpl.
+    constructor; auto.
+  - destruct b; simpl; split.
+    admit. admit.
+    admit. admit.
 Admitted.
+  
 
-Lemma disj_map : forall A B (l1 l2 : list A) (f : A -> B),
+Lemma disj_map_inv : forall A B (l1 l2 : list A) (f : A -> B),
   disjoint_list (List.map f l1) (List.map f l2) ->
   disjoint_list l1 l2.
+Admitted.
+
+Lemma disj_map :
+  forall A B (f : A -> B) (l1 l2 : list A),
+    disjoint_list l1 l2 ->
+    (forall x y, f x = f y -> x = y)->
+    disjoint_list (List.map f l1) (List.map f l2). 
+Admitted.
+
+Lemma disjoint_list_dlt : forall o p h,
+    disjoint_list (get_all_blks_tree o) h ->
+    disjoint_list (get_all_blks_tree(clear_path o p))
+      (concat (lookup_path_oram o p) ++ h).
 Admitted.
 
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
@@ -1586,13 +1624,22 @@ Proof.
     + apply NoDup_path_oram.
       apply NoDup_map_inv with (B := nat) (f := block_blockid) in no_dup_tree0. auto.
     + apply NoDup_map_inv with (B := nat) (f := block_blockid). auto.
-    + apply disj_map with (B := nat) (f := block_blockid) in tree_stash_disj0. apply disj_path_oram; auto.
-    + admit.
-  - apply NoDup_map. apply NoDup_clear_path.
-    apply NoDup_map_inv with (B := nat) (f := block_blockid) in no_dup_tree0. auto. admit.
-  - admit.
+    + apply disj_map_inv with (B := nat) (f := block_blockid) in tree_stash_disj0.
+      apply disj_path_oram; auto.
+    + admit.                    (* condition from disj_map *)
+  - apply NoDup_map.
+    + apply NoDup_clear_path.
+      apply NoDup_map_inv with (B := nat) (f := block_blockid) in no_dup_tree0; auto.
+    + admit.                    (* condition from disj_map *)
+  - apply disj_map.
+    + apply disj_map_inv with (B := nat) (f := block_blockid) in tree_stash_disj0.
+      (* this is very fishy *)
+      
+      apply disjoint_list_dlt. auto.
+    + intros.
+      admit. 
   - apply clear_path_p_b_tree. auto.
-  - (* newly added random path should be of the same length. cannot be infered from the well_formedness  *)
+  - intro.
     admit.
 Admitted.
 
