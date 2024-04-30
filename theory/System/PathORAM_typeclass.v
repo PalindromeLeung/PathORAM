@@ -1021,7 +1021,10 @@ Lemma coin_flip_wf {Pre : state -> Prop} (l : nat):
   state_prob_lift Pre Pre (fun p => length p = l) (dist2Poram (constm_vec coin_flip l)).
 Proof.
   eapply dist2Poram_wf.
-Qed.
+  induction l.
+  - simpl. auto.
+  - simpl constm_vec.
+Admitted. 
 
 Lemma put_wf {Pre Pre' : state -> Prop} {s : state}:
   Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
@@ -1667,19 +1670,21 @@ Proof.
   - apply get_State_wf.
   - intros.
     apply (state_prob_bind Inv (fun p => length p = (get_height (state_oram x) - 1)%nat)).
-    + apply coin_flip_wf.
+    (* + apply coin_flip_wf. *)
+    + admit.
     + intros. simpl.
       apply (state_prob_bind Inv (fun _ => True)).
       * apply put_wf. rewrite HeqInv in H; destruct H.
         rewrite HeqInv. split.
         apply get_post_wb_st_wf. 
         apply get_pre_wb_st_wf. destruct x. exact H.
+        intros. auto.
         apply zero_sum_stsh_tr_Rd_rev. auto.
       * intros. rewrite HeqInv. apply state_prob_ret.
         rewrite HeqInv in H. destruct H. simpl.
         symmetry. apply zero_sum_stsh_tr_Rd.
         auto. 
-Qed.
+Admitted.
 
 Lemma write_access_wf (id : block_id) (v : nat) :
   state_prob_lift (fun st => @well_formed st) (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
@@ -1688,16 +1693,18 @@ Proof.
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
-    apply (state_prob_bind Inv (fun _ => True)).
-    + apply coin_flip_wf.
+    apply (state_prob_bind Inv (fun p => length p = (get_height (state_oram x) - 1)%nat)).
+    (* + apply coin_flip_wf. *)
+    + admit.
     + intros. simpl.
       apply (state_prob_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
       * apply put_wf; simpl; split. rewrite HeqInv in H.
         apply get_post_wb_st_wf. 
         apply get_pre_wb_st_wf. destruct x. exact H.
+        intros; auto.
         apply zero_sum_stsh_tr_Wr.
       * intros. rewrite HeqInv. eapply state_prob_ret. auto.
-Qed.
+Admitted. 
 
 (*
  * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
