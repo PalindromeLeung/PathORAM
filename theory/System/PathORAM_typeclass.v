@@ -1704,8 +1704,14 @@ Lemma NoDup_remove_list : forall id o p h,
           (concat (lookup_path_oram o p) ++ h))).
 Admitted.
 
+Lemma id_cons_remove : forall id l', 
+    id :: List.map block_blockid
+      (remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
+         l') = List.map block_blockid l'.
+Admitted.
+
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
-    well_formed (State m h o) -> 
+    well_formed (State m h o) -> length p_new = (get_height o - 1)%nat ->
     well_formed
     {|
       state_position_map := update_dict id p_new m;
@@ -1723,11 +1729,16 @@ Proof.
   - rewrite NoDup_cons_iff; split.
     + apply not_in_removed.
     + apply NoDup_remove_list.
-  - admit.
-  (* - admit. apply NoDup_clear_path; auto. *)
-  - admit. (* apply clear_path_p_b_tree; auto. *)
-  - admit.
-Admitted.
+  - apply NoDup_clear_path. auto.
+  - rewrite id_cons_remove. apply disjoint_list_dlt. auto.
+  - apply clear_path_p_b_tree. rewrite get_height_stable. auto.
+  - intro.
+    destruct (Nat.eqb id id0) eqn : id_cond.
+    + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
+      rewrite get_height_stable. auto.
+    + rewrite lookup_update_diffid. rewrite get_height_stable; auto.
+      rewrite Nat.eqb_neq in id_cond. auto.
+Qed. 
   
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
