@@ -1570,23 +1570,27 @@ Proof.
     + rewrite IHo2; auto.
 Qed.
     
-Lemma clear_path_p_b_tree : forall o p, 
-  is_p_b_tr o (get_height o) ->
-  is_p_b_tr (clear_path o p) (get_height (clear_path o p)).
+Lemma clear_path_p_b_tree : forall o n p, 
+  is_p_b_tr o n -> 
+  is_p_b_tr (clear_path o p) n.
 Proof.
-  intros.
-  rewrite get_height_stable.
-  generalize p.
-  induction o; auto.
-  intro. simpl.
-  destruct p0.
-  - destruct H.
-    simpl.
-    constructor; auto.
-  - destruct b; simpl; split.
-    admit. admit.
-    admit. admit.
-Admitted.
+  induction o; auto; intros.
+  destruct p.
+  - simpl.
+    destruct n.
+    + inversion H.
+    + split; destruct H; auto.
+  - destruct b; simpl.
+    destruct n.
+    + inversion H.
+    + inversion H. split.
+      * apply IHo1; auto.
+      * auto.
+    + destruct n; auto.
+      split.
+      * inversion H. auto.
+      * apply IHo2; auto. inversion H; auto.
+Qed.
   
 
 Lemma disj_map_inv : forall A B (l1 l2 : list A) (f : A -> B),
@@ -1638,7 +1642,7 @@ Proof.
       apply disjoint_list_dlt. auto.
     + intros.
       admit. 
-  - apply clear_path_p_b_tree. auto.
+  - apply clear_path_p_b_tree. rewrite get_height_stable; auto.
   - intro.
     admit.
 Admitted.
