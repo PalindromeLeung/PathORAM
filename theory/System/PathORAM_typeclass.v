@@ -1538,10 +1538,13 @@ Lemma NoDup_disjointness: forall A (l1 : list A) (l2 : list A),
     NoDup (l1 ++ l2).
 Admitted.
 
+Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
+  forall x y, In x l -> In y l -> f x = f y -> x = y.
+
 Lemma NoDup_map:
   forall A B (f: A -> B) (l: list A),
   NoDup l -> 
-  (forall x y, In x l -> In y l -> f x = f y -> x = y) ->
+  inj_on_list l f -> 
   NoDup (List.map f l).
 Admitted.
 
@@ -1644,7 +1647,10 @@ Proof.
       admit. 
   - apply clear_path_p_b_tree. rewrite get_height_stable; auto.
   - intro.
-    admit.
+    destruct (Nat.eqb id id0) eqn : id_cond.
+    + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. admit.
+    + admit.
+
 Admitted.
 
 Lemma not_in_removed : forall id o p h, 
