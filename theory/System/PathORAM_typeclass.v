@@ -1752,12 +1752,29 @@ Proof.
   - simpl. apply wr_op_wf. auto.
     auto.
 Qed.
-    
+
+Lemma wb_not_leaf : forall s p,
+    state_oram s <> leaf -> 
+    state_oram (write_back_r 0 p (length p) s) <> leaf.
+Admitted.
+
 Lemma write_back_wf : forall (s : state) (p : path), 
   well_formed s -> 
   well_formed (write_back_r 0 p (length p) s).
-Admitted.
+Proof.
+  intros.
+  destruct H.
+  constructor; simpl in *.
+  - apply wb_not_leaf. auto.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted. 
 
+
+    
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
     well_formed (get_post_wb_st s p).
