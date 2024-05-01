@@ -1531,11 +1531,11 @@ Proof.
   destruct b; simpl; auto; simpl; discriminate.
 Qed.
 
-Lemma NoDup_disjointness: forall A (l1 : list A) (l2 : list A),
-    NoDup l1 ->
-    NoDup l2 ->
-    disjoint_list l1 l2 ->
-    NoDup (l1 ++ l2).
+Lemma NoDup_disjointness: forall {A B} (l1 : list A) (l2 : list A) (f : A -> B) ,
+    NoDup (List.map f l1) ->
+    NoDup (List.map f l2) ->
+    disjoint_list (List.map f l1) (List.map f l2) ->
+    NoDup (List.map f (l1 ++ l2)).
 Admitted.
 
 Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
@@ -1549,7 +1549,7 @@ Lemma NoDup_map:
 Admitted.
 
 Lemma NoDup_path_oram : forall o p,
-    NoDup (get_all_blks_tree o) -> NoDup (concat (lookup_path_oram o p)).
+    NoDup (List.map block_blockid (get_all_blks_tree o)) -> NoDup (List.map block_blockid (concat (lookup_path_oram o p))).
 Admitted.
 
 Lemma disj_path_oram : forall o p h,
@@ -1558,8 +1558,8 @@ Lemma disj_path_oram : forall o p h,
 Admitted.
 
 Lemma NoDup_clear_path : forall o p,
-  NoDup (get_all_blks_tree o) ->
-  NoDup (get_all_blks_tree (clear_path o p)).
+  NoDup (List.map block_blockid (get_all_blks_tree o)) ->
+  NoDup (List.map block_blockid (get_all_blks_tree (clear_path o p))).
 Admitted.
 
 Lemma get_height_stable : forall o p,
@@ -1604,15 +1604,35 @@ Admitted.
 Lemma disj_map :
   forall A B (f : A -> B) (l1 l2 : list A),
     disjoint_list l1 l2 ->
-    (forall x y, f x = f y -> x = y)->
+    inj_on_list (l1 ++ l2) f -> 
     disjoint_list (List.map f l1) (List.map f l2). 
 Admitted.
 
-Lemma disjoint_list_dlt : forall o p h,
-    disjoint_list (get_all_blks_tree o) h ->
-    disjoint_list (get_all_blks_tree(clear_path o p))
-      (concat (lookup_path_oram o p) ++ h).
+
+
+Lemma inj_on_list_app : forall {A B} (l1 l2 : list A) (f : A -> B),
+    NoDup (List.map f l1) ->
+    NoDup (List.map f l2) ->
+    disjoint_list (List.map f l1) (List.map f l2) ->
+    inj_on_list (l1 ++ l2) f.
 Admitted.
+
+Lemma disjoint_list_dlt : forall o p h,
+    disjoint_list (List.map block_blockid (get_all_blks_tree o)) (List.map block_blockid h) ->
+    disjoint_list (List.map block_blockid (get_all_blks_tree (clear_path o p)))
+    (List.map block_blockid (concat (lookup_path_oram o p) ++ h)).
+Admitted.
+
+Lemma disjoint_list_sub : forall {A} (l1 l2 l3: list A),
+  (forall x, In x l1 -> In x l2) -> 
+  disjoint_list l2 l3 ->
+  disjoint_list l1 l3.
+Proof.
+  intros.
+  unfold disjoint_list in *.
+  intros. unfold not in *.
+  firstorder.
+Qed.
 
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = (get_height o - 1)%nat -> 
@@ -1627,30 +1647,18 @@ Proof.
   destruct H.
   constructor; simpl in *.
   - apply clear_path_o_not_leaf; auto.
-  - apply NoDup_map. apply NoDup_disjointness.
-    + apply NoDup_path_oram.
-      apply NoDup_map_inv with (B := nat) (f := block_blockid) in no_dup_tree0. auto.
-    + apply NoDup_map_inv with (B := nat) (f := block_blockid). auto.
-    + apply disj_map_inv with (B := nat) (f := block_blockid) in tree_stash_disj0.
-      apply disj_path_oram; auto.
-    + admit.                    (* condition from disj_map *)
-  - apply NoDup_map.
-    + apply NoDup_clear_path.
-      apply NoDup_map_inv with (B := nat) (f := block_blockid) in no_dup_tree0; auto.
-    + admit.                    (* condition from disj_map *)
-  - apply disj_map.
-    + apply disj_map_inv with (B := nat) (f := block_blockid) in tree_stash_disj0.
-      (* this is very fishy *)
-      
-      apply disjoint_list_dlt. auto.
-    + intros.
-      admit. 
+  - apply NoDup_disjointness.
+    + apply NoDup_path_oram. auto.
+    + auto.
+    + apply disjoint_list_sub with (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
+      intros. admit.
+  - apply NoDup_clear_path. auto.
+  - apply disjoint_list_dlt. auto.
   - apply clear_path_p_b_tree. rewrite get_height_stable; auto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. admit.
     + admit.
-
 Admitted.
 
 Lemma not_in_removed : forall id o p h, 
