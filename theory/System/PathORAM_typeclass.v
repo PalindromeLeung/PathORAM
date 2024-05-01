@@ -1635,6 +1635,31 @@ Proof.
   firstorder.
 Qed.
 
+Definition bid_in (l : list block) (x : block_id):=
+  In x (List.map block_blockid l).
+
+Lemma path_sub_tree : forall o p x,
+    bid_in (concat (lookup_path_oram o p)) x ->
+    bid_in (get_all_blks_tree o) x.
+Admitted.
+
+Lemma lookup_update_sameid : forall id m p_new, 
+    lookup_dict
+       (makeBoolList false (length (update_falist id p_new (dict_elems m)))) id
+       (update_dict id p_new m) = p_new.
+Admitted.
+
+
+Lemma lookup_update_diffid : forall id id' m p_new,
+    id <> id' ->
+    lookup_dict
+      (makeBoolList false
+         (length (update_falist id' p_new (dict_elems m))))
+      id (update_dict id' p_new m) =
+      lookup_dict (makeBoolList false (length (dict_elems m))) id m.
+Admitted.
+
+                                   
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = (get_height o - 1)%nat -> 
     well_formed
@@ -1651,16 +1676,19 @@ Proof.
   - apply NoDup_disjointness.
     + apply NoDup_path_oram. auto.
     + auto.
-    + apply disjoint_list_sub with (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
-      intros. admit.
+    + apply disjoint_list_sub with
+        (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
+      intros. apply path_sub_tree with (p := p). exact H.
   - apply NoDup_clear_path. auto.
   - apply disjoint_list_dlt. auto.
   - apply clear_path_p_b_tree. rewrite get_height_stable; auto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
-    + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. admit.
-    + admit.
-Admitted.
+    + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
+      rewrite get_height_stable. auto.
+    + rewrite lookup_update_diffid. rewrite get_height_stable; auto.
+      rewrite Nat.eqb_neq in id_cond. auto.
+Qed. 
 
 Lemma not_in_removed : forall id o p h, 
  ~ In id
