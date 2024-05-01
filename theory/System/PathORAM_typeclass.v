@@ -1750,6 +1750,7 @@ Proof.
   destruct op. 
   - simpl. apply rd_op_wf; auto.
   - simpl. apply wr_op_wf. auto.
+    auto.
 Qed.
     
 Lemma write_back_wf : forall (s : state) (p : path), 
