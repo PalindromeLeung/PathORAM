@@ -419,6 +419,7 @@ Definition position_map := dict block_id path.
 Definition stash := list block.
 Definition bucket := list block.
 
+Context {LOP : nat}.
 Inductive oram : Type :=
 | leaf
 | node (payload: option bucket) (o_l o_r : oram). 
