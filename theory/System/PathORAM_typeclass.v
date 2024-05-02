@@ -420,6 +420,7 @@ Definition stash := list block.
 Definition bucket := list block.
 
 Context {LOP : nat}.
+
 Inductive oram : Type :=
 | leaf
 | node (payload: option bucket) (o_l o_r : oram). 
@@ -879,18 +880,15 @@ Proof.
   eapply (Forall P (List.map fst dist_pmf0)).
 Defined.
 
-#[export] Instance Pred_Dist_Lift : PredLift dist.
-refine 
-  {|
-    plift {X} := dist_lift;
-    lift_ret := _;
-    lift_bind := _;
-  |}.
+Lemma dist_lift_lemma :
+forall (X Y : Type) (P : X -> Prop)
+  (Q : Y -> Prop) (mx : dist X)
+  (f : X -> dist Y),
+dist_lift P mx ->
+(forall x : X, P x -> dist_lift Q (f x)) ->
+dist_lift Q (x <- mx;; f x).
 Proof.
-  - intros. simpl mreturn. unfold mreturn_dist. unfold dist_lift. simpl. constructor.
-    + assumption.
-    + constructor.
-  - intros. simpl mbind. unfold mbind_dist.
+  intros. simpl mbind. unfold mbind_dist.
     unfold dist_lift. rewrite Forall_map. unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat. rewrite Forall_map.
     eapply Forall_impl.
     2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H. }
@@ -898,8 +896,21 @@ Proof.
     specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
     2:{exact H0. }
     intros (a, b) pa. exact pa.
-Defined. 
+Qed.
 
+
+#[export] Instance Pred_Dist_Lift : PredLift dist.
+refine 
+  {|
+    plift {X} := dist_lift;
+    lift_ret := _;
+    lift_bind := dist_lift_lemma;
+  |}.
+Proof.
+  - intros. simpl mreturn. unfold mreturn_dist. unfold dist_lift. simpl. constructor.
+    + assumption.
+    + constructor.
+Defined.
 
 Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Prop) (P : X -> Prop) :=
   fun mx =>
@@ -1009,13 +1020,19 @@ Proof.
   destruct p; simpl.
   split. unfold dist_lift in H.
   rewrite Forall_forall in H. apply H. destruct x. destruct H2. inversion H2; subst.
-  assert (Hpair : x0 = fst (x0, q0)). { simpl. reflexivity.} rewrite Hpair.
+  assert (Hpair : x0 = fst (x0, q0)). { simpl. reflexivity. } rewrite Hpair.
   apply in_map; auto.
   destruct H2.
   destruct x. 
   destruct H2.
   inversion H2; subst; auto.
   inversion H2. 
+Qed.
+
+Lemma dist_lift_coin_flip :
+  dist_lift (fun _ => True) coin_flip.
+Proof.
+  repeat constructor; auto.
 Qed.
 
 Lemma coin_flip_wf {Pre : state -> Prop} (l : nat):
@@ -1025,7 +1042,15 @@ Proof.
   induction l.
   - simpl. auto.
   - simpl constm_vec.
-Admitted. 
+    eapply dist_lift_lemma.
+    + apply dist_lift_coin_flip.
+    + intros.
+      eapply dist_lift_lemma.
+      * exact IHl.
+      * intros. simpl in H0.
+        repeat constructor.
+        simpl in *; congruence.
+Qed.
 
 Lemma put_wf {Pre Pre' : state -> Prop} {s : state}:
   Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
@@ -1547,7 +1572,29 @@ Lemma NoDup_map:
   NoDup l -> 
   inj_on_list l f -> 
   NoDup (List.map f l).
-Admitted.
+Proof.
+  intros A B f l.
+  induction l; intros.
+  - constructor.
+  - simpl; constructor.
+    + intro pf.
+      rewrite in_map_iff in pf.
+      destruct pf as [b [Hb1 Hb2]].
+      assert (a = b).
+      { apply H0.
+        * now left.
+        * now right.
+        * congruence.
+      }
+      subst.
+      inversion H; contradiction.
+    + apply IHl.
+      * inversion H; auto.
+      * intros x y Hx Hy Hxy.
+        apply H0; auto.
+        -- now right.
+        -- now right.
+Qed.
 
 Lemma NoDup_path_oram : forall o p,
     NoDup (List.map block_blockid (get_all_blks_tree o)) -> NoDup (List.map block_blockid (concat (lookup_path_oram o p))).
@@ -1595,28 +1642,86 @@ Proof.
       * inversion H. auto.
       * apply IHo2; auto. inversion H; auto.
 Qed.
-  
 
 Lemma disj_map_inv : forall A B (l1 l2 : list A) (f : A -> B),
   disjoint_list (List.map f l1) (List.map f l2) ->
   disjoint_list l1 l2.
-Admitted.
+Proof.
+  intros.
+  intros x [Hx1 Hx2].
+  apply (H (f x)); split;
+  now apply in_map.
+Qed.
 
 Lemma disj_map :
   forall A B (f : A -> B) (l1 l2 : list A),
     disjoint_list l1 l2 ->
     inj_on_list (l1 ++ l2) f -> 
-    disjoint_list (List.map f l1) (List.map f l2). 
-Admitted.
+    disjoint_list (List.map f l1) (List.map f l2).
+Proof.
+  intros.
+  intros x [Hx1 Hx2].
+  rewrite in_map_iff in *.
+  destruct Hx1 as [a [Ha1 Ha2]].
+  destruct Hx2 as [a' [Ha3 Ha4]].
+  assert (a = a').
+  { apply H0.
+    - apply in_or_app.
+      now left.
+    - apply in_or_app.
+      now right.
+    - congruence.
+  }
+  subst.
+  apply (H a'); tauto.
+Qed.
 
-
+Lemma NoDup_map_inj {A B} : forall (f : A -> B) l,
+  NoDup (List.map f l) ->
+  inj_on_list l f.
+Proof.
+  unfold inj_on_list.
+  induction l; intros nd_fl x y Hx Hy Hxy.
+  - destruct Hx.
+  - destruct Hx.
+    + destruct Hy; try congruence.
+      simpl in nd_fl.
+      rewrite NoDup_cons_iff in nd_fl.
+      destruct nd_fl as [Hfa nd].
+      elim Hfa.
+      rewrite H.
+      rewrite Hxy.
+      now apply in_map.
+    + destruct Hy.
+      * simpl in nd_fl; inversion nd_fl.
+        elim H3.
+        rewrite H0.
+        rewrite <- Hxy.
+        now apply in_map.
+      * eapply IHl; eauto.
+        now inversion nd_fl.
+Qed.
 
 Lemma inj_on_list_app : forall {A B} (l1 l2 : list A) (f : A -> B),
     NoDup (List.map f l1) ->
     NoDup (List.map f l2) ->
     disjoint_list (List.map f l1) (List.map f l2) ->
     inj_on_list (l1 ++ l2) f.
-Admitted.
+Proof.
+  intros.
+  intros x y Hx Hy Hxy.
+  apply in_app_or in Hx.
+  apply in_app_or in Hy.
+  destruct Hx, Hy.
+  - apply (NoDup_map_inj f l1); auto.
+  - elim (H1 (f x)); split.
+    + now apply in_map.
+    + rewrite Hxy; now apply in_map.
+  - elim (H1 (f y)); split.
+    + now apply in_map.
+    + rewrite <- Hxy; now apply in_map.
+  - apply (NoDup_map_inj f l2); auto.
+Qed.
 
 Lemma disjoint_list_dlt : forall o p h,
     disjoint_list (List.map block_blockid (get_all_blks_tree o)) (List.map block_blockid h) ->
@@ -1649,7 +1754,6 @@ Lemma lookup_update_sameid : forall id m p_new,
        (update_dict id p_new m) = p_new.
 Admitted.
 
-
 Lemma lookup_update_diffid : forall id id' m p_new,
     id <> id' ->
     lookup_dict
@@ -1659,7 +1763,6 @@ Lemma lookup_update_diffid : forall id id' m p_new,
       lookup_dict (makeBoolList false (length (dict_elems m))) id m.
 Admitted.
 
-                                   
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = (get_height o - 1)%nat -> 
     well_formed
@@ -1773,8 +1876,6 @@ Proof.
   - admit.
 Admitted. 
 
-
-    
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
     well_formed (get_post_wb_st s p).
