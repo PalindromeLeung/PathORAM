@@ -408,7 +408,7 @@ Fixpoint mk_n_list (n: nat):list nat :=
   Note: we will just use association lists to represent dictionaries, e.g., for `block_id ⇰ path`.
 
 **)
-
+Section PORAM. 
 Definition block_id := nat.
 Record block : Type := Block
   { block_blockid : block_id
@@ -419,7 +419,7 @@ Definition position_map := dict block_id path.
 Definition stash := list block.
 Definition bucket := list block.
 
-Context {LOP : nat}.
+Variable LOP : nat.
 
 Inductive oram : Type :=
 | leaf
@@ -1909,7 +1909,7 @@ Proof.
   intros.
   destruct H.
   constructor; simpl in *.
-  - apply wb_not_leaf. auto.
+  - apply wb_not_leaf; auto.
   - unfold write_back_r.
     apply stash_substraction_preserves_no_dup; auto.
   - unfold write_back_r.
@@ -2014,3 +2014,6 @@ Proof.
   apply extract_payload.
   apply write_and_read_access_lift. auto.
 Qed.
+
+End PORAM.
+Check PathORAM_simulates_RAM.
