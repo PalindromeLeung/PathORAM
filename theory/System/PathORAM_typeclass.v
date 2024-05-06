@@ -1964,8 +1964,8 @@ Proof.
         rewrite HeqInv. split.
         apply get_post_wb_st_wf. 
         apply get_pre_wb_st_wf. destruct x. exact H.
-        intros. auto.
-        apply zero_sum_stsh_tr_Rd_rev. auto.
+        intros. auto. apply H.
+        apply zero_sum_stsh_tr_Rd_rev; auto. apply H. 
       * intros. rewrite HeqInv. apply state_prob_ret.
         rewrite HeqInv in H. destruct H. simpl.
         symmetry. apply zero_sum_stsh_tr_Rd.
