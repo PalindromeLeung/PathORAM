@@ -857,11 +857,11 @@ Record well_formed (s : state ) : Prop :=
     no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
     tree_stash_disj : disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
                         (List.map block_blockid (state_stash s)); 
-    is_pb_tr : is_p_b_tr (state_oram s) (get_height (state_oram s));
+    is_pb_tr : is_p_b_tr (state_oram s) (S LOP); 
     path_length :
     let m := (state_position_map s) in
      let len_m := LOP in 
-     forall id, length(lookup_dict (makeBoolList false len_m) id m) = (get_height (state_oram s) - 1)%nat; 
+     forall id, length(lookup_dict (makeBoolList false len_m) id m) = LOP;
   }.
 
 Class PredLift M `{Monad M} := {
@@ -1763,7 +1763,7 @@ Lemma lookup_update_diffid : forall id id' m p_new,
 Admitted.
 
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
-    well_formed (State m h o) -> length p_new = (get_height o - 1)%nat -> 
+    well_formed (State m h o) -> length p_new = LOP -> 
     well_formed
       {|
         state_position_map := update_dict id p_new m;
@@ -1783,12 +1783,12 @@ Proof.
       intros. apply path_sub_tree with (p := p). exact H.
   - apply NoDup_clear_path. auto.
   - apply disjoint_list_dlt. auto.
-  - apply clear_path_p_b_tree. rewrite get_height_stable; auto.
+  - apply clear_path_p_b_tree. auto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
-      rewrite get_height_stable. auto.
-    + rewrite lookup_update_diffid. rewrite get_height_stable; auto.
+      auto.
+    + rewrite lookup_update_diffid. auto.
       rewrite Nat.eqb_neq in id_cond. auto.
 Qed. 
 
@@ -1813,7 +1813,7 @@ Lemma id_cons_remove : forall id l',
 Admitted.
 
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
-    well_formed (State m h o) -> length p_new = (get_height o - 1)%nat ->
+    well_formed (State m h o) -> length p_new = LOP -> 
     well_formed
     {|
       state_position_map := update_dict id p_new m;
@@ -1833,18 +1833,18 @@ Proof.
     + apply NoDup_remove_list.
   - apply NoDup_clear_path. auto.
   - rewrite id_cons_remove. apply disjoint_list_dlt. auto.
-  - apply clear_path_p_b_tree. rewrite get_height_stable. auto.
+  - apply clear_path_p_b_tree. auto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
-      rewrite get_height_stable. auto.
-    + rewrite lookup_update_diffid. rewrite get_height_stable; auto.
+      auto.
+    + rewrite lookup_update_diffid. auto.
       rewrite Nat.eqb_neq in id_cond. auto.
 Qed. 
   
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
-    length p_new = (get_height o - 1)%nat -> 
+    length p_new = LOP -> 
     well_formed (get_pre_wb_st id op m h o p p_new).
 Proof.
   intros.
@@ -1891,9 +1891,8 @@ Lemma blocks_selection_preserves_disj : forall s p,
 Admitted.
 
 Lemma blocks_selection_preserves_pb : forall s p,
-is_p_b_tr (state_oram s) (get_height (state_oram s)) -> 
-  is_p_b_tr (state_oram (write_back_r 0 p (length p) s))
-    (get_height (state_oram (write_back_r 0 p (length p) s))).
+is_p_b_tr (state_oram s) (S LOP) -> 
+  is_p_b_tr (state_oram (write_back_r 0 p (length p) s))(S LOP).
 Admitted.
 
 Lemma wb_preserves_height : forall s p,
@@ -1917,7 +1916,7 @@ Proof.
     apply blocks_selection_preserves_disj; auto.
   - apply blocks_selection_preserves_pb; auto.
   - rewrite <- pos_map_stable_across_wb.
-    auto. rewrite <- wb_preserves_height. auto.
+    auto. 
 Qed. 
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
@@ -1937,9 +1936,8 @@ Proof.
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
-    apply (state_prob_bind Inv (fun p => length p = (get_height (state_oram x) - 1)%nat)).
-    (* + apply coin_flip_wf. *)
-    + admit.
+    apply (state_prob_bind Inv (fun p => length p = LOP)).
+    + apply coin_flip_wf.
     + intros. simpl.
       apply (state_prob_bind Inv (fun _ => True)).
       * apply put_wf. rewrite HeqInv in H; destruct H.
@@ -1952,7 +1950,7 @@ Proof.
         rewrite HeqInv in H. destruct H. simpl.
         symmetry. apply zero_sum_stsh_tr_Rd.
         auto. 
-Admitted.
+Qed. 
 
 Lemma write_access_wf (id : block_id) (v : nat) :
   state_prob_lift (fun st => @well_formed st) (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
@@ -1961,9 +1959,8 @@ Proof.
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
-    apply (state_prob_bind Inv (fun p => length p = (get_height (state_oram x) - 1)%nat)).
-    (* + apply coin_flip_wf. *)
-    + admit.
+    apply (state_prob_bind Inv (fun p => length p = LOP)).
+    + apply coin_flip_wf.
     + intros. simpl.
       apply (state_prob_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
       * apply put_wf; simpl; split. rewrite HeqInv in H.
@@ -1972,7 +1969,7 @@ Proof.
         intros; auto.
         apply zero_sum_stsh_tr_Wr.
       * intros. rewrite HeqInv. eapply state_prob_ret. auto.
-Admitted. 
+Qed. 
 
 (*
  * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
