@@ -1891,6 +1891,17 @@ Lemma blocks_selection_preserves_disj : forall s p,
          (state_stash (iterate_right 0 p blocks_selection (length p) s))).
 Admitted.
 
+Lemma blocks_selection_preserves_pb : forall s p,
+is_p_b_tr (state_oram s) (get_height (state_oram s)) -> 
+  is_p_b_tr (state_oram (write_back_r 0 p (length p) s))
+    (get_height (state_oram (write_back_r 0 p (length p) s))).
+Admitted.
+
+Lemma wb_preserves_height : forall s p,
+  get_height (state_oram s) =
+    get_height (state_oram (write_back_r 0 p (length p) s)).
+Admitted.
+
 Lemma write_back_wf : forall (s : state) (p : path), 
   well_formed s -> 
   well_formed (write_back_r 0 p (length p) s).
@@ -1905,9 +1916,10 @@ Proof.
     apply blocks_selection_preserves_no_dup; auto.
   - unfold write_back_r.
     apply blocks_selection_preserves_disj; auto.
-  - admit.
-  - admit.
-Admitted. 
+  - apply blocks_selection_preserves_pb; auto.
+  - rewrite <- pos_map_stable_across_wb.
+    auto. rewrite <- wb_preserves_height. auto.
+Qed. 
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
