@@ -1930,24 +1930,33 @@ Proof.
 Qed.
 
 Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
+  well_formed (State m h o) ->
   kv_rel id v (State m h o) ->
   get_ret_data id h (calc_path id (State m h o)) o = v.
 Proof.
   simpl.
   intros.
-  destruct H. 
+  destruct H0. 
   - (* assume in stash *)
     apply lookup_ret_data_block_in_list.
-    + admit.              (* NoDup evidence *)
+    + apply NoDup_disjointness; try repeat apply H.
+      * apply NoDup_path_oram. apply H.
+      * destruct H.
+        apply disjoint_list_sub with
+        (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
+        intros. eapply path_sub_tree. exact H.
     + apply in_or_app. right. auto.
   - (* assume in path *)
     apply lookup_ret_data_block_in_list.
-    + admit.                    (* NoDup evidence *)
+    + apply NoDup_disjointness; try repeat apply H.
+      * apply NoDup_path_oram. apply H.
+      * destruct H.
+        apply disjoint_list_sub with
+          (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
+        intros. eapply path_sub_tree. exact H.
     + unfold blk_in_path in H. simpl in *.
     apply in_or_app. left. auto.
-Admitted.
-
-
+Qed.
 
 Lemma read_access_wf (id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
@@ -1962,14 +1971,12 @@ Proof.
       apply (state_prob_bind Inv (fun _ => True)).
       * apply put_wf. rewrite HeqInv in H; destruct H.
         rewrite HeqInv. split.
-        apply get_post_wb_st_wf. 
-        apply get_pre_wb_st_wf. destruct x. exact H.
-        intros. auto. apply H.
-        apply zero_sum_stsh_tr_Rd_rev; auto. apply H. 
+        -- apply get_post_wb_st_wf; [|apply H].
+           apply get_pre_wb_st_wf; auto. destruct x. exact H.
+        -- apply zero_sum_stsh_tr_Rd_rev; auto. apply H. 
       * intros. rewrite HeqInv. apply state_prob_ret.
         rewrite HeqInv in H. destruct H. simpl.
-        symmetry. apply zero_sum_stsh_tr_Rd.
-        auto. 
+        symmetry. apply zero_sum_stsh_tr_Rd; destruct x; auto.
 Qed. 
 
 Lemma write_access_wf (id : block_id) (v : nat) :
