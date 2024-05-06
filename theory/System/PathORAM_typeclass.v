@@ -1855,18 +1855,22 @@ Proof.
   unfold get_post_wb_st.
   apply write_back_wf; auto; lia.
 Qed.
-  
+
 Lemma zero_sum_stsh_tr_Wr
   (s : state) (id : block_id) (v : nat) (p p_new : path):
+  well_formed s ->
+  length p = LOP ->
+  length p_new = LOP ->
   kv_rel id v
     (get_post_wb_st
        (get_pre_wb_st id (Write v)
           (state_position_map s) (state_stash s) (state_oram s)
           (calc_path id s) p_new) p).
 Proof.
-  apply distribute_via_get_post_wb_st.
-  - apply 
-  - admit.
+  intros.
+  apply distribute_via_get_post_wb_st; auto.
+  - apply get_pre_wb_st_wf; auto.
+    destruct s; auto.
   - apply stash_path_combined_rel_Wr.
 Qed.
 
