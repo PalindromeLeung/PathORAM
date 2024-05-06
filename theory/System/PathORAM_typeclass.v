@@ -1328,14 +1328,16 @@ Proof.
 Qed.
       
 Lemma stash_block_selection : forall p s id v lvl,
-  blk_in_stash id v s ->
-  blk_in_stash id v (blocks_selection p lvl s) \/
-  (at_lvl_in_path (state_oram
-                     (blocks_selection p lvl s)) lvl p (Block id v) /\
-     at_lvl_in_path (state_oram
-                       (blocks_selection p lvl s)) lvl (calc_path id s) (Block id v) 
-  ).
-
+    well_formed s ->
+    length p = LOP ->
+    Nat.le lvl LOP -> 
+    blk_in_stash id v s ->
+    blk_in_stash id v (blocks_selection p lvl s) \/
+      (at_lvl_in_path (state_oram
+                         (blocks_selection p lvl s)) lvl p (Block id v) /\
+         at_lvl_in_path (state_oram
+                           (blocks_selection p lvl s)) lvl (calc_path id s) (Block id v) 
+      ).
 Proof.
   intros.
   remember (blocks_selection p lvl s) as s'.
@@ -1345,56 +1347,55 @@ Proof.
   rewrite Heqs'.
   simpl.
   remember (get_write_back_blocks p (state_stash s) 4 lvl (state_position_map s)) as dlt.
-  apply kv_in_list_partition with (del := dlt) in H.
-  destruct H.
+  apply kv_in_list_partition with (del := dlt) in H2.  destruct H2.
   - left; auto.
   - right.
     split.
     + apply kv_in_delta_in_tree; auto.
-      apply pb_coord_in_bound with (k := (get_height(state_oram s) - 1)%nat).
-      * admit.                  (* derivable from well_formedness of s *)
-      * admit.                  (* derivable from well_formedness of s *)
-      * admit.                  (* assumption about level *)
+      apply pb_coord_in_bound with (k := LOP); auto.
+      * apply H.
     + apply path_conversion with (p := p).
-      * rewrite Heqdlt in H. unfold get_write_back_blocks in H.
+      * rewrite Heqdlt in H2. unfold get_write_back_blocks in H2.
         destruct (length (state_stash s)); try contradiction.
-        apply takeL_in in H.
+        apply takeL_in in H2.
         unfold calc_path.
         apply path_eq_get_cand_bs with (v := v )(h := state_stash s); auto.
       * apply kv_in_delta_in_tree; auto.
-        apply pb_coord_in_bound with (k := (get_height(state_oram s) - 1)%nat).
-        --  admit.                  (* derivable from well_formedness of s *)
-        --  admit.                  (* derivable from well_formedness of s *)
-        --  admit.                  (* assumption about level *)
- Admitted.
+        apply pb_coord_in_bound with (k := LOP); auto.
+        apply H.
+Qed.
 
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
-  blk_in_stash id v s ->
-  blk_in_stash id v (write_back_r start p n s) \/
-  exists k, (start <= k /\ 
-        at_lvl_in_path (state_oram (write_back_r start p n s)) k p (Block id v) /\
-         at_lvl_in_path (state_oram (write_back_r start p n s)) k (calc_path id s) (Block id v))%nat.
+    well_formed s ->
+    length p = LOP ->
+    Nat.le (start + n) LOP ->
+    blk_in_stash id v s ->
+    blk_in_stash id v (write_back_r start p n s) \/
+      exists k, (start <= k /\ 
+              at_lvl_in_path (state_oram (write_back_r start p n s)) k p (Block id v) /\
+              at_lvl_in_path (state_oram (write_back_r start p n s)) k (calc_path id s) (Block id v))%nat.
 Proof.
   induction n; intros.
   - left; auto.
-  - destruct (IHn s p id v (S start) H).
+  - destruct (IHn s p id v (S start) H H0); auto; try lia.
     + unfold write_back_r at 1.
       simpl iterate_right at 1.
-      destruct (stash_block_selection p _ id v start H0).
-      * left; auto.
+      assert (Nat.le start LOP) by lia.
+      destruct (stash_block_selection p (write_back_r (S start) p n s) id v start) as [Hs | Hr] ; auto.
+      * admit. (* write_back_r preserves wf *)
       * right.
         exists start; auto.
         repeat split; auto ; try tauto.
-        destruct H1. rewrite calc_path_write_bk_r_stable in H2.
-        exact H2.
-    + destruct H0 as [k [Hk1 Hk2]].
+        destruct Hr. rewrite calc_path_write_bk_r_stable in H6.
+        exact H6.
+    + destruct H3 as [k [Hk1 Hk2]].
       right; exists k.
       split; [lia|].
       unfold write_back_r; simpl iterate_right.
       split; destruct Hk2.
       * apply at_lvl_in_path_blocks_selection; auto.
       * apply at_lvl_in_path_blocks_selection; auto.
-Qed.
+Admitted.
 
 Lemma locate_node_in_path : forall o lvl p b,
     locate_node_in_tr o lvl p = Some b ->
@@ -2013,3 +2014,4 @@ Qed.
 
 End PORAM.
 Check PathORAM_simulates_RAM.
+
