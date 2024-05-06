@@ -1536,88 +1536,7 @@ Proof.
   intros.
   unfold get_post_wb_st.
   apply write_back_in_stash_kv_rel; simpl; auto. 
-Qed.    
-
-Lemma zero_sum_stsh_tr_Wr
-  (s : state) (id : block_id) (v : nat) (p p_new : path):
-  kv_rel id v
-    (get_post_wb_st
-       (get_pre_wb_st id (Write v)
-          (state_position_map s) (state_stash s) (state_oram s)
-          (calc_path id s) p_new) p).
-Proof.
-  apply distribute_via_get_post_wb_st.
-  apply stash_path_combined_rel_Wr.
 Qed.
-
-Lemma blk_in_path_in_lookup_oram : forall (id : block_id) (v : nat) (s : state) ,
-    blk_in_path id v s -> 
-    In (Block id v)
-      (concat
-         (lookup_path_oram (state_oram s)
-            (calc_path id s)
-         )
-      ).
-Proof.
-  intros.
-  unfold blk_in_path in H.
-  unfold calc_path. auto.
-Qed.
-
-        
-Lemma zero_sum_stsh_tr_Rd_rev :
-  forall (id : block_id) (v : nat) (s : state) (p p_new : path), 
-    kv_rel id v s  -> 
-    kv_rel id v (get_post_wb_st
-      (get_pre_wb_st id Read (state_position_map s)
-         (state_stash s)
-         (state_oram s)
-         (calc_path id s) p_new) p). 
-Proof.
-  intros.
-  apply distribute_via_get_post_wb_st. apply stash_path_combined_rel_Rd.
-  apply H.
-Qed.
-  
-Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
-  NoDup (List.map block_blockid l) ->
-  In (Block id v) l -> lookup_ret_data id l = v.
-Proof.
-  intro ND.
-  intros.
-  induction l; simpl; try contradiction.
-  destruct (block_blockid a =? id) eqn: id_cond.
-  - destruct H; simpl in *.
-    + rewrite H; auto.
-    + inversion ND; subst.
-      rewrite Nat.eqb_eq in id_cond.
-      rewrite id_cond in H2.
-      apply List.in_map with (f := block_blockid) in H.
-      simpl in *. contradiction.
-  - apply IHl.
-    + inversion ND; auto.
-    + destruct H; auto.
-      rewrite H in id_cond. simpl in *. rewrite Nat.eqb_neq in id_cond.
-      contradiction.
-Qed.
-
-Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
-  kv_rel id v (State m h o) ->
-  get_ret_data id h (calc_path id (State m h o)) o = v.
-Proof.
-  simpl.
-  intros.
-  destruct H. 
-  - (* assume in stash *)
-    apply lookup_ret_data_block_in_list.
-    + admit.              (* NoDup evidence *)
-    + apply in_or_app. right. auto.
-  - (* assume in path *)
-    apply lookup_ret_data_block_in_list.
-    + admit.                    (* NoDup evidence *)
-    + unfold blk_in_path in H. simpl in *.
-    apply in_or_app. left. auto.
-Admitted.
 
 Lemma clear_path_o_not_leaf : forall o p,
     o <> leaf ->
@@ -1929,13 +1848,98 @@ Qed.
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
+    length p = LOP ->
     well_formed (get_post_wb_st s p).
 Proof.
   intros.
   unfold get_post_wb_st.
-  apply write_back_wf; auto.
+  apply write_back_wf; auto; lia.
 Qed.
   
+Lemma zero_sum_stsh_tr_Wr
+  (s : state) (id : block_id) (v : nat) (p p_new : path):
+  kv_rel id v
+    (get_post_wb_st
+       (get_pre_wb_st id (Write v)
+          (state_position_map s) (state_stash s) (state_oram s)
+          (calc_path id s) p_new) p).
+Proof.
+  apply distribute_via_get_post_wb_st.
+  - apply 
+  - admit.
+  - apply stash_path_combined_rel_Wr.
+Qed.
+
+Lemma blk_in_path_in_lookup_oram : forall (id : block_id) (v : nat) (s : state) ,
+    blk_in_path id v s -> 
+    In (Block id v)
+      (concat
+         (lookup_path_oram (state_oram s)
+            (calc_path id s)
+         )
+      ).
+Proof.
+  intros.
+  unfold blk_in_path in H.
+  unfold calc_path. auto.
+Qed.
+
+        
+Lemma zero_sum_stsh_tr_Rd_rev :
+  forall (id : block_id) (v : nat) (s : state) (p p_new : path), 
+    kv_rel id v s  -> 
+    kv_rel id v (get_post_wb_st
+      (get_pre_wb_st id Read (state_position_map s)
+         (state_stash s)
+         (state_oram s)
+         (calc_path id s) p_new) p). 
+Proof.
+  intros.
+  apply distribute_via_get_post_wb_st. apply stash_path_combined_rel_Rd.
+  apply H.
+Qed.
+  
+Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
+  NoDup (List.map block_blockid l) ->
+  In (Block id v) l -> lookup_ret_data id l = v.
+Proof.
+  intro ND.
+  intros.
+  induction l; simpl; try contradiction.
+  destruct (block_blockid a =? id) eqn: id_cond.
+  - destruct H; simpl in *.
+    + rewrite H; auto.
+    + inversion ND; subst.
+      rewrite Nat.eqb_eq in id_cond.
+      rewrite id_cond in H2.
+      apply List.in_map with (f := block_blockid) in H.
+      simpl in *. contradiction.
+  - apply IHl.
+    + inversion ND; auto.
+    + destruct H; auto.
+      rewrite H in id_cond. simpl in *. rewrite Nat.eqb_neq in id_cond.
+      contradiction.
+Qed.
+
+Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
+  kv_rel id v (State m h o) ->
+  get_ret_data id h (calc_path id (State m h o)) o = v.
+Proof.
+  simpl.
+  intros.
+  destruct H. 
+  - (* assume in stash *)
+    apply lookup_ret_data_block_in_list.
+    + admit.              (* NoDup evidence *)
+    + apply in_or_app. right. auto.
+  - (* assume in path *)
+    apply lookup_ret_data_block_in_list.
+    + admit.                    (* NoDup evidence *)
+    + unfold blk_in_path in H. simpl in *.
+    apply in_or_app. left. auto.
+Admitted.
+
+
 
 Lemma read_access_wf (id : block_id)(v : nat) :
   state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
