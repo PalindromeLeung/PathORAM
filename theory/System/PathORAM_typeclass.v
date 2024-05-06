@@ -1365,6 +1365,72 @@ Proof.
         apply H.
 Qed.
 
+Lemma wb_not_leaf : forall s p,
+    state_oram s <> leaf -> 
+    state_oram (write_back_r 0 p (length p) s) <> leaf.
+Admitted.
+
+Lemma stash_substraction_preserves_no_dup : forall  s p ,
+ NoDup (List.map block_blockid (state_stash s)) -> 
+    NoDup
+    (List.map block_blockid
+       (state_stash (iterate_right 0 p blocks_selection (length p) s))).
+Admitted.
+
+
+Lemma blocks_selection_preserves_no_dup : forall s p,
+  NoDup (List.map block_blockid (state_stash s)) -> 
+    NoDup (List.map block_blockid (get_all_blks_tree (state_oram s))) -> 
+ disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
+   (List.map block_blockid (state_stash s)) ->
+   NoDup
+    (List.map block_blockid
+       (get_all_blks_tree
+          (state_oram (iterate_right 0 p blocks_selection (length p) s)))).
+Admitted.
+
+Lemma blocks_selection_preserves_disj : forall s p,
+    disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
+      (List.map block_blockid (state_stash s)) ->
+    disjoint_list
+      (List.map block_blockid
+         (get_all_blks_tree
+            (state_oram (iterate_right 0 p blocks_selection (length p) s))))
+      (List.map block_blockid
+         (state_stash (iterate_right 0 p blocks_selection (length p) s))).
+Admitted.
+
+Lemma blocks_selection_preserves_pb : forall s p,
+is_p_b_tr (state_oram s) (S LOP) -> 
+  is_p_b_tr (state_oram (write_back_r 0 p (length p) s))(S LOP).
+Admitted.
+
+Lemma wb_preserves_height : forall s p,
+  get_height (state_oram s) =
+    get_height (state_oram (write_back_r 0 p (length p) s)).
+Admitted.
+
+Lemma write_back_wf : forall (s : state) (p : path) (start : nat)  (step : nat), 
+    well_formed s ->
+    Nat.le (start + step) LOP -> 
+  well_formed (write_back_r start p step  s).
+Proof.
+(*   intros. *)
+(*   destruct H. *)
+(*   constructor; simpl in *. *)
+(*   - admit.  *)
+(*   - unfold write_back_r. *)
+(*     apply stash_substraction_preserves_no_dup; auto. *)
+(*   - unfold write_back_r. *)
+(*     apply blocks_selection_preserves_no_dup; auto. *)
+(*   - unfold write_back_r. *)
+(*     apply blocks_selection_preserves_disj; auto. *)
+(*   - apply blocks_selection_preserves_pb; auto. *)
+(*   - rewrite <- pos_map_stable_across_wb. *)
+(*     auto.  *)
+(* Qed.  *)
+Admitted.
+
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
     well_formed s ->
     length p = LOP ->
@@ -1382,7 +1448,7 @@ Proof.
       simpl iterate_right at 1.
       assert (Nat.le start LOP) by lia.
       destruct (stash_block_selection p (write_back_r (S start) p n s) id v start) as [Hs | Hr] ; auto.
-      * admit. (* write_back_r preserves wf *)
+      * apply write_back_wf; auto; try lia.
       * right.
         exists start; auto.
         repeat split; auto ; try tauto.
@@ -1395,7 +1461,7 @@ Proof.
       split; destruct Hk2.
       * apply at_lvl_in_path_blocks_selection; auto.
       * apply at_lvl_in_path_blocks_selection; auto.
-Admitted.
+Qed. 
 
 Lemma locate_node_in_path : forall o lvl p b,
     locate_node_in_tr o lvl p = Some b ->
@@ -1856,69 +1922,6 @@ Proof.
     auto.
 Qed.
 
-Lemma wb_not_leaf : forall s p,
-    state_oram s <> leaf -> 
-    state_oram (write_back_r 0 p (length p) s) <> leaf.
-Admitted.
-
-Lemma stash_substraction_preserves_no_dup : forall  s p ,
- NoDup (List.map block_blockid (state_stash s)) -> 
-    NoDup
-    (List.map block_blockid
-       (state_stash (iterate_right 0 p blocks_selection (length p) s))).
-Admitted.
-
-
-Lemma blocks_selection_preserves_no_dup : forall s p,
-  NoDup (List.map block_blockid (state_stash s)) -> 
-    NoDup (List.map block_blockid (get_all_blks_tree (state_oram s))) -> 
- disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
-   (List.map block_blockid (state_stash s)) ->
-   NoDup
-    (List.map block_blockid
-       (get_all_blks_tree
-          (state_oram (iterate_right 0 p blocks_selection (length p) s)))).
-Admitted.
-
-Lemma blocks_selection_preserves_disj : forall s p,
-    disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
-      (List.map block_blockid (state_stash s)) ->
-    disjoint_list
-      (List.map block_blockid
-         (get_all_blks_tree
-            (state_oram (iterate_right 0 p blocks_selection (length p) s))))
-      (List.map block_blockid
-         (state_stash (iterate_right 0 p blocks_selection (length p) s))).
-Admitted.
-
-Lemma blocks_selection_preserves_pb : forall s p,
-is_p_b_tr (state_oram s) (S LOP) -> 
-  is_p_b_tr (state_oram (write_back_r 0 p (length p) s))(S LOP).
-Admitted.
-
-Lemma wb_preserves_height : forall s p,
-  get_height (state_oram s) =
-    get_height (state_oram (write_back_r 0 p (length p) s)).
-Admitted.
-
-Lemma write_back_wf : forall (s : state) (p : path), 
-  well_formed s -> 
-  well_formed (write_back_r 0 p (length p) s).
-Proof.
-  intros.
-  destruct H.
-  constructor; simpl in *.
-  - apply wb_not_leaf; auto.
-  - unfold write_back_r.
-    apply stash_substraction_preserves_no_dup; auto.
-  - unfold write_back_r.
-    apply blocks_selection_preserves_no_dup; auto.
-  - unfold write_back_r.
-    apply blocks_selection_preserves_disj; auto.
-  - apply blocks_selection_preserves_pb; auto.
-  - rewrite <- pos_map_stable_across_wb.
-    auto. 
-Qed. 
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
