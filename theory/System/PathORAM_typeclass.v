@@ -1979,15 +1979,17 @@ Proof.
   apply (state_prob_bind Inv Inv).
   - apply get_State_wf.
   - intros.
+    rewrite HeqInv in H.
     apply (state_prob_bind Inv (fun p => length p = LOP)).
     + apply coin_flip_wf.
     + intros. simpl.
       apply (state_prob_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
-      * apply put_wf; simpl; split. rewrite HeqInv in H.
-        apply get_post_wb_st_wf. 
-        apply get_pre_wb_st_wf. destruct x. exact H.
-        intros; auto.
-        apply zero_sum_stsh_tr_Wr.
+      * apply put_wf; simpl; split.
+        apply get_post_wb_st_wf; auto.
+        -- apply get_pre_wb_st_wf; auto. destruct x; exact H.
+        -- apply H.
+        -- apply zero_sum_stsh_tr_Wr; auto. 
+           apply H.
       * intros. rewrite HeqInv. eapply state_prob_ret. auto.
 Qed. 
 
