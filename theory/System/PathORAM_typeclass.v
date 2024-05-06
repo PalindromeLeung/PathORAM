@@ -579,7 +579,7 @@ Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
   end.
 
 Definition calc_path (id : block_id) (s : state):=
-  let l := length (dict_elems (state_position_map s)) in
+  let l := LOP in 
   lookup_dict (makeBoolList false l) id (state_position_map s).
 
 Definition blk_in_p (id : block_id) (v : nat) (o : oram) (p: path) := 
@@ -613,7 +613,7 @@ Fixpoint get_cand_bs (h : stash)(p : path)(stop : nat)(m : position_map) : list 
   match h with
   | [] => []
   | x :: xs =>
-      let l := length (dict_elems m) in 
+      let l := LOP in 
       let rhs_path := lookup_dict (makeBoolList false l) (block_blockid x) m in
       if @isEqvPath p rhs_path stop 
       then x :: get_cand_bs xs p stop m 
@@ -825,7 +825,7 @@ Definition access (id : block_id) (op : operation) :
   let h := state_stash  PST in
   let o := state_oram PST in 
   (* get path for the index we are querying *)
-  let len_m := length (dict_elems m) in 
+  let len_m := LOP in
   let p := lookup_dict (makeBoolList false len_m) id m in
   (* flip a bunch of coins to get the new path *)      
   p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
@@ -860,7 +860,7 @@ Record well_formed (s : state ) : Prop :=
     is_pb_tr : is_p_b_tr (state_oram s) (get_height (state_oram s));
     path_length :
     let m := (state_position_map s) in
-     let len_m := length (dict_elems m) in
+     let len_m := LOP in 
      forall id, length(lookup_dict (makeBoolList false len_m) id m) = (get_height (state_oram s) - 1)%nat; 
   }.
 
@@ -1316,7 +1316,7 @@ Qed.
 
 Lemma path_eq_get_cand_bs : forall id v h p stop m,
     In (Block id v) (get_cand_bs h p stop m) ->
-    isEqvPath p (lookup_dict (makeBoolList false (length (dict_elems m))) id m) stop = true.
+    isEqvPath p (lookup_dict (makeBoolList false LOP) id m) stop = true.
 Proof.
   induction h; intros; simpl in *.
   - exfalso; auto.
@@ -1750,17 +1750,16 @@ Admitted.
 
 Lemma lookup_update_sameid : forall id m p_new, 
     lookup_dict
-       (makeBoolList false (length (update_falist id p_new (dict_elems m)))) id
+       (makeBoolList false LOP) id
        (update_dict id p_new m) = p_new.
 Admitted.
 
 Lemma lookup_update_diffid : forall id id' m p_new,
     id <> id' ->
     lookup_dict
-      (makeBoolList false
-         (length (update_falist id' p_new (dict_elems m))))
+      (makeBoolList false LOP)
       id (update_dict id' p_new m) =
-      lookup_dict (makeBoolList false (length (dict_elems m))) id m.
+      lookup_dict (makeBoolList false LOP) id m.
 Admitted.
 
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
