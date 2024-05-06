@@ -1511,13 +1511,15 @@ Proof.
 Qed.
   
 Lemma write_back_in_stash_kv_rel : forall s id v p,
+    well_formed s ->
+    length p = LOP ->
     blk_in_stash id v s ->
     kv_rel id v (write_back_r O p (length p) s).
 Proof.
   intros.
-  destruct (write_back_in_stash_kv_rel_aux (length p) s p id v 0 H).
+  destruct (write_back_in_stash_kv_rel_aux (length p) s p id v 0 H); auto; try lia.
   - left; auto.
-  - destruct H0 as [k [_ Hk]].
+  - destruct H2 as [k [_ Hk]].
     right.
     eapply weaken_at_lvl_in_path.
     rewrite calc_path_write_bk_r_stable.
