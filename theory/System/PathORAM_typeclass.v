@@ -1861,11 +1861,8 @@ Lemma wb_not_leaf : forall s p,
     state_oram (write_back_r 0 p (length p) s) <> leaf.
 Admitted.
 
-Lemma blocks_selection_preserves_no_dup : forall  s p ,
+Lemma stash_substraction_preserves_no_dup : forall  s p ,
  NoDup (List.map block_blockid (state_stash s)) -> 
-   NoDup (List.map block_blockid (get_all_blks_tree (state_oram s))) -> 
-disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
-  (List.map block_blockid (state_stash s)) ->
     NoDup
     (List.map block_blockid
        (state_stash (iterate_right 0 p blocks_selection (length p) s))).
@@ -1880,7 +1877,7 @@ Proof.
   constructor; simpl in *.
   - apply wb_not_leaf. auto.
   - unfold write_back_r.
-    apply blocks_selection_preserves_no_dup; auto.
+    apply stash_substraction_preserves_no_dup; auto.
   - admit.
   - admit.
   - admit.
