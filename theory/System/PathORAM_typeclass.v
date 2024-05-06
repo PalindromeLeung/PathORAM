@@ -1415,20 +1415,6 @@ Lemma write_back_wf : forall (s : state) (p : path) (start : nat)  (step : nat),
     Nat.le (start + step) LOP -> 
   well_formed (write_back_r start p step  s).
 Proof.
-(*   intros. *)
-(*   destruct H. *)
-(*   constructor; simpl in *. *)
-(*   - admit.  *)
-(*   - unfold write_back_r. *)
-(*     apply stash_substraction_preserves_no_dup; auto. *)
-(*   - unfold write_back_r. *)
-(*     apply blocks_selection_preserves_no_dup; auto. *)
-(*   - unfold write_back_r. *)
-(*     apply blocks_selection_preserves_disj; auto. *)
-(*   - apply blocks_selection_preserves_pb; auto. *)
-(*   - rewrite <- pos_map_stable_across_wb. *)
-(*     auto.  *)
-(* Qed.  *)
 Admitted.
 
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
