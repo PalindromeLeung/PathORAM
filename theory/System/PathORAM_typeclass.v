@@ -1528,6 +1528,8 @@ Proof.
 Qed.
 
 Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
+    well_formed s ->
+    length p = LOP ->
     blk_in_stash id v s -> 
     kv_rel id v (get_post_wb_st s p).
 Proof.
