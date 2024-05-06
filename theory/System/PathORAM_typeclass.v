@@ -1890,7 +1890,10 @@ Qed.
 
         
 Lemma zero_sum_stsh_tr_Rd_rev :
-  forall (id : block_id) (v : nat) (s : state) (p p_new : path), 
+  forall (id : block_id) (v : nat) (s : state) (p p_new : path),
+    well_formed s ->
+    length p = LOP ->
+    length p_new = LOP -> 
     kv_rel id v s  -> 
     kv_rel id v (get_post_wb_st
       (get_pre_wb_st id Read (state_position_map s)
@@ -1899,8 +1902,9 @@ Lemma zero_sum_stsh_tr_Rd_rev :
          (calc_path id s) p_new) p). 
 Proof.
   intros.
-  apply distribute_via_get_post_wb_st. apply stash_path_combined_rel_Rd.
-  apply H.
+  apply distribute_via_get_post_wb_st; auto.
+  - apply get_pre_wb_st_wf; auto. destruct s; auto.
+  - apply stash_path_combined_rel_Rd. auto.
 Qed.
   
 Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
@@ -2029,4 +2033,3 @@ Qed.
 
 End PORAM.
 Check PathORAM_simulates_RAM.
-
