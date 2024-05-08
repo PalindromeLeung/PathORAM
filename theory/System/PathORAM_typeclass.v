@@ -58,16 +58,37 @@ Class WF (A : Type) := { wf : A -> Type }.
 (* #[export] Instance Functor_list : Functor list := { map := List.map }. *)
 #[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
 
-Fixpoint remove_list {A : Type} (x : A) (p : A -> bool) (xs : list A) : list A :=
+Fixpoint remove_list {A : Type} (p : A -> bool) (xs : list A) : list A :=
   match xs with
-  | [] => xs
+  | [] => [] 
   | x' :: xs' =>
       if p x'
-      then xs'
+      then remove_list p xs'
       else
-        x' :: remove_list x p xs'
+        x' :: remove_list p xs'
   end.
 
+Lemma In_remove_list_In {A} (p : A -> bool) (xs : list A) : forall x,
+    In x (remove_list p xs) -> In x xs.
+Admitted.
+
+Lemma In_remove_list_p {A} (p : A -> bool) (xs : list A) : forall x,
+    In x (remove_list p xs) -> p x = false.
+Admitted.
+
+Lemma In_remove_list {A} (p : A -> bool) (xs : list A) : forall x,
+    In x xs -> p x = false -> In x (remove_list p xs).
+Admitted.
+
+Lemma In_remove_list_iff {A} (p : A -> bool) (xs : list A) : forall x,
+    In x (remove_list p xs) <-> In x xs /\ p x = false.
+Proof.
+  intros; split; intros.
+  - split.
+    + eapply In_remove_list_In; eauto.
+    + eapply In_remove_list_p; eauto.
+  - destruct H; eapply In_remove_list; eauto.
+Qed.
 
 (*** VECTORS ***)
 
@@ -796,8 +817,8 @@ Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h 
   let bkts := lookup_path_oram o p in
   let bkt_blocks := concat bkts in
   let h' := bkt_blocks ++ h in
-  let h'' := remove_list dummy_block 
-               (fun blk => equiv_decb (block_blockid blk) id) h' in  
+  let h'' := remove_list 
+               (fun blk => (block_blockid blk) =? id) h' in  
   let h''' :=
     match op with
     | Read => h'
@@ -1928,24 +1949,37 @@ Proof.
       rewrite Nat.eqb_neq in id_cond. auto.
 Qed. 
 
-Lemma not_in_removed : forall id o p h, 
+Lemma not_in_removed : forall l id,
  ~ In id
   (List.map block_blockid
-     (remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
-        (concat (lookup_path_oram o p) ++ h))).
-Admitted.
+     (remove_list (fun blk : block => block_blockid blk =? id)
+        l)).
+Proof.
+  intros.
+  rewrite in_map_iff.
+  intros [b [Hb1 Hb2]].
+  rewrite In_remove_list_iff in Hb2.
+  destruct Hb2 as [_ Hb2].
+  rewrite Hb1 in Hb2.
+  simpl in Hb2.
+  rewrite Nat.eqb_neq in Hb2.
+  contradiction.
+Qed.
 
-Lemma NoDup_remove_list : forall id o p h, 
-   NoDup
-    (List.map block_blockid
-       (remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
-          (concat (lookup_path_oram o p) ++ h))).
-Admitted.
+Lemma NoDup_remove_list : forall l id,
+    NoDup (List.map block_blockid l) -> 
+    NoDup
+      (List.map block_blockid
+         (remove_list (fun blk : block => block_blockid blk =? id)
+            l)).
+Admitted. 
+  
 
-Lemma id_cons_remove : forall id l', 
+Lemma id_cons_remove : forall l id, 
     id :: List.map block_blockid
-      (remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
-         l') = List.map block_blockid l'.
+      (remove_list (fun blk : block => block_blockid blk =? id)
+         l) = List.map block_blockid l.
+Proof.
 Admitted.
 
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
@@ -1955,7 +1989,7 @@ Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash)
       state_position_map := update_dict id p_new m;
       state_stash :=
         {| block_blockid := id; block_payload := v |}
-        :: remove_list dummy_block (fun blk : block => block_blockid blk ==b id)
+        :: remove_list (fun blk : block => block_blockid blk =? id)
              (concat (lookup_path_oram o p) ++ h);
       state_oram := clear_path o p
     |}.
@@ -1966,7 +2000,7 @@ Proof.
   - apply clear_path_o_not_leaf; auto.
   - rewrite NoDup_cons_iff; split.
     + apply not_in_removed.
-    + apply NoDup_remove_list.
+    + apply NoDup_remove_list. admit.
   - apply NoDup_clear_path. auto.
   - rewrite id_cons_remove. apply disjoint_list_dlt. auto.
   - apply clear_path_p_b_tree. auto.
@@ -1976,7 +2010,7 @@ Proof.
       auto.
     + rewrite lookup_update_diffid. auto.
       rewrite Nat.eqb_neq in id_cond. auto.
-Qed. 
+Admitted.
   
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
