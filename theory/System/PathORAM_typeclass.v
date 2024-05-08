@@ -852,7 +852,7 @@ Definition disjoint_list {A} (l1 l2 : list A) :=
 
 Record well_formed (s : state ) : Prop := 
   {
-    not_leaf : state_oram s <> leaf;
+    not_leaf : state_oram s <> leaf; (* could be removed *)
     no_dup_stash : NoDup (List.map block_blockid (state_stash s)); 
     no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
     tree_stash_disj : disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
