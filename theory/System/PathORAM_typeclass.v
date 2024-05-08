@@ -1610,7 +1610,26 @@ Qed.
 Lemma NoDup_app_disj : forall {A} (l1 l2 : list A),
     NoDup (l1 ++ l2) ->
     disjoint_list l1 l2.
-Admitted.
+Proof.
+  induction l1; intros; simpl in *.
+  -  unfold disjoint_list.
+     intro. intro.
+     destruct H0.
+     contradiction.
+  - intro. intro.
+    destruct H0.
+    destruct H0.
+    + rewrite H0 in H.
+      inversion H.
+      apply H4.
+      apply in_or_app.
+      right; auto.
+    + unfold disjoint_list in IHl1.
+      unfold not in IHl1.
+      apply IHl1 with (a := a0)(l2 := l2).
+      inversion H; auto.
+      split; auto.
+Qed.
 
 Lemma NoDup_app_remove_mid : forall (A : Type) (l1 l2 l3 : list A) ,
     NoDup (l1 ++ l2 ++ l3) -> NoDup (l1 ++ l3).
