@@ -1607,9 +1607,71 @@ Proof.
         -- now right.
 Qed.
 
-Lemma NoDup_path_oram : forall o p,
-    NoDup (List.map block_blockid (get_all_blks_tree o)) -> NoDup (List.map block_blockid (concat (lookup_path_oram o p))).
+Lemma NoDup_app_disj : forall {A} (l1 l2 : list A),
+    NoDup (l1 ++ l2) ->
+    disjoint_list l1 l2.
 Admitted.
+
+Lemma NoDup_app_remove_mid : forall (A : Type) (l1 l2 l3 : list A) ,
+    NoDup (l1 ++ l2 ++ l3) -> NoDup (l1 ++ l3).
+Admitted.
+
+Lemma In_path_in_tree : forall o p id,
+  In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
+  In id (List.map block_blockid (get_all_blks_tree o)). 
+Admitted.
+
+Lemma NoDup_path_oram : forall o p,
+    NoDup (List.map block_blockid (get_all_blks_tree o)) ->
+    NoDup (List.map block_blockid (concat (lookup_path_oram o p))).
+Proof.
+  induction o; intros.
+  - constructor.
+  - simpl in *.
+    destruct p.
+    + destruct payload.
+      * simpl.
+        rewrite app_nil_r.
+        repeat rewrite map_app in H.
+        apply NoDup_app_remove_r in H; auto.
+      * constructor.
+    + destruct b.
+      * destruct payload.
+        -- simpl in *.
+           apply NoDup_disjointness.
+           ++ repeat rewrite map_app in H.
+              apply NoDup_app_remove_r in H; auto.
+           ++ apply IHo1.
+              repeat rewrite map_app in H.
+              apply NoDup_app_remove_l in H; auto.
+              apply NoDup_app_remove_r in H; auto.
+           ++ intros id [Hid1 Hid2].
+              apply In_path_in_tree in Hid2.
+              repeat rewrite map_app in H.
+              rewrite app_assoc in H.
+              apply NoDup_app_remove_r in H.
+              apply (NoDup_app_disj _ _ H id); split; auto.
+        -- apply IHo1.
+           rewrite map_app in H.
+           apply NoDup_app_remove_r in H; auto.
+      * destruct payload.
+        -- simpl in *.
+           apply NoDup_disjointness.
+           ++ repeat rewrite map_app in H.
+              apply NoDup_app_remove_r in H; auto.
+           ++ apply IHo2.
+              repeat rewrite map_app in H.
+              apply NoDup_app_remove_l in H; auto.
+              apply NoDup_app_remove_l in H; auto.
+           ++ intros id [Hid1 Hid2].
+              apply In_path_in_tree in Hid2.
+              repeat rewrite map_app in H.
+              apply NoDup_app_remove_mid in H.
+              apply (NoDup_app_disj _ _ H id); split; auto.
+        -- apply IHo2.
+           rewrite map_app in H.
+           apply NoDup_app_remove_l in H; auto.
+Qed. 
 
 Lemma disj_path_oram : forall o p h,
   disjoint_list (get_all_blks_tree o) h ->
