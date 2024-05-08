@@ -1410,12 +1410,26 @@ Lemma wb_preserves_height : forall s p,
     get_height (state_oram (write_back_r 0 p (length p) s)).
 Admitted.
 
-Lemma write_back_wf : forall (s : state) (p : path) (start : nat)  (step : nat), 
-    well_formed s ->
-    Nat.le (start + step) LOP -> 
-  well_formed (write_back_r start p step  s).
+Lemma blocks_selection_wf : forall
+  (p : path) (lvl : nat) (s : state),
+  well_formed s ->
+  length p = LOP ->
+  (lvl < LOP)%nat ->
+  well_formed (blocks_selection p lvl s).
 Proof.
 Admitted.
+
+Lemma write_back_wf : forall (step start : nat) (s : state) (p : path), 
+  length p = LOP ->
+  well_formed s ->
+  Nat.le (start + step) LOP -> 
+  well_formed (write_back_r start p step  s).
+Proof.
+  induction step; intros.
+  - exact H0.
+  - apply blocks_selection_wf; auto; try lia.
+    apply IHstep; auto; lia.
+Qed.
 
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
     well_formed s ->
