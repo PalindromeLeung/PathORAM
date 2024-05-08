@@ -1631,9 +1631,15 @@ Proof.
       split; auto.
 Qed.
 
-Lemma NoDup_app_remove_mid : forall (A : Type) (l1 l2 l3 : list A) ,
+Lemma NoDup_app_remove_mid : forall (A : Type) (l2 l1 l3 : list A) ,
     NoDup (l1 ++ l2 ++ l3) -> NoDup (l1 ++ l3).
-Admitted.
+Proof.
+  induction l2; intros.
+  - exact H.
+  - apply IHl2.
+    eapply NoDup_remove_1.
+    exact H.
+Qed.    
 
 Lemma In_path_in_tree : forall o p id,
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
