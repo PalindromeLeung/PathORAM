@@ -1644,7 +1644,45 @@ Qed.
 Lemma In_path_in_tree : forall o p id,
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
   In id (List.map block_blockid (get_all_blks_tree o)). 
-Admitted.
+Proof.
+  induction o; simpl; intros; auto.
+  destruct p. 
+  - destruct payload; simpl in *; auto.
+    + rewrite app_nil_r in H.
+      rewrite map_app.
+      apply in_or_app.
+      left; auto.
+    + contradiction.
+  - destruct b.
+    + destruct payload.
+      * simpl in H.
+        rewrite map_app in H.
+        apply in_app_or in H.
+        repeat rewrite map_app.
+        apply in_or_app.
+        destruct H.
+        -- left; auto.
+        -- right. apply in_or_app.
+           left. eapply IHo1; eauto.
+      * rewrite map_app. 
+        apply in_or_app.
+        left.
+        eapply IHo1; eauto.
+    + destruct payload.
+      * simpl in H.
+        rewrite map_app in H.
+        apply in_app_or in H.
+        repeat rewrite map_app.
+        apply in_or_app.
+        destruct H.
+        -- left; auto.
+        -- right. apply in_or_app.
+           right. eapply IHo2; eauto.
+      * rewrite map_app. 
+        apply in_or_app.
+        right.
+        eapply IHo2; eauto.
+Qed.
 
 Lemma NoDup_path_oram : forall o p,
     NoDup (List.map block_blockid (get_all_blks_tree o)) ->
