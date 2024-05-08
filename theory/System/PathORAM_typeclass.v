@@ -1371,9 +1371,9 @@ Lemma stash_sub_block_selection_no_dup : forall s p n,
       (List.map block_blockid
          (state_stash (blocks_selection p n s))).
 Proof.
-  
+Admitted.  
 
-Lemma stash_substraction_preserves_no_dup : forall step s p start,
+Lemma stash_subtraction_preserves_no_dup : forall step s p start,
       NoDup (List.map block_blockid (state_stash s)) -> 
       NoDup
         (List.map block_blockid
@@ -1558,8 +1558,23 @@ Lemma NoDup_disjointness: forall {A B} (l1 : list A) (l2 : list A) (f : A -> B) 
     NoDup (List.map f l2) ->
     disjoint_list (List.map f l1) (List.map f l2) ->
     NoDup (List.map f (l1 ++ l2)).
-Admitted.
-
+Proof.
+  induction l1; intros; simpl; auto.
+  apply NoDup_cons.
+  - intro. rewrite map_app in H2.
+    apply in_app_or in H2.
+    destruct H2.
+    + inversion H. contradiction.
+    + apply (H1 (f a)). split; auto. left. reflexivity.
+  - apply IHl1; auto.
+    + inversion H. auto.
+    + intro. intro. unfold disjoint_list in H1.
+      apply (H1 a0).
+      destruct H2.
+      split; auto.
+      right. auto.
+Qed. 
+      
 Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
   forall x y, In x l -> In y l -> f x = f y -> x = y.
 
@@ -2048,3 +2063,4 @@ Qed.
 
 End PORAM.
 Check PathORAM_simulates_RAM.
+Print Assumptions PathORAM_simulates_RAM.
