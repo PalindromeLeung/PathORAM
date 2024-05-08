@@ -1365,17 +1365,13 @@ Proof.
         apply H.
 Qed.
 
-Lemma wb_not_leaf : forall s p,
-    state_oram s <> leaf -> 
-    state_oram (write_back_r 0 p (length p) s) <> leaf.
-Admitted.
-
 Lemma stash_sub_block_selection_no_dup : forall s p n,
     NoDup (List.map block_blockid (state_stash s)) ->
     NoDup 
       (List.map block_blockid
          (state_stash (blocks_selection p n s))).
-Admitted.
+Proof.
+  
 
 Lemma stash_substraction_preserves_no_dup : forall step s p start,
       NoDup (List.map block_blockid (state_stash s)) -> 
