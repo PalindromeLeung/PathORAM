@@ -2096,9 +2096,17 @@ Proof.
         -- auto.
   - apply NoDup_clear_path. auto.
   - intros id' [Hid'1 Hid'2].
-    admit.
-
-    (* apply disjoint_list_dlt. auto. *)
+    destruct Hid'2.
+    + rewrite <- H in Hid'1; clear H.
+      apply on_path_not_off_path with (id := id) (o := o) (p := p); auto.
+      rewrite <- H1.
+      apply blk_in_path_in_tree0.
+      eapply get_all_blks_tree_clear_path_weaken; eauto.
+    + eapply disjoint_list_dlt; eauto; split; eauto.
+      rewrite in_map_iff in *.
+      destruct H as [b [Hb1 Hb2]].
+      exists b; split; auto.
+      rewrite In_remove_list_iff in Hb2; destruct Hb2; auto.
   - apply clear_path_p_b_tree. auto.
   - intros id' Hid'.
     destruct (id =? id') eqn:id_cond.
@@ -2120,8 +2128,8 @@ Proof.
       auto.
     + rewrite lookup_update_diffid. auto.
       rewrite Nat.eqb_neq in id_cond. auto.
-Admitted.
-  
+Qed.
+
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
     length p_new = LOP ->
@@ -2133,7 +2141,7 @@ Proof.
   destruct op. 
   - simpl. apply rd_op_wf; auto.
   - simpl. apply wr_op_wf; auto.
-Qed.    
+Qed.
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
