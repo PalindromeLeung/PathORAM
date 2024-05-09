@@ -1935,11 +1935,6 @@ Qed.
 Definition bid_in (l : list block) (x : block_id):=
   In x (List.map block_blockid l).
 
-Lemma path_sub_tree : forall o p x,
-    bid_in (concat (lookup_path_oram o p)) x ->
-    bid_in (get_all_blks_tree o) x.
-Admitted.
-
 Lemma lookup_update_sameid : forall id m p_new, 
     lookup_dict
        (makeBoolList false LOP) id
@@ -1973,7 +1968,7 @@ Proof.
     + auto.
     + apply disjoint_list_sub with
         (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
-      intros. apply path_sub_tree with (p := p). exact H0.
+      intros. apply In_path_in_tree with (p := p). exact H0.
   - apply NoDup_clear_path. auto.
   - apply disjoint_list_dlt. auto.
   - apply clear_path_p_b_tree. auto.
@@ -2156,7 +2151,7 @@ Proof.
       * destruct H.
         apply disjoint_list_sub with
         (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
-        intros. eapply path_sub_tree. exact H.
+        intros. eapply In_path_in_tree. exact H.
     + apply in_or_app. right. auto.
   - (* assume in path *)
     apply lookup_ret_data_block_in_list.
@@ -2165,7 +2160,7 @@ Proof.
       * destruct H.
         apply disjoint_list_sub with
           (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
-        intros. eapply path_sub_tree. exact H.
+        intros. eapply In_path_in_tree. exact H.
     + unfold blk_in_path in H. simpl in *.
     apply in_or_app. left. auto.
 Qed.
