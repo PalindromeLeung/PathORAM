@@ -878,8 +878,17 @@ Record well_formed (s : state ) : Prop :=
     no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
     tree_stash_disj : disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
                         (List.map block_blockid (state_stash s)); 
-    is_pb_tr : is_p_b_tr (state_oram s) (S LOP); 
-    path_length :
+    is_pb_tr : is_p_b_tr (state_oram s) (S LOP);
+    blk_in_path_in_tree :
+    forall id, 
+    let m := state_position_map s in
+    let p := lookup_dict (makeBoolList false LOP) id m in
+    let o := state_oram s in 
+    let bkts := lookup_path_oram o p in
+    let bkt_blocks := concat bkts in
+    In id (List.map block_blockid (get_all_blks_tree o)) ->
+    In id (List.map block_blockid bkt_blocks);
+    path_length : 
     let m := (state_position_map s) in
      let len_m := LOP in 
      forall id, length(lookup_dict (makeBoolList false len_m) id m) = LOP;
@@ -1981,6 +1990,7 @@ Lemma id_cons_remove : forall l id,
          l) = List.map block_blockid l.
 Proof.
 Admitted.
+  
 
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = LOP -> 
@@ -2002,7 +2012,9 @@ Proof.
     + apply not_in_removed.
     + apply NoDup_remove_list. admit.
   - apply NoDup_clear_path. auto.
-  - rewrite id_cons_remove. apply disjoint_list_dlt. auto.
+  - intros id' [Hid'1 Hid'2].
+    admit. 
+    (* apply disjoint_list_dlt. auto. *)
   - apply clear_path_p_b_tree. auto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
