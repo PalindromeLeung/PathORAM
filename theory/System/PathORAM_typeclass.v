@@ -1939,7 +1939,19 @@ Lemma lookup_update_sameid : forall id m p_new,
     lookup_dict
        (makeBoolList false LOP) id
        (update_dict id p_new m) = p_new.
-Admitted.
+Proof.
+  intros.
+  unfold lookup_dict.
+  unfold update_dict.
+  destruct m; simpl.
+  induction dict_elems0 as [|[k v] tl]; simpl.
+  - rewrite Nat.compare_refl; auto.
+  - destruct (id ?= k)%nat eqn:id_cond; simpl.
+    + rewrite Nat.compare_refl; auto.
+    + rewrite Nat.compare_refl; auto.
+    + rewrite id_cond.
+      exact IHtl.
+Qed.
 
 Lemma lookup_update_diffid : forall id id' m p_new,
     id <> id' ->
@@ -1947,7 +1959,26 @@ Lemma lookup_update_diffid : forall id id' m p_new,
       (makeBoolList false LOP)
       id (update_dict id' p_new m) =
       lookup_dict (makeBoolList false LOP) id m.
-Admitted.
+Proof.
+  intros.
+  unfold lookup_dict.
+  unfold update_dict.
+  destruct m; simpl.
+  induction dict_elems0 as [|[k v] tl]; simpl.
+  - destruct (id ?= id')%nat eqn:id_cond; auto.
+    rewrite Nat.compare_eq_iff in id_cond; contradiction.
+  - destruct (id' ?= k)%nat eqn:id_cond1; simpl.
+    + rewrite Nat.compare_eq_iff in id_cond1; subst.
+      destruct (id ?= k)%nat eqn:id_cond2; auto.
+      rewrite Nat.compare_eq_iff in id_cond2; contradiction.
+    + destruct (id ?= id')%nat eqn:id_cond2; auto.
+      * rewrite Nat.compare_eq_iff in id_cond2; contradiction.
+      * rewrite <- nat_compare_lt in *.
+        assert (id < k)%nat by lia.
+        rewrite nat_compare_lt in H0.
+        rewrite H0; auto.
+    + rewrite IHtl; auto.
+Qed.
 
 Lemma get_all_blks_tree_clear_path_weaken : forall o id p,
   In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
