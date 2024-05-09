@@ -2023,6 +2023,7 @@ Proof.
 Admitted.
 
 Lemma lookup_off_path id o p p' :
+  NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p'))) ->
   In id (List.map block_blockid (concat (lookup_path_oram (clear_path o p) p'))).
@@ -2061,10 +2062,9 @@ Proof.
       elim on_path_not_off_path with (id := id) (o := o) (p := p); auto.
     + rewrite Nat.eqb_neq in id_cond.
       rewrite lookup_update_diffid; auto.
-      apply lookup_off_path.
-      * auto.
-      * apply blk_in_path_in_tree0.
-        eapply get_all_blks_tree_clear_path_weaken; eauto.
+      apply lookup_off_path; auto.
+      apply blk_in_path_in_tree0.
+      eapply get_all_blks_tree_clear_path_weaken; eauto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
@@ -2146,10 +2146,9 @@ Proof.
       elim on_path_not_off_path with (id := id) (o := o) (p := p); auto.
     + rewrite Nat.eqb_neq in id_cond.
       rewrite lookup_update_diffid; auto.
-      apply lookup_off_path.
-      * auto.
-      * apply blk_in_path_in_tree0.
-        eapply get_all_blks_tree_clear_path_weaken; eauto.
+      apply lookup_off_path; auto.
+      apply blk_in_path_in_tree0.
+      eapply get_all_blks_tree_clear_path_weaken; eauto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
