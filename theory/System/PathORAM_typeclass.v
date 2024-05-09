@@ -1928,7 +1928,6 @@ Lemma lookup_update_diffid : forall id id' m p_new,
       lookup_dict (makeBoolList false LOP) id m.
 Admitted.
 
-(* TODO: add relation between id and p and m *)
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = LOP -> 
     well_formed
@@ -1985,7 +1984,6 @@ Lemma NoDup_remove_list : forall l id,
             l)).
 Admitted. 
   
-(* TODO: add relation between id and p and m *)
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = LOP ->
     lookup_dict (makeBoolList false LOP) id m = p ->
@@ -2022,7 +2020,8 @@ Admitted.
   
 Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) ->
-    length p_new = LOP -> 
+    length p_new = LOP ->
+    lookup_dict (makeBoolList false LOP) id m = p ->    
     well_formed (get_pre_wb_st id op m h o p p_new).
 Proof.
   intros.
@@ -2030,8 +2029,7 @@ Proof.
   destruct op. 
   - simpl. apply rd_op_wf; auto.
   - simpl. apply wr_op_wf; auto.
-    admit (* local todo*).
-Admitted.
+Qed.    
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
