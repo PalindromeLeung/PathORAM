@@ -1949,6 +1949,56 @@ Lemma lookup_update_diffid : forall id id' m p_new,
       lookup_dict (makeBoolList false LOP) id m.
 Admitted.
 
+Lemma get_all_blks_tree_clear_path_weaken : forall o id p,
+  In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
+  In id (List.map block_blockid (get_all_blks_tree o)).
+Proof.
+  induction o; intros.
+  - auto.
+  - destruct p; simpl in *; auto.
+    destruct b; simpl in *.
+    + rewrite map_app in H.
+      apply in_app_or in H.
+      destruct H.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; left.
+           eapply IHo1; eauto.
+        -- apply in_or_app; left.
+           eapply IHo1; eauto.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; right; auto.
+        -- apply in_or_app; right; auto.
+    + rewrite map_app in H.
+      apply in_app_or in H.
+      destruct H.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; left; auto.
+        -- apply in_or_app; left; auto.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; right.
+           eapply IHo2; eauto.
+        -- apply in_or_app; right.
+           eapply IHo2; eauto.
+Qed.
+
+Lemma on_path_not_off_path id o p:
+  NoDup (List.map block_blockid (get_all_blks_tree o)) ->
+  In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
+  ~ In id (List.map block_blockid (get_all_blks_tree (clear_path o p))).
+Proof.
+Admitted.
+
+Lemma lookup_off_path id o p p' :
+  In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
+  In id (List.map block_blockid (concat (lookup_path_oram o p'))) ->
+  In id (List.map block_blockid (concat (lookup_path_oram (clear_path o p) p'))).
+Proof.
+Admitted.
+
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     lookup_dict (makeBoolList false LOP) id m = p ->
     well_formed (State m h o) -> length p_new = LOP -> 
@@ -1972,14 +2022,27 @@ Proof.
   - apply NoDup_clear_path. auto.
   - apply disjoint_list_dlt. auto.
   - apply clear_path_p_b_tree. auto.
-  - admit.
+  - intros id' Hid'.
+    destruct (id =? id') eqn:id_cond.
+    + rewrite Nat.eqb_eq in id_cond. 
+      rewrite <- id_cond in *; clear id_cond.
+      pose (get_all_blks_tree_clear_path_weaken _ _ _ Hid') as Hid'2.
+      specialize (blk_in_path_in_tree0 id Hid'2).
+      rewrite H in blk_in_path_in_tree0; clear Hid'2.
+      elim on_path_not_off_path with (id := id) (o := o) (p := p); auto.
+    + rewrite Nat.eqb_neq in id_cond.
+      rewrite lookup_update_diffid; auto.
+      apply lookup_off_path.
+      * auto.
+      * apply blk_in_path_in_tree0.
+        eapply get_all_blks_tree_clear_path_weaken; eauto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
       auto.
     + rewrite lookup_update_diffid. auto.
       rewrite Nat.eqb_neq in id_cond. auto.
-Admitted. 
+Qed.
 
 Lemma not_in_removed : forall l id,
  ~ In id
@@ -2025,13 +2088,32 @@ Proof.
   - apply clear_path_o_not_leaf; auto.
   - rewrite NoDup_cons_iff; split.
     + apply not_in_removed.
-    + apply NoDup_remove_list. admit. (* should be done elsewhere *)
+    + apply NoDup_remove_list.
+      apply NoDup_disjointness; auto.
+      * apply NoDup_path_oram; auto.
+      * eapply disjoint_list_sub.
+        -- apply In_path_in_tree.
+        -- auto.
   - apply NoDup_clear_path. auto.
   - intros id' [Hid'1 Hid'2].
-    admit. 
+    admit.
+
     (* apply disjoint_list_dlt. auto. *)
   - apply clear_path_p_b_tree. auto.
-  - admit.
+  - intros id' Hid'.
+    destruct (id =? id') eqn:id_cond.
+    + rewrite Nat.eqb_eq in id_cond. 
+      rewrite <- id_cond in *; clear id_cond.
+      pose (get_all_blks_tree_clear_path_weaken _ _ _ Hid') as Hid'2.
+      specialize (blk_in_path_in_tree0 id Hid'2).
+      rewrite H1 in blk_in_path_in_tree0; clear Hid'2.
+      elim on_path_not_off_path with (id := id) (o := o) (p := p); auto.
+    + rewrite Nat.eqb_neq in id_cond.
+      rewrite lookup_update_diffid; auto.
+      apply lookup_off_path.
+      * auto.
+      * apply blk_in_path_in_tree0.
+        eapply get_all_blks_tree_clear_path_weaken; eauto.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
