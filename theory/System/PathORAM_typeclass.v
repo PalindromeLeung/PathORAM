@@ -200,8 +200,6 @@ Inductive wf_dict_falist {K V : Type} `{Ord K} : forall (kO : option K) (kvs : l
       -> wf_dict_falist (Some k) kvs
       -> wf_dict_falist kO ((k , v) :: kvs).
 
-Print wf_dict_falist.
-
 Fixpoint lookup_falist {K V : Type} `{Ord K} (v : V) (k : K) (kvs : list (K * V)) :=
   match kvs with
   | nil => v
@@ -339,12 +337,6 @@ Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
   match l with
   | [] => []
   | x :: l => if f x then x::(filter l f) else filter l f 
-  end.
-
-Fixpoint map_l {X Y} (f: X -> Y) (l: list X) : list Y :=
-  match l with
-  | [] => []
-  | h :: t => (f h) :: (List.map f t)
   end.
 
 Fixpoint length {A} (l : list A) : nat :=
@@ -647,8 +639,6 @@ Inductive operation :=
 
 Scheme Equality for list.
 Scheme Equality for prod.
-
-Print list_beq.
 
 Definition isEqvPath (p1 p2 : path) (idx : nat) : bool := list_beq bool Bool.eqb  (takeL idx p1) (takeL idx p2).
   
@@ -957,7 +947,7 @@ Qed.
 #[export] Instance Pred_Dist_Lift : PredLift dist.
 refine 
   {|
-    plift {X} := dist_lift;
+    plift := @dist_lift;
     lift_ret := _;
     lift_bind := dist_lift_lemma;
   |}.
