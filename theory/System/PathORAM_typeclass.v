@@ -899,7 +899,6 @@ Definition disjoint_list {A} (l1 l2 : list A) :=
 
 Record well_formed (s : state ) : Prop := 
   {
-    not_leaf : state_oram s <> leaf; (* could be removed *)
     no_dup_stash : NoDup (List.map block_blockid (state_stash s)); 
     no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
     tree_stash_disj : disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
@@ -2043,7 +2042,6 @@ Proof.
   intros.
   destruct H0.
   constructor; simpl in *.
-  - apply clear_path_o_not_leaf; auto.
   - apply NoDup_disjointness.
     + apply NoDup_path_oram. auto.
     + auto.
@@ -2116,7 +2114,6 @@ Proof.
   intros.
   destruct H.
   constructor; simpl in *.
-  - apply clear_path_o_not_leaf; auto.
   - rewrite NoDup_cons_iff; split.
     + apply not_in_removed.
     + apply NoDup_remove_list.
