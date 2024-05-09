@@ -1299,7 +1299,7 @@ Proof.
       destruct p; simpl in *. 
       * destruct p'; simpl in *; auto.
         destruct b; simpl in *; auto.
-      * apply Arith_prebase.lt_S_n in H.
+      * apply PeanoNat.lt_S_n in H.
         destruct p'; simpl; auto.
         destruct b0, b; simpl; auto.
 Qed.
@@ -1929,6 +1929,7 @@ Lemma lookup_update_diffid : forall id id' m p_new,
 Admitted.
 
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
+    lookup_dict (makeBoolList false LOP) id m = p ->
     well_formed (State m h o) -> length p_new = LOP -> 
     well_formed
       {|
@@ -1938,7 +1939,7 @@ Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram
       |}.
 Proof.
   intros.
-  destruct H.
+  destruct H0.
   constructor; simpl in *.
   - apply clear_path_o_not_leaf; auto.
   - apply NoDup_disjointness.
@@ -1946,7 +1947,7 @@ Proof.
     + auto.
     + apply disjoint_list_sub with
         (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
-      intros. apply path_sub_tree with (p := p). exact H.
+      intros. apply path_sub_tree with (p := p). exact H0.
   - apply NoDup_clear_path. auto.
   - apply disjoint_list_dlt. auto.
   - apply clear_path_p_b_tree. auto.
