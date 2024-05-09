@@ -1950,13 +1950,14 @@ Proof.
   - apply NoDup_clear_path. auto.
   - apply disjoint_list_dlt. auto.
   - apply clear_path_p_b_tree. auto.
+  - admit.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
       auto.
     + rewrite lookup_update_diffid. auto.
       rewrite Nat.eqb_neq in id_cond. auto.
-Qed. 
+Admitted. 
 
 Lemma not_in_removed : forall l id,
  ~ In id
@@ -2016,6 +2017,7 @@ Proof.
     admit. 
     (* apply disjoint_list_dlt. auto. *)
   - apply clear_path_p_b_tree. auto.
+  - admit.
   - intro.
     destruct (Nat.eqb id id0) eqn : id_cond.
     + rewrite Nat.eqb_eq in id_cond. rewrite id_cond. rewrite lookup_update_sameid.
