@@ -1928,6 +1928,7 @@ Lemma lookup_update_diffid : forall id id' m p_new,
       lookup_dict (makeBoolList false LOP) id m.
 Admitted.
 
+(* TODO: add relation between id and p and m *)
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = LOP -> 
     well_formed
@@ -1984,17 +1985,10 @@ Lemma NoDup_remove_list : forall l id,
             l)).
 Admitted. 
   
-
-Lemma id_cons_remove : forall l id, 
-    id :: List.map block_blockid
-      (remove_list (fun blk : block => block_blockid blk =? id)
-         l) = List.map block_blockid l.
-Proof.
-Admitted.
-  
-
+(* TODO: add relation between id and p and m *)
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
-    well_formed (State m h o) -> length p_new = LOP -> 
+    well_formed (State m h o) -> length p_new = LOP ->
+    lookup_dict (makeBoolList false LOP) id m = p ->
     well_formed
     {|
       state_position_map := update_dict id p_new m;
@@ -2011,7 +2005,7 @@ Proof.
   - apply clear_path_o_not_leaf; auto.
   - rewrite NoDup_cons_iff; split.
     + apply not_in_removed.
-    + apply NoDup_remove_list. admit.
+    + apply NoDup_remove_list. admit. (* should be done elsewhere *)
   - apply NoDup_clear_path. auto.
   - intros id' [Hid'1 Hid'2].
     admit. 
@@ -2035,10 +2029,9 @@ Proof.
   unfold get_pre_wb_st.
   destruct op. 
   - simpl. apply rd_op_wf; auto.
-  - simpl. apply wr_op_wf. auto.
-    auto.
-Qed.
-
+  - simpl. apply wr_op_wf; auto.
+    admit (* local todo*).
+Admitted.
 
 Lemma get_post_wb_st_wf : forall (s : state) (p : path),
     well_formed s ->
