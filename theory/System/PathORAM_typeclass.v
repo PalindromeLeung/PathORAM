@@ -1314,7 +1314,7 @@ Proof.
       destruct p; simpl in *. 
       * destruct p'; simpl in *; auto.
         destruct b; simpl in *; auto.
-      * apply PeanoNat.lt_S_n in H.
+      * apply Arith_prebase.lt_S_n in H.
         destruct p'; simpl; auto.
         destruct b0, b; simpl; auto.
 Qed.
