@@ -1789,8 +1789,50 @@ Admitted.
 Lemma NoDup_clear_path : forall o p,
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   NoDup (List.map block_blockid (get_all_blks_tree (clear_path o p))).
+Proof.
+  induction o; simpl in *; intros.
+  - apply NoDup_nil.
+  - destruct p; simpl.
+    + destruct payload; auto.
+    + destruct b; simpl.
+      * apply NoDup_disjointness.
+        -- destruct payload; apply IHo1.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              apply NoDup_app_remove_r in H.
+              auto.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_r in H.
+              auto.
+        -- destruct payload; simpl.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              apply NoDup_app_remove_l in H.
+              auto.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              auto.
+        -- admit.
+      * apply NoDup_disjointness.
+        -- destruct payload; simpl.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              apply NoDup_app_remove_r in H.
+              auto.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_r in H.
+              auto.
+        -- destruct payload; apply IHo2.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              apply NoDup_app_remove_l in H.
+              auto.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              auto.
+        -- admit.
 Admitted.
-
+           
 Lemma get_height_stable : forall o p,
     get_height (clear_path o p) = get_height o.
 Proof.
