@@ -1410,17 +1410,6 @@ Proof.
         apply H.
 Qed.
 
-Lemma stash_subtraction_preserves_no_dup : forall step s p start,
-      NoDup (List.map block_blockid (state_stash s)) -> 
-      NoDup
-        (List.map block_blockid
-           (state_stash (iterate_right start p blocks_selection step s))).
-Proof.
-  induction step; intros; auto.
-  apply stash_sub_block_selection_no_dup.
-  apply IHstep; auto.
-Qed. 
-
 Lemma blocks_selection_wf : forall
   (p : path) (lvl : nat) (s : state),
   well_formed s ->
@@ -1965,6 +1954,7 @@ Lemma disjoint_list_dlt : forall o p h,
     disjoint_list (List.map block_blockid (get_all_blks_tree o)) (List.map block_blockid h) ->
     disjoint_list (List.map block_blockid (get_all_blks_tree (clear_path o p)))
     (List.map block_blockid (concat (lookup_path_oram o p) ++ h)).
+Proof. 
 Admitted.
 
 Lemma disjoint_list_sub : forall {A} (l1 l2 l3: list A),
