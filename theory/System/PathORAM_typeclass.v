@@ -2146,8 +2146,26 @@ Lemma NoDup_remove_list : forall l id,
       (List.map block_blockid
          (remove_list (fun blk : block => block_blockid blk =? id)
             l)).
-Admitted. 
-  
+Proof.
+  induction l; simpl; intros; auto.
+  destruct (block_blockid a =? id).
+  - apply IHl; auto.
+    inversion H; auto.
+  - simpl.
+    constructor.
+    + intro pf.
+      rewrite in_map_iff in pf.
+      destruct pf as [b [Hb1 Hb2]].
+      rewrite In_remove_list_iff in Hb2.
+      destruct Hb2 as [Hb2 Hb3].
+      inversion H.
+      rewrite <- Hb1 in H2.
+      apply H2.
+      apply in_map; auto.
+    + apply IHl.
+      inversion H; auto.
+Qed.
+      
 Lemma wr_op_wf : forall (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) (p p_new : path),
     well_formed (State m h o) -> length p_new = LOP ->
     lookup_dict (makeBoolList false LOP) id m = p ->
