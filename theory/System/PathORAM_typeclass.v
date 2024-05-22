@@ -1410,14 +1410,6 @@ Proof.
         apply H.
 Qed.
 
-Lemma stash_sub_block_selection_no_dup : forall s p n,
-    NoDup (List.map block_blockid (state_stash s)) ->
-    NoDup 
-      (List.map block_blockid
-         (state_stash (blocks_selection p n s))).
-Proof.
-Admitted.  
-
 Lemma stash_subtraction_preserves_no_dup : forall step s p start,
       NoDup (List.map block_blockid (state_stash s)) -> 
       NoDup
@@ -1428,38 +1420,6 @@ Proof.
   apply stash_sub_block_selection_no_dup.
   apply IHstep; auto.
 Qed. 
-
-Lemma blocks_selection_preserves_no_dup : forall s p,
-  NoDup (List.map block_blockid (state_stash s)) -> 
-    NoDup (List.map block_blockid (get_all_blks_tree (state_oram s))) -> 
- disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
-   (List.map block_blockid (state_stash s)) ->
-   NoDup
-    (List.map block_blockid
-       (get_all_blks_tree
-          (state_oram (iterate_right 0 p blocks_selection (length p) s)))).
-Admitted.
-
-Lemma blocks_selection_preserves_disj : forall s p,
-    disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
-      (List.map block_blockid (state_stash s)) ->
-    disjoint_list
-      (List.map block_blockid
-         (get_all_blks_tree
-            (state_oram (iterate_right 0 p blocks_selection (length p) s))))
-      (List.map block_blockid
-         (state_stash (iterate_right 0 p blocks_selection (length p) s))).
-Admitted.
-
-Lemma blocks_selection_preserves_pb : forall s p,
-is_p_b_tr (state_oram s) (S LOP) -> 
-  is_p_b_tr (state_oram (write_back_r 0 p (length p) s))(S LOP).
-Admitted.
-
-Lemma wb_preserves_height : forall s p,
-  get_height (state_oram s) =
-    get_height (state_oram (write_back_r 0 p (length p) s)).
-Admitted.
 
 Lemma blocks_selection_wf : forall
   (p : path) (lvl : nat) (s : state),
