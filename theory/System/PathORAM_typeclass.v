@@ -1951,12 +1951,18 @@ Proof.
 Qed.
 
 Lemma disjoint_list_dlt : forall o p h,
-    disjoint_list (List.map block_blockid (get_all_blks_tree o)) (List.map block_blockid h) ->
+    disjoint_list (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid h) ->
+    NoDup (List.map block_blockid (get_all_blks_tree o)) -> 
     disjoint_list (List.map block_blockid (get_all_blks_tree (clear_path o p)))
     (List.map block_blockid (concat (lookup_path_oram o p) ++ h)).
-Proof. 
+Proof.
+  induction o; simpl; auto; intros.
+  destruct p; simpl in *.
+  - destruct payload.
+    + apply disj_map.
 Admitted.
-
+    
 Lemma disjoint_list_sub : forall {A} (l1 l2 l3: list A),
   (forall x, In x l1 -> In x l2) -> 
   disjoint_list l2 l3 ->
@@ -2252,7 +2258,7 @@ Proof.
         (l2 := List.map block_blockid (get_all_blks_tree o)); auto.
       intros. apply In_path_in_tree with (p := p). exact H0.
   - apply NoDup_clear_path. auto.
-  - apply disjoint_list_dlt. auto.
+  - apply disjoint_list_dlt. auto. auto.
   - apply clear_path_p_b_tree. auto.
   - intros id' Hid'.
     destruct (id =? id') eqn:id_cond.
