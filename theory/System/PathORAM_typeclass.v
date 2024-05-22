@@ -2209,7 +2209,12 @@ Proof.
            ++ repeat rewrite map_app in *.
               apply in_app_or in H1.
               destruct H1.
-              ** admit. (* NoDup violation *)
+              ** apply NoDup_app_disj in H.
+                 elim (H id); split; auto.
+                 apply in_app_or in H0.
+                 apply in_or_app.
+                 destruct H0; auto.
+                 left. eapply get_all_blks_tree_clear_path_weaken; eauto.
               ** apply IHo1; auto.
                  --- apply NoDup_app_remove_l in H.
                      apply NoDup_app_remove_r in H; auto.
