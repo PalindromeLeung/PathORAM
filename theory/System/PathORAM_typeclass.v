@@ -2130,23 +2130,127 @@ Proof.
               apply NoDup_app_remove_l in H.
               apply NoDup_app_remove_l in H; auto.
     + destruct b; simpl in *.
-      repeat rewrite map_app in *.
-      * 
+      * repeat rewrite map_app in *.
+        pose proof (H' := H).
+        apply NoDup_app_disj in H.
+        intro Hid.
+        apply (H id); split; auto.
+        -- eapply In_path_in_tree; eauto.
+        -- apply in_app_or in Hid.
+           destruct Hid; auto.
+           elim (IHo1 p id); auto.
+           apply NoDup_app_remove_r in H'; auto.
+      * repeat rewrite map_app in *.
+        pose proof (H' := H).
+        apply NoDup_app_disj in H.
+        intro Hid.
+        apply (H id); split; auto.
+        -- apply in_app_or in Hid.
+           destruct Hid; auto.
+           elim (IHo2 p id); auto.
+           apply NoDup_app_remove_l in H'; auto.
+        -- eapply In_path_in_tree; eauto.
+Qed.
 
-
-
-
-
-        
-      * admit.
-Admitted.
-
-Lemma lookup_off_path id o p p' :
+Lemma lookup_off_path : forall o id p p',
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p'))) ->
   In id (List.map block_blockid (concat (lookup_path_oram (clear_path o p) p'))).
 Proof.
+  induction o; intros; simpl in *; auto.
+  destruct p; simpl in *.
+  - destruct p'.
+    + simpl.
+      destruct payload; auto.
+      repeat rewrite map_app in *.
+      apply NoDup_app_disj in H.
+      simpl in H1; rewrite app_nil_r in H1.
+      apply (H id); split; auto.
+    + destruct b.
+      * destruct payload; simpl in *; auto.
+        rewrite map_app in *.
+        apply in_app_or in H1.
+        destruct H1; auto.
+        apply NoDup_app_disj in H.
+        elim (H id); split; auto.
+        rewrite map_app; auto.
+      * destruct payload; simpl in *; auto.
+        rewrite map_app in *.
+        apply in_app_or in H1.
+        destruct H1; auto.
+        apply NoDup_app_disj in H.
+        elim (H id); split; auto.
+        rewrite map_app; auto.
+  - destruct p'.
+    + destruct payload; simpl in *.
+      * rewrite app_nil_r in H1.
+        destruct b.
+        -- simpl in *.
+           rewrite map_app in *.
+           apply NoDup_app_disj in H.
+           apply (H id); split; auto.
+           rewrite map_app.
+           rewrite in_app_iff in *.
+           destruct H0; auto.
+           left; eapply get_all_blks_tree_clear_path_weaken; eauto.
+        -- simpl in *.
+           rewrite map_app in *.
+           apply NoDup_app_disj in H.
+           apply (H id); split; auto.
+           rewrite map_app.
+           rewrite in_app_iff in *.
+           destruct H0; auto.
+           right; eapply get_all_blks_tree_clear_path_weaken; eauto.
+      * contradiction.
+    + destruct b0; simpl in *.
+      * destruct payload; simpl in *.
+        -- destruct b; simpl in *.
+           ++ repeat rewrite map_app in *.
+              apply in_app_or in H1.
+              destruct H1.
+              ** admit. (* NoDup violation *)
+              ** apply IHo1; auto.
+                 --- apply NoDup_app_remove_l in H.
+                     apply NoDup_app_remove_r in H; auto.
+                 --- apply in_app_or in H0.
+                     destruct H0; auto.
+                     admit. (* NoDup violation *)
+           ++ repeat rewrite map_app in *.
+              apply in_app_or in H1.
+              destruct H1; auto.
+              admit. (* NoDup violation *)
+        -- destruct b; simpl in *; auto. 
+           repeat rewrite map_app in *.
+           apply in_app_or in H0.
+           destruct H0.
+           ++ apply IHo1; auto.
+              apply NoDup_app_remove_r in H; auto.
+           ++ admit. (* NoDup violation *)
+      * destruct payload; simpl in *.
+        -- destruct b; simpl in *.
+           ++ repeat rewrite map_app in *.
+              apply in_app_or in H1.
+              destruct H1; auto.
+              admit. (* NoDup violation *)
+           ++ repeat rewrite map_app in *.
+              apply in_app_or in H1.
+              destruct H1; auto.
+              ** admit. (* NoDup violation *)
+              ** apply IHo2; auto.
+                 --- apply NoDup_app_remove_l in H.
+                     apply NoDup_app_remove_l in H; auto.
+                 --- apply in_app_or in H0.
+                     destruct H0; auto.
+                     admit. (* NoDup violation *)
+        -- destruct b; simpl in *; auto. 
+           repeat rewrite map_app in *.
+           apply in_app_or in H0.
+           destruct H0; auto.
+           ++ admit. (* NoDup violation *)
+           ++ apply IHo2; auto.
+              apply NoDup_app_remove_l in H; auto.
+                   
 Admitted.
 
 Lemma rd_op_wf : forall (id : block_id) (m : position_map) (h : stash) (o : oram) (p p_new : path),
