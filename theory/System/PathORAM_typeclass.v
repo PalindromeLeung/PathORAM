@@ -1786,6 +1786,42 @@ Lemma disj_path_oram : forall o p h,
   disjoint_list (concat (lookup_path_oram o p)) h.
 Admitted.
 
+Lemma get_all_blks_tree_clear_path_weaken : forall o id p,
+  In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
+  In id (List.map block_blockid (get_all_blks_tree o)).
+Proof.
+  induction o; intros.
+  - auto.
+  - destruct p; simpl in *; auto.
+    destruct b; simpl in *.
+    + rewrite map_app in H.
+      apply in_app_or in H.
+      destruct H.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; left.
+           eapply IHo1; eauto.
+        -- apply in_or_app; left.
+           eapply IHo1; eauto.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; right; auto.
+        -- apply in_or_app; right; auto.
+    + rewrite map_app in H.
+      apply in_app_or in H.
+      destruct H.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; left; auto.
+        -- apply in_or_app; left; auto.
+      * destruct payload; repeat rewrite map_app.
+        -- apply in_or_app; right.
+           apply in_or_app; right.
+           eapply IHo2; eauto.
+        -- apply in_or_app; right.
+           eapply IHo2; eauto.
+Qed.
+
 Lemma NoDup_clear_path : forall o p,
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   NoDup (List.map block_blockid (get_all_blks_tree (clear_path o p))).
@@ -1812,7 +1848,16 @@ Proof.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               auto.
-        -- admit.
+        -- intros id [Hid1 Hid2].
+           apply get_all_blks_tree_clear_path_weaken in Hid1.
+           destruct payload; simpl.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              eapply NoDup_app_disj. exact H.
+              split; eauto.
+           ++ repeat rewrite map_app in *.
+              eapply NoDup_app_disj. exact H.
+              split; eauto.
       * apply NoDup_disjointness.
         -- destruct payload; simpl.
            ++ repeat rewrite map_app in *.
@@ -1830,8 +1875,17 @@ Proof.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               auto.
-        -- admit.
-Admitted.
+        -- intros id [Hid1 Hid2].
+           apply get_all_blks_tree_clear_path_weaken in Hid2.
+           destruct payload; simpl.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H.
+              eapply NoDup_app_disj. exact H.
+              split; eauto.
+           ++ repeat rewrite map_app in *.
+              eapply NoDup_app_disj. exact H.
+              split; eauto.
+Qed.
            
 Lemma get_height_stable : forall o p,
     get_height (clear_path o p) = get_height o.
@@ -2009,42 +2063,6 @@ Proof.
         rewrite nat_compare_lt in H0.
         rewrite H0; auto.
     + rewrite IHtl; auto.
-Qed.
-
-Lemma get_all_blks_tree_clear_path_weaken : forall o id p,
-  In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
-  In id (List.map block_blockid (get_all_blks_tree o)).
-Proof.
-  induction o; intros.
-  - auto.
-  - destruct p; simpl in *; auto.
-    destruct b; simpl in *.
-    + rewrite map_app in H.
-      apply in_app_or in H.
-      destruct H.
-      * destruct payload; repeat rewrite map_app.
-        -- apply in_or_app; right.
-           apply in_or_app; left.
-           eapply IHo1; eauto.
-        -- apply in_or_app; left.
-           eapply IHo1; eauto.
-      * destruct payload; repeat rewrite map_app.
-        -- apply in_or_app; right.
-           apply in_or_app; right; auto.
-        -- apply in_or_app; right; auto.
-    + rewrite map_app in H.
-      apply in_app_or in H.
-      destruct H.
-      * destruct payload; repeat rewrite map_app.
-        -- apply in_or_app; right.
-           apply in_or_app; left; auto.
-        -- apply in_or_app; left; auto.
-      * destruct payload; repeat rewrite map_app.
-        -- apply in_or_app; right.
-           apply in_or_app; right.
-           eapply IHo2; eauto.
-        -- apply in_or_app; right.
-           eapply IHo2; eauto.
 Qed.
 
 Lemma on_path_not_off_path id o p:
