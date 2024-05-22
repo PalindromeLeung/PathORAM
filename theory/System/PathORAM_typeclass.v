@@ -1950,77 +1950,6 @@ Proof.
   - apply (NoDup_map_inj f l2); auto.
 Qed.
 
-Lemma disjoint_list_dlt : forall o p h,
-    disjoint_list (List.map block_blockid (get_all_blks_tree o))
-      (List.map block_blockid h) ->
-    NoDup (List.map block_blockid (get_all_blks_tree o)) -> 
-    disjoint_list (List.map block_blockid (get_all_blks_tree (clear_path o p)))
-    (List.map block_blockid (concat (lookup_path_oram o p) ++ h)).
-Proof.
-  induction o; simpl; auto; intros.
-  destruct p; simpl in *.
-  - destruct payload.
-    + apply disj_map.
-Admitted.
-    
-Lemma disjoint_list_sub : forall {A} (l1 l2 l3: list A),
-  (forall x, In x l1 -> In x l2) -> 
-  disjoint_list l2 l3 ->
-  disjoint_list l1 l3.
-Proof.
-  intros.
-  unfold disjoint_list in *.
-  intros. unfold not in *.
-  firstorder.
-Qed.
-
-Definition bid_in (l : list block) (x : block_id):=
-  In x (List.map block_blockid l).
-
-Lemma lookup_update_sameid : forall id m p_new, 
-    lookup_dict
-       (makeBoolList false LOP) id
-       (update_dict id p_new m) = p_new.
-Proof.
-  intros.
-  unfold lookup_dict.
-  unfold update_dict.
-  destruct m; simpl.
-  induction dict_elems0 as [|[k v] tl]; simpl.
-  - rewrite Nat.compare_refl; auto.
-  - destruct (id ?= k)%nat eqn:id_cond; simpl.
-    + rewrite Nat.compare_refl; auto.
-    + rewrite Nat.compare_refl; auto.
-    + rewrite id_cond.
-      exact IHtl.
-Qed.
-
-Lemma lookup_update_diffid : forall id id' m p_new,
-    id <> id' ->
-    lookup_dict
-      (makeBoolList false LOP)
-      id (update_dict id' p_new m) =
-      lookup_dict (makeBoolList false LOP) id m.
-Proof.
-  intros.
-  unfold lookup_dict.
-  unfold update_dict.
-  destruct m; simpl.
-  induction dict_elems0 as [|[k v] tl]; simpl.
-  - destruct (id ?= id')%nat eqn:id_cond; auto.
-    rewrite Nat.compare_eq_iff in id_cond; contradiction.
-  - destruct (id' ?= k)%nat eqn:id_cond1; simpl.
-    + rewrite Nat.compare_eq_iff in id_cond1; subst.
-      destruct (id ?= k)%nat eqn:id_cond2; auto.
-      rewrite Nat.compare_eq_iff in id_cond2; contradiction.
-    + destruct (id ?= id')%nat eqn:id_cond2; auto.
-      * rewrite Nat.compare_eq_iff in id_cond2; contradiction.
-      * rewrite <- nat_compare_lt in *.
-        assert (id < k)%nat by lia.
-        rewrite nat_compare_lt in H0.
-        rewrite H0; auto.
-    + rewrite IHtl; auto.
-Qed.
 
 Lemma on_path_not_off_path: forall o p id,
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
@@ -2106,6 +2035,82 @@ Proof.
            elim (IHo2 p id); auto.
            apply NoDup_app_remove_l in H'; auto.
         -- eapply In_path_in_tree; eauto.
+Qed.
+
+Lemma disjoint_list_dlt : forall o p h,
+    disjoint_list (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid h) ->
+    NoDup (List.map block_blockid (get_all_blks_tree o)) -> 
+    disjoint_list (List.map block_blockid (get_all_blks_tree (clear_path o p)))
+    (List.map block_blockid (concat (lookup_path_oram o p) ++ h)).
+Proof.
+  intros.
+  intros id [Hid1 Hid2].
+  rewrite map_app in *.
+  apply in_app_or in Hid2.
+  destruct Hid2.
+  - eapply on_path_not_off_path; eauto.
+  - apply (H id); split; auto.
+    eapply get_all_blks_tree_clear_path_weaken; eauto.
+Qed.
+    
+Lemma disjoint_list_sub : forall {A} (l1 l2 l3: list A),
+  (forall x, In x l1 -> In x l2) -> 
+  disjoint_list l2 l3 ->
+  disjoint_list l1 l3.
+Proof.
+  intros.
+  unfold disjoint_list in *.
+  intros. unfold not in *.
+  firstorder.
+Qed.
+
+Definition bid_in (l : list block) (x : block_id):=
+  In x (List.map block_blockid l).
+
+Lemma lookup_update_sameid : forall id m p_new, 
+    lookup_dict
+       (makeBoolList false LOP) id
+       (update_dict id p_new m) = p_new.
+Proof.
+  intros.
+  unfold lookup_dict.
+  unfold update_dict.
+  destruct m; simpl.
+  induction dict_elems0 as [|[k v] tl]; simpl.
+  - rewrite Nat.compare_refl; auto.
+  - destruct (id ?= k)%nat eqn:id_cond; simpl.
+    + rewrite Nat.compare_refl; auto.
+    + rewrite Nat.compare_refl; auto.
+    + rewrite id_cond.
+      exact IHtl.
+Qed.
+
+Lemma lookup_update_diffid : forall id id' m p_new,
+    id <> id' ->
+    lookup_dict
+      (makeBoolList false LOP)
+      id (update_dict id' p_new m) =
+      lookup_dict (makeBoolList false LOP) id m.
+Proof.
+  intros.
+  unfold lookup_dict.
+  unfold update_dict.
+  destruct m; simpl.
+  induction dict_elems0 as [|[k v] tl]; simpl.
+  - destruct (id ?= id')%nat eqn:id_cond; auto.
+    rewrite Nat.compare_eq_iff in id_cond; contradiction.
+  - destruct (id' ?= k)%nat eqn:id_cond1; simpl.
+    + rewrite Nat.compare_eq_iff in id_cond1; subst.
+      destruct (id ?= k)%nat eqn:id_cond2; auto.
+      rewrite Nat.compare_eq_iff in id_cond2; contradiction.
+    + destruct (id ?= id')%nat eqn:id_cond2; auto.
+      * rewrite Nat.compare_eq_iff in id_cond2; contradiction.
+      * rewrite <- nat_compare_lt in *.
+        assert (id < k)%nat by lia.
+        rewrite nat_compare_lt in H0.
+        rewrite H0; auto.
+    + rewrite IHtl; auto.
 Qed.
 
 Lemma lookup_off_path : forall o id p p',
