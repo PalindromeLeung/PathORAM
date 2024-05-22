@@ -602,7 +602,7 @@ Fixpoint clear_path (o : oram ) : path -> oram :=
   | node obkt o_l o_r =>
       fun p =>
         match p with
-        | [] => o
+        | [] => node None o_l o_r
         | h :: t =>
             match h with
             | true => node None (clear_path o_l t) o_r
@@ -1589,15 +1589,6 @@ Proof.
   apply write_back_in_stash_kv_rel; simpl; auto. 
 Qed.
 
-Lemma clear_path_o_not_leaf : forall o p,
-    o <> leaf ->
-    clear_path o p <> leaf.
-Proof. 
-  induction o; try contradiction.
-  destruct p; simpl; auto; intro. 
-  destruct b; simpl; auto; simpl; discriminate.
-Qed.
-
 Lemma NoDup_disjointness: forall {A B} (l1 : list A) (l2 : list A) (f : A -> B) ,
     NoDup (List.map f l1) ->
     NoDup (List.map f l2) ->
@@ -1781,11 +1772,6 @@ Proof.
            apply NoDup_app_remove_l in H; auto.
 Qed. 
 
-Lemma disj_path_oram : forall o p h,
-  disjoint_list (get_all_blks_tree o) h ->
-  disjoint_list (concat (lookup_path_oram o p)) h.
-Admitted.
-
 Lemma get_all_blks_tree_clear_path_weaken : forall o id p,
   In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
   In id (List.map block_blockid (get_all_blks_tree o)).
@@ -1793,20 +1779,6 @@ Proof.
   induction o; intros.
   - auto.
   - destruct p; simpl in *; auto.
-    destruct b; simpl in *.
-    + rewrite map_app in H.
-      apply in_app_or in H.
-      destruct H.
-      * destruct payload; repeat rewrite map_app.
-        -- apply in_or_app; right.
-           apply in_or_app; left.
-           eapply IHo1; eauto.
-        -- apply in_or_app; left.
-           eapply IHo1; eauto.
-      * destruct payload; repeat rewrite map_app.
-        -- apply in_or_app; right.
-           apply in_or_app; right; auto.
-        -- apply in_or_app; right; auto.
     + rewrite map_app in H.
       apply in_app_or in H.
       destruct H.
@@ -1816,10 +1788,37 @@ Proof.
         -- apply in_or_app; left; auto.
       * destruct payload; repeat rewrite map_app.
         -- apply in_or_app; right.
-           apply in_or_app; right.
-           eapply IHo2; eauto.
-        -- apply in_or_app; right.
-           eapply IHo2; eauto.
+           apply in_or_app; right; auto.
+        -- apply in_or_app; right; auto.
+    + destruct b; simpl in *.
+      * rewrite map_app in H.
+        apply in_app_or in H.
+        destruct H.
+        -- destruct payload; repeat rewrite map_app.
+           ++ apply in_or_app; right.
+              apply in_or_app; left; auto.
+              eapply IHo1; eauto.
+           ++ apply in_or_app; left.
+              eapply IHo1; eauto.
+        -- destruct payload; repeat rewrite map_app.
+           ++ apply in_or_app; right.
+              apply in_or_app; right; auto.
+           ++ apply in_or_app; right; auto.
+      * destruct payload; repeat rewrite map_app.
+        -- rewrite map_app in H.
+           apply in_app_or in H.
+           destruct H.
+           ++ apply in_or_app; right.
+              apply in_or_app; left; auto.
+           ++ apply in_or_app; right.
+              apply in_or_app; right.
+              eapply IHo2; eauto.
+        -- rewrite map_app in H.
+           apply in_app_or in H.
+           destruct H.
+           ++ apply in_or_app; left; auto.
+           ++ apply in_or_app; right.
+              eapply IHo2; eauto.
 Qed.
 
 Lemma NoDup_clear_path : forall o p,
@@ -1830,6 +1829,8 @@ Proof.
   - apply NoDup_nil.
   - destruct p; simpl.
     + destruct payload; auto.
+      repeat rewrite map_app in *.
+      apply NoDup_app_remove_l in H. auto.
     + destruct b; simpl.
       * apply NoDup_disjointness.
         -- destruct payload; apply IHo1.
@@ -2070,8 +2071,18 @@ Lemma on_path_not_off_path id o p:
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
   ~ In id (List.map block_blockid (get_all_blks_tree (clear_path o p))).
 Proof.
-Admitted.
+  induction o; simpl; auto; intros.
+  intro.
+  destruct p; simpl.
+  - destruct payload; simpl in *.
+    + 
 
+
+
+
+
+
+  
 Lemma lookup_off_path id o p p' :
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
