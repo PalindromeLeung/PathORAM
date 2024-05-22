@@ -2066,23 +2066,81 @@ Proof.
     + rewrite IHtl; auto.
 Qed.
 
-Lemma on_path_not_off_path id o p:
+Lemma on_path_not_off_path: forall o p id,
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
   ~ In id (List.map block_blockid (get_all_blks_tree (clear_path o p))).
 Proof.
-  induction o; simpl; auto; intros.
-  intro.
-  destruct p; simpl.
+  induction o; auto; intros.
+  destruct p. 
   - destruct payload; simpl in *.
-    + 
+    + repeat rewrite map_app in *.
+      apply NoDup_app_disj in H.
+      intro Hid.
+      apply (H id); split.
+      * simpl in H0.
+        rewrite app_nil_r in H0; auto.
+      * auto.
+    + auto.
+  - destruct payload; simpl in *.
+    + destruct b; simpl in *.
+      * repeat rewrite map_app in *. (* true *)
+        apply in_app_or in H0.
+        destruct H0.
+        -- apply NoDup_app_disj in H.
+           intro Hid.
+           apply (H id); split; auto.
+           apply in_or_app.
+           apply in_app_or in Hid.
+           destruct Hid.
+           ++ left. eapply get_all_blks_tree_clear_path_weaken. exact H1.
+           ++ right. auto.
+        -- intro.
+           apply in_app_or in H1.
+           destruct H1. 
+           ++ apply (IHo1 p id); auto.
+              apply NoDup_app_remove_l in H.
+              apply NoDup_app_remove_r in H; auto.
+           ++ apply NoDup_app_remove_l in H.
+              apply NoDup_app_disj in H.
+              apply (H id); split; auto.
+              eapply In_path_in_tree. exact H0.
+      * repeat rewrite map_app in *. (* false *)
+        apply in_app_or in H0.
+        destruct H0.
+        -- apply NoDup_app_disj in H.
+           intro Hid.
+           apply (H id); split; auto.
+           apply in_or_app.
+           apply in_app_or in Hid.
+           destruct Hid.
+           ++ left. auto.
+           ++ right. eapply get_all_blks_tree_clear_path_weaken. exact H1.
+        -- intro.
+           apply in_app_or in H1.
+           destruct H1. 
+           ++ apply (IHo2 p id); auto.
+              ** apply NoDup_app_remove_l in H.
+                 apply NoDup_app_remove_l in H; auto.
+              ** apply NoDup_app_remove_l in H.
+                 apply NoDup_app_disj in H.
+                 elim (H id); split; auto.
+                 eapply In_path_in_tree; eauto.                 
+           ++ apply (IHo2 p id); auto.
+              apply NoDup_app_remove_l in H.
+              apply NoDup_app_remove_l in H; auto.
+    + destruct b; simpl in *.
+      repeat rewrite map_app in *.
+      * 
 
 
 
 
 
+        
+      * admit.
+Admitted.
 
-  
 Lemma lookup_off_path id o p p' :
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   In id (List.map block_blockid (get_all_blks_tree (clear_path o p))) ->
