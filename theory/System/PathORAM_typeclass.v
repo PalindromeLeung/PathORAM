@@ -5,9 +5,9 @@ Require Import Coq.QArith.QArith.
 Require Import Coq.Classes.EquivDec.
 Import ListNotations.
 Require Import Coq.Program.Equality.
-Require Import Lia.
-(*** CLASSES ***)
+Require Import Lia RAM.
 
+(*** CLASSES ***)
 (* I'm rolling my own version of lots of datatypes and using typeclasses
  * pervasively. Here are the typeclasses that support the hand-rolled datatype
  * definitions.
@@ -447,7 +447,7 @@ Fixpoint mk_n_list (n: nat):list nat :=
   Note: we will just use association lists to represent dictionaries, e.g., for `block_id ⇰ path`.
 
 **)
-Section PORAM. 
+Section PORAM.
 Definition block_id := nat.
 Record block : Type := Block
   { block_blockid : block_id
@@ -2596,5 +2596,24 @@ Proof.
 Qed.
 
 End PORAM.
+
+(* Path ORAM is a RAM (functional correctness specification, WIP) *)
+Module PathORAM <: RAM.
+  Definition K := block_id.
+  Definition V := nat.
+  Definition state V := Poram_st state dist (path * V). 
+
+  Definition write := write_access.
+  Definition read := read_access.
+End PathORAM.
+
+(* TODO above doesn't go through yet since the type of write
+   and read depend on LOP *)
+
+
+End PORAM.
+
+Print PathORAM.write.
+
 Check PathORAM_simulates_RAM.
 Print Assumptions PathORAM_simulates_RAM.
