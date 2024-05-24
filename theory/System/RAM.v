@@ -14,4 +14,6 @@ Module Type RAM.
   Axiom read_read : ...
   Axiom read_write : ... 
   *)
+
+  (* TODO how does it relate to lens laws? *)
 End RAM.

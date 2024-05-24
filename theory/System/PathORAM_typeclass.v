@@ -862,7 +862,7 @@ Definition access (id : block_id) (op : operation) :
   let h := state_stash  PST in
   let o := state_oram PST in 
   (* get path for the index we are querying *)
-  let len_m := LOP in (* TODO get from the state, from the height of the tree *)
+  let len_m := LOP in
   let p := lookup_dict (makeBoolList false len_m) id m in
   (* flip a bunch of coins to get the new path *)      
   p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
@@ -2603,14 +2603,18 @@ Module PathORAM <: RAM.
   Definition V := nat.
   Definition state V := Poram_st state dist (path * V). 
 
-  Definition write := write_access.
-  Definition read := read_access.
+  Definition write k v := 
+      PST <- get_State ;;
+      let o := state_oram PST in
+      let len_m := get_height o in
+      write_access len_m k v.
 
-  (* TODO laws *)
+  Definition read k :=
+    PST <- get_State ;;
+    let o := state_oram PST in
+    let len_m := get_height o in
+    read_access len_m k.
 End PathORAM.
-
-(* TODO above doesn't go through yet since the type of write
-   and read depend on LOP *)
 
 
 End PORAM.
