@@ -1410,6 +1410,60 @@ Proof.
         apply H.
 Qed.
 
+Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
+    NoDup (List.map block_blockid lst) -> 
+    NoDup (List.map block_blockid (remove_list_sub dlt lst)).
+Admitted. 
+
+Lemma NoDup_up_oram_tree : forall o dlt lvl p,
+    NoDup (List.map block_blockid dlt) ->
+    NoDup (List.map block_blockid (get_all_blks_tree o)) -> 
+    disjoint_list (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid dlt) -> 
+    NoDup
+    (List.map block_blockid
+       (get_all_blks_tree (up_oram_tr o lvl dlt p))).
+Admitted.
+
+Lemma NoDup_get_write_back_blocks : forall lst p lvl pos_map, 
+  NoDup (List.map block_blockid lst) ->
+  NoDup (List.map block_blockid 
+    (get_write_back_blocks p lst 4 lvl pos_map)).
+Admitted.
+
+Lemma up_oram_tr_preserves_pb : forall o lvl dlt p n,
+    is_p_b_tr o n ->
+    is_p_b_tr (up_oram_tr o lvl dlt p) n.
+Admitted.
+
+Definition subset_rel {X} (sub lst : list X) : Prop :=
+    forall x,
+    In x sub ->
+    In x lst.
+
+Lemma disjoint_weaken2 : forall o dlt lst, 
+    disjoint_list
+      (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid lst) ->
+    subset_rel dlt lst -> 
+    disjoint_list
+      (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid dlt).
+Admitted.              
+
+Lemma disjoint_dlt : forall o lvl dlt lst p,
+    disjoint_list
+      (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid lst) -> 
+    disjoint_list
+      (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p)))
+      (List.map block_blockid (remove_list_sub dlt lst)).
+Admitted.
+
+Lemma get_write_back_blocks_subset : forall lst p lvl pos_map,
+    subset_rel (get_write_back_blocks p lst 4 lvl pos_map) lst.
+Admitted.
+
 Lemma blocks_selection_wf : forall
   (p : path) (lvl : nat) (s : state),
   well_formed s ->
@@ -1417,6 +1471,20 @@ Lemma blocks_selection_wf : forall
   (lvl < LOP)%nat ->
   well_formed (blocks_selection p lvl s).
 Proof.
+  intros.
+  destruct H.
+  constructor; simpl.
+  - remember (get_write_back_blocks p (state_stash s) 4 lvl
+                (state_position_map s)) as dlt.
+    apply NoDup_remove_list_sub. auto.
+  - apply NoDup_up_oram_tree; auto.
+    + apply NoDup_get_write_back_blocks. auto.
+    + eapply disjoint_weaken2; eauto.
+      apply get_write_back_blocks_subset.
+  - apply disjoint_dlt. auto.
+  - apply up_oram_tr_preserves_pb; auto.
+  - admit.
+  - auto.
 Admitted.
 
 Lemma write_back_wf : forall (step start : nat) (s : state) (p : path), 
@@ -2303,7 +2371,7 @@ Proof.
   contradiction.
 Qed.
 
-Lemma NoDup_remove_list : forall l id,
+Lemma NoDup_remove_list: forall l id,
     NoDup (List.map block_blockid l) -> 
     NoDup
       (List.map block_blockid
