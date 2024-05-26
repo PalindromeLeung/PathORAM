@@ -1583,7 +1583,15 @@ Admitted.
 
 Lemma get_write_back_blocks_subset : forall lst p lvl pos_map,
     subset_rel (get_write_back_blocks p lst 4 lvl pos_map) lst.
-Admitted.
+Proof.
+  unfold subset_rel.
+  intros.
+  unfold get_write_back_blocks in H.
+  destruct (length lst); try contradiction.
+  apply takeL_in in H.
+  apply subset_rel_get_cand_bs in H.
+  auto.
+Qed.
 
 Lemma up_oram_tr_tree_or_delta id o lvl dlt p :
   In id (List.map block_blockid (get_all_blks_tree
