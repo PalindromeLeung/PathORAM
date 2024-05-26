@@ -1499,11 +1499,43 @@ Lemma NoDup_up_oram_tree : forall o dlt lvl p,
        (get_all_blks_tree (up_oram_tr o lvl dlt p))).
 Admitted.
 
+Lemma map_takeL {A B} (f : A -> B) : forall n l,
+    List.map f (takeL n l) = takeL n (List.map f l).
+Proof.
+Admitted.
+
+Lemma NoDup_takeL {A} : forall n (l : list A),
+    NoDup l -> NoDup (takeL n l).
+Admitted.
+
+Lemma subset_rel_get_cand_bs : forall lst p lvl pos_map,
+    subset_rel (get_cand_bs lst p lvl pos_map) lst.
+Admitted. 
+  
 Lemma NoDup_get_write_back_blocks : forall lst p lvl pos_map, 
   NoDup (List.map block_blockid lst) ->
   NoDup (List.map block_blockid 
     (get_write_back_blocks p lst 4 lvl pos_map)).
-Admitted.
+Proof.
+  unfold get_write_back_blocks. intros.
+  destruct (length lst); try constructor.
+  rewrite map_takeL.
+  apply NoDup_takeL.
+  induction lst; simpl.
+  - apply NoDup_nil.
+  - destruct isEqvPath eqn : p_cond.
+    + simpl; apply NoDup_cons_iff; split.
+      * intro pf. 
+        rewrite in_map_iff in pf.
+        destruct pf as [b [Hb1 Hb2]].
+        apply subset_rel_get_cand_bs in Hb2.
+        inversion H.
+        apply H2.
+        rewrite <- Hb1.
+        apply in_map; auto.        
+      * apply IHlst. inversion H; auto.
+    + apply IHlst; inversion H; auto.
+Qed.
 
 Lemma up_oram_tr_preserves_pb : forall o lvl dlt p n,
     is_p_b_tr o n ->
