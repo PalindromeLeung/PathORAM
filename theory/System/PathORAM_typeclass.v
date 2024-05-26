@@ -1575,16 +1575,24 @@ Proof.
        apply IHo2; tauto.
 Qed.
 
-Lemma disjoint_weaken2 : forall o dlt lst, 
+Lemma disjoint_weaken2 : forall dlt l lst, 
     disjoint_list
-      (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid l)
       (List.map block_blockid lst) ->
     subset_rel dlt lst -> 
     disjoint_list
-      (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid l)
       (List.map block_blockid dlt).
-Admitted.              
-
+Proof.
+  intros.
+  intros id [Hid1 Hid2].
+  apply (H id); split; auto.
+  rewrite in_map_iff in *.
+  destruct Hid2 as [b [Hb1 Hb2]].
+  exists b.
+  split; auto.
+Qed.
+    
 Lemma disjoint_dlt : forall o lvl dlt lst p,
     disjoint_list
       (List.map block_blockid (get_all_blks_tree o))
