@@ -1447,12 +1447,6 @@ Definition subset_rel {X} (sub lst : list X) : Prop :=
     In x sub ->
     In x lst.
 
-Lemma NoDup_sub_rel : forall lst sub,
-    NoDup (List.map block_blockid lst) -> 
-    subset_rel sub lst ->
-    NoDup (List.map block_blockid sub).
-Admitted.
-
 Lemma In_remove_aux : forall lst x a,
     In x (remove_aux lst a) ->
     In x lst.
@@ -1464,6 +1458,26 @@ Proof.
     apply IHlst with (a := a0). auto.
 Qed.
 
+Lemma NoDup_remove_aux : forall lst x,
+    NoDup (List.map block_blockid lst) ->
+    NoDup (List.map block_blockid (remove_aux lst x)).
+Proof.
+  induction lst; simpl; intros; auto.
+  destruct andb eqn: eq_cond; simpl.
+  - inversion H; auto.
+  - apply NoDup_cons_iff. split.
+    + intro.
+      rewrite in_map_iff in H0.
+      destruct H0 as [b [Hb1 Hb2]].
+      apply In_remove_aux in Hb2.
+      inversion H.
+      apply H2.
+      rewrite <- Hb1.
+      apply in_map; auto.
+    + apply IHlst.
+      inversion H; auto.
+Qed.
+      
 Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
     NoDup (List.map block_blockid lst) -> 
     NoDup (List.map block_blockid (remove_list_sub dlt lst)).
@@ -1472,10 +1486,7 @@ Proof.
   - intros; auto.
   - intros.
     apply IHdlt.
-    apply NoDup_sub_rel with (lst := lst); auto.
-    unfold subset_rel.
-    intros.
-    eapply In_remove_aux; eauto.
+    apply NoDup_remove_aux; auto.
 Qed.
 
 Lemma NoDup_up_oram_tree : forall o dlt lvl p,
