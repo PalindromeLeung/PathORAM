@@ -1410,10 +1410,67 @@ Proof.
         apply H.
 Qed.
 
+Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
+  forall x y, In x l -> In y l -> f x = f y -> x = y.
+
+Lemma NoDup_map:
+  forall A B (f: A -> B) (l: list A),
+  NoDup l -> 
+  inj_on_list l f -> 
+  NoDup (List.map f l).
+Proof.
+  intros A B f l.
+  induction l; intros.
+  - constructor.
+  - simpl; constructor.
+    + intro pf.
+      rewrite in_map_iff in pf.
+      destruct pf as [b [Hb1 Hb2]].
+      assert (a = b).
+      { apply H0.
+        * now left.
+        * now right.
+        * congruence.
+      }
+      subst.
+      inversion H; contradiction.
+    + apply IHl.
+      * inversion H; auto.
+      * intros x y Hx Hy Hxy.
+        apply H0; auto.
+        -- now right.
+        -- now right.
+Qed.
+
+Definition subset_rel {X} (sub lst : list X) : Prop :=
+    forall x,
+    In x sub ->
+    In x lst.
+
+Lemma NoDup_sub_rel : forall lst sub,
+    NoDup (List.map block_blockid lst) -> 
+    subset_rel sub lst ->
+    NoDup (List.map block_blockid sub).
+Admitted.
+
+Lemma In_remove_aux : forall lst x a,
+    In x (remove_aux lst a) ->
+    In x lst.
+Admitted.     
+
 Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
     NoDup (List.map block_blockid lst) -> 
     NoDup (List.map block_blockid (remove_list_sub dlt lst)).
-Admitted. 
+Proof.
+  induction dlt; simpl.
+  - intros; auto.
+  - intros.
+    apply IHdlt.
+    apply NoDup_sub_rel with (lst := lst); auto.
+    unfold subset_rel.
+    intros.
+    eapply In_remove_aux; eauto.
+Qed.
 
 Lemma NoDup_up_oram_tree : forall o dlt lvl p,
     NoDup (List.map block_blockid dlt) ->
@@ -1435,11 +1492,6 @@ Lemma up_oram_tr_preserves_pb : forall o lvl dlt p n,
     is_p_b_tr o n ->
     is_p_b_tr (up_oram_tr o lvl dlt p) n.
 Admitted.
-
-Definition subset_rel {X} (sub lst : list X) : Prop :=
-    forall x,
-    In x sub ->
-    In x lst.
 
 Lemma disjoint_weaken2 : forall o dlt lst, 
     disjoint_list
@@ -1667,38 +1719,6 @@ Proof.
       split; auto.
       right. auto.
 Qed. 
-      
-Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
-  forall x y, In x l -> In y l -> f x = f y -> x = y.
-
-Lemma NoDup_map:
-  forall A B (f: A -> B) (l: list A),
-  NoDup l -> 
-  inj_on_list l f -> 
-  NoDup (List.map f l).
-Proof.
-  intros A B f l.
-  induction l; intros.
-  - constructor.
-  - simpl; constructor.
-    + intro pf.
-      rewrite in_map_iff in pf.
-      destruct pf as [b [Hb1 Hb2]].
-      assert (a = b).
-      { apply H0.
-        * now left.
-        * now right.
-        * congruence.
-      }
-      subst.
-      inversion H; contradiction.
-    + apply IHl.
-      * inversion H; auto.
-      * intros x y Hx Hy Hxy.
-        apply H0; auto.
-        -- now right.
-        -- now right.
-Qed.
 
 Lemma NoDup_app_disj : forall {A} (l1 l2 : list A),
     NoDup (l1 ++ l2) ->
