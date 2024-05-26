@@ -1502,7 +1502,11 @@ Admitted.
 Lemma map_takeL {A B} (f : A -> B) : forall n l,
     List.map f (takeL n l) = takeL n (List.map f l).
 Proof.
-Admitted.
+  induction n; auto.
+  intro.
+  destruct l; simpl; try reflexivity.
+  rewrite IHn. reflexivity.
+Qed.
 
 Lemma NoDup_takeL {A} : forall n (l : list A),
     NoDup l -> NoDup (takeL n l).
