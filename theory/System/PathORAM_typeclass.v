@@ -1625,9 +1625,13 @@ Proof.
         -- edestruct IHo2; eauto.
 Qed.
 
-Lemma remove_list_sub_weaken : forall lst dlt b,
+Lemma remove_list_sub_weaken : forall dlt lst b,
     In b (remove_list_sub dlt lst) -> In b lst.
-Admitted.
+Proof.
+  induction dlt; simpl; intros; auto.
+  apply IHdlt in H.
+  apply In_remove_aux in H; auto.
+Qed.  
 
 Lemma remove_list_sub_removed : forall lst dlt b,
     NoDup lst ->
