@@ -1456,7 +1456,13 @@ Admitted.
 Lemma In_remove_aux : forall lst x a,
     In x (remove_aux lst a) ->
     In x lst.
-Admitted.     
+Proof.
+  induction lst; simpl; intros; auto.
+  destruct andb eqn: eq_cond; simpl.
+  - right; auto.
+  - destruct H; auto. right.
+    apply IHlst with (a := a0). auto.
+Qed.
 
 Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
     NoDup (List.map block_blockid lst) -> 
