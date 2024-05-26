@@ -1592,27 +1592,6 @@ Proof.
   exists b.
   split; auto.
 Qed.
-    
-Lemma disjoint_dlt : forall o lvl dlt lst p,
-    disjoint_list
-      (List.map block_blockid (get_all_blks_tree o))
-      (List.map block_blockid lst) -> 
-    disjoint_list
-      (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p)))
-      (List.map block_blockid (remove_list_sub dlt lst)).
-Admitted.
-
-Lemma get_write_back_blocks_subset : forall lst p lvl pos_map,
-    subset_rel (get_write_back_blocks p lst 4 lvl pos_map) lst.
-Proof.
-  unfold subset_rel.
-  intros.
-  unfold get_write_back_blocks in H.
-  destruct (length lst); try contradiction.
-  apply takeL_in in H.
-  apply subset_rel_get_cand_bs in H.
-  auto.
-Qed.
 
 Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
   In id (List.map block_blockid (get_all_blks_tree
@@ -1644,6 +1623,92 @@ Proof.
           try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
         -- edestruct IHo1; eauto.
         -- edestruct IHo2; eauto.
+Qed.
+
+Lemma remove_list_sub_weaken : forall lst dlt b,
+    In b (remove_list_sub dlt lst) -> In b lst.
+Admitted.
+
+Lemma remove_list_sub_removed : forall lst dlt b,
+    NoDup lst ->
+    In b (remove_list_sub dlt lst) ->
+    ~ In b dlt.
+Admitted.
+
+Lemma NoDup_map_inj {A B} : forall (f : A -> B) l,
+  NoDup (List.map f l) ->
+  inj_on_list l f.
+Proof.
+  unfold inj_on_list.
+  induction l; intros nd_fl x y Hx Hy Hxy.
+  - destruct Hx.
+  - destruct Hx.
+    + destruct Hy; try congruence.
+      simpl in nd_fl.
+      rewrite NoDup_cons_iff in nd_fl.
+      destruct nd_fl as [Hfa nd].
+      elim Hfa.
+      rewrite H.
+      rewrite Hxy.
+      now apply in_map.
+    + destruct Hy.
+      * simpl in nd_fl; inversion nd_fl.
+        elim H3.
+        rewrite H0.
+        rewrite <- Hxy.
+        now apply in_map.
+      * eapply IHl; eauto.
+        now inversion nd_fl.
+Qed.
+
+Lemma disjoint_dlt : forall o lvl dlt lst p,
+    NoDup (List.map block_blockid lst) ->
+    subset_rel dlt lst ->
+    disjoint_list
+      (List.map block_blockid (get_all_blks_tree o))
+      (List.map block_blockid lst) -> 
+    disjoint_list
+      (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p)))
+      (List.map block_blockid (remove_list_sub dlt lst)).
+Proof.
+  intros.
+  intros id [Hid1 Hid2].
+  apply up_oram_tr_tree_or_delta in Hid1.
+  destruct Hid1 as [Hid1|Hid1].
+  - apply (H1 id); split; auto.
+    rewrite in_map_iff in Hid2.
+    destruct Hid2 as [b [Hb1 Hb2]].
+    apply remove_list_sub_weaken in Hb2.
+    rewrite <- Hb1.
+    apply in_map; auto.
+  - rewrite in_map_iff in Hid1.
+    destruct Hid1 as [b [Hb1 Hb2]].
+    unfold subset_rel in H0.
+    rewrite in_map_iff in Hid2.
+    destruct Hid2 as [c [Hc1 Hc2]].
+    assert (b = c).
+    { apply H0 in Hb2.
+      apply remove_list_sub_weaken in Hc2.
+      apply NoDup_map_inj in H.
+      unfold inj_on_list in H.
+      apply (H b c); auto.
+      rewrite Hc1; auto.
+    }
+    subst.
+    apply remove_list_sub_removed in Hc2; auto.
+    eapply NoDup_map_inv; eauto.
+Qed.
+  
+Lemma get_write_back_blocks_subset : forall lst p lvl pos_map,
+    subset_rel (get_write_back_blocks p lst 4 lvl pos_map) lst.
+Proof.
+  unfold subset_rel.
+  intros.
+  unfold get_write_back_blocks in H.
+  destruct (length lst); try contradiction.
+  apply takeL_in in H.
+  apply subset_rel_get_cand_bs in H.
+  auto.
 Qed.
     
 Lemma in_up_oram_tr id o lvl dlt p p' :
@@ -1698,7 +1763,8 @@ Proof.
     + apply NoDup_get_write_back_blocks. auto.
     + eapply disjoint_weaken2; eauto.
       apply get_write_back_blocks_subset.
-  - apply disjoint_dlt. auto.
+  - apply disjoint_dlt; auto.
+    + apply get_write_back_blocks_subset.
   - apply up_oram_tr_preserves_pb; auto.
   - intros id Hid.
     pose proof (Hid2 := Hid).
@@ -2163,32 +2229,6 @@ Proof.
   }
   subst.
   apply (H a'); tauto.
-Qed.
-
-Lemma NoDup_map_inj {A B} : forall (f : A -> B) l,
-  NoDup (List.map f l) ->
-  inj_on_list l f.
-Proof.
-  unfold inj_on_list.
-  induction l; intros nd_fl x y Hx Hy Hxy.
-  - destruct Hx.
-  - destruct Hx.
-    + destruct Hy; try congruence.
-      simpl in nd_fl.
-      rewrite NoDup_cons_iff in nd_fl.
-      destruct nd_fl as [Hfa nd].
-      elim Hfa.
-      rewrite H.
-      rewrite Hxy.
-      now apply in_map.
-    + destruct Hy.
-      * simpl in nd_fl; inversion nd_fl.
-        elim H3.
-        rewrite H0.
-        rewrite <- Hxy.
-        now apply in_map.
-      * eapply IHl; eauto.
-        now inversion nd_fl.
 Qed.
 
 Lemma inj_on_list_app : forall {A B} (l1 l2 : list A) (f : A -> B),
