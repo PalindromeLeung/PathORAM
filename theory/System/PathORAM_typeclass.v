@@ -1506,7 +1506,16 @@ Admitted.
 
 Lemma NoDup_takeL {A} : forall n (l : list A),
     NoDup l -> NoDup (takeL n l).
-Admitted.
+Proof.
+  induction n; simpl; intros; try contradiction.
+  apply NoDup_nil.
+  destruct l; simpl.
+  - apply NoDup_nil.
+  - simpl; apply NoDup_cons_iff; split.
+    + intro pf.
+      apply takeL_in in pf. inversion H. contradiction.
+    + apply IHn. inversion H; auto.
+Qed.
 
 Lemma subset_rel_get_cand_bs : forall lst p lvl pos_map,
     subset_rel (get_cand_bs lst p lvl pos_map) lst.
@@ -2801,5 +2810,4 @@ Proof.
 Qed.
 
 End PORAM.
-Check PathORAM_simulates_RAM.
 Print Assumptions PathORAM_simulates_RAM.
