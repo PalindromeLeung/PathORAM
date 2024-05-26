@@ -1510,8 +1510,17 @@ Admitted.
 
 Lemma subset_rel_get_cand_bs : forall lst p lvl pos_map,
     subset_rel (get_cand_bs lst p lvl pos_map) lst.
-Admitted. 
-  
+Proof.
+  unfold subset_rel.
+  intros.
+  induction lst; simpl in *; auto.
+  destruct isEqvPath eqn:p_cond.
+  - inversion H.
+    + left; auto.
+    + right; apply IHlst; auto.
+  - right. apply IHlst; auto.
+Qed.
+
 Lemma NoDup_get_write_back_blocks : forall lst p lvl pos_map, 
   NoDup (List.map block_blockid lst) ->
   NoDup (List.map block_blockid 
