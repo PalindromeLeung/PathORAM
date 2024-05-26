@@ -1508,7 +1508,18 @@ Admitted.
 Lemma up_oram_tr_preserves_pb : forall o lvl dlt p n,
     is_p_b_tr o n ->
     is_p_b_tr (up_oram_tr o lvl dlt p) n.
-Admitted.
+Proof.
+  induction o; simpl; intros; auto.
+  destruct lvl; simpl; auto.
+  destruct p; simpl; auto.
+  destruct b; simpl; auto.
+  destruct n; simpl; auto.
+  - split; try tauto.
+    apply IHo1; tauto.
+  - destruct n; simpl; auto.
+    +  split; try tauto.
+       apply IHo2; tauto.
+Qed.
 
 Lemma disjoint_weaken2 : forall o dlt lst, 
     disjoint_list
