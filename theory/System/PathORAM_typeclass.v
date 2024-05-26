@@ -1653,14 +1653,26 @@ Lemma in_up_oram_tr id o lvl dlt p p' :
 Proof.
 Admitted.
 
-Lemma get_write_back_blocks_pos_map id p stash lvl pos_map :
+Lemma get_write_back_blocks_pos_map : forall id p stsh lvl pos_map,
   In id (List.map block_blockid
-    (get_write_back_blocks p stash 4 lvl pos_map)) ->
+    (get_write_back_blocks p stsh 4 lvl pos_map)) ->
   let p' := lookup_dict (makeBoolList false LOP) id pos_map in
   isEqvPath p p' lvl = true.
 Proof.
-Admitted.
-
+  intros.
+  unfold p'.
+  rewrite in_map_iff in H.
+  destruct H as [b [Hb1 Hb2]].
+  unfold get_write_back_blocks in Hb2.
+  destruct (length stsh); auto.
+  apply takeL_in in Hb2.
+  induction stsh; simpl in *; auto.
+  destruct isEqvPath eqn:p_cond; auto.
+  destruct Hb2; auto.
+  rewrite H in p_cond.
+  rewrite Hb1 in p_cond; auto.
+Qed.
+      
 Lemma isEqvPath_lookup_path_oram id o lvl dlt p p' :
   In id (List.map block_blockid dlt) ->
   isEqvPath p p' lvl = true ->
