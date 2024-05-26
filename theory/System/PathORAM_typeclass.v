@@ -1633,12 +1633,31 @@ Proof.
   apply In_remove_aux in H; auto.
 Qed.  
 
-Lemma remove_list_sub_removed : forall lst dlt b,
+Lemma remove_aux_removed : forall lst b,
+    NoDup lst ->
+    ~ In b (remove_aux lst b).
+Proof.
+Admitted.
+
+Lemma NoDup_remove_aux_general : forall lst b,
+    NoDup lst ->
+    NoDup (remove_aux lst b).
+Proof.
+Admitted.
+
+Lemma remove_list_sub_removed : forall dlt lst b,
     NoDup lst ->
     In b (remove_list_sub dlt lst) ->
     ~ In b dlt.
-Admitted.
-
+Proof.
+  induction dlt; intros; simpl in *; auto.
+  intros [ | in_cond]; subst.
+  - apply remove_list_sub_weaken in H0.
+    apply remove_aux_removed in H0; auto.    
+  - apply IHdlt in H0; auto.
+    apply NoDup_remove_aux_general; auto.
+Qed.    
+    
 Lemma NoDup_map_inj {A B} : forall (f : A -> B) l,
   NoDup (List.map f l) ->
   inj_on_list l f.
