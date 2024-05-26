@@ -1614,14 +1614,38 @@ Proof.
   auto.
 Qed.
 
-Lemma up_oram_tr_tree_or_delta id o lvl dlt p :
+Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
   In id (List.map block_blockid (get_all_blks_tree
     (up_oram_tr o lvl dlt p))) ->
   In id (List.map block_blockid (get_all_blks_tree o)) \/
   In id (List.map block_blockid dlt).
 Proof.
-Admitted.
-
+  induction o; simpl; intros; auto.
+  destruct payload; simpl.
+  - destruct lvl; simpl in *.
+    + repeat rewrite map_app in *.
+      repeat rewrite in_app_iff in *.
+      tauto.
+    + destruct p; simpl in *.
+      * repeat rewrite map_app in *.
+        left. auto.
+      * destruct b0; simpl in *; try repeat rewrite map_app in *;
+          try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
+        -- edestruct IHo1; eauto.
+        -- edestruct IHo2; eauto.
+  - destruct lvl; simpl in *.
+    + repeat rewrite map_app in *.
+      repeat rewrite in_app_iff in *.
+      tauto.
+    + destruct p; simpl in *.
+      * repeat rewrite map_app in *.
+        left. auto.
+      * destruct b; simpl in *; try repeat rewrite map_app in *;
+          try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
+        -- edestruct IHo1; eauto.
+        -- edestruct IHo2; eauto.
+Qed.
+    
 Lemma in_up_oram_tr id o lvl dlt p p' :
   In id (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p'))) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
