@@ -1464,6 +1464,37 @@ Lemma get_write_back_blocks_subset : forall lst p lvl pos_map,
     subset_rel (get_write_back_blocks p lst 4 lvl pos_map) lst.
 Admitted.
 
+Lemma up_oram_tr_tree_or_delta id o lvl dlt p :
+  In id (List.map block_blockid (get_all_blks_tree
+    (up_oram_tr o lvl dlt p))) ->
+  In id (List.map block_blockid (get_all_blks_tree o)) \/
+  In id (List.map block_blockid dlt).
+Proof.
+Admitted.
+
+Lemma in_up_oram_tr id o lvl dlt p p' :
+  In id (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p'))) ->
+  In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
+  In id (List.map block_blockid (concat (lookup_path_oram (up_oram_tr o lvl dlt p') p))).
+Proof.
+Admitted.
+
+Lemma get_write_back_blocks_pos_map id p stash lvl pos_map :
+  In id (List.map block_blockid
+    (get_write_back_blocks p stash 4 lvl pos_map)) ->
+  let p' := lookup_dict (makeBoolList false LOP) id pos_map in
+  isEqvPath p p' lvl = true.
+Proof.
+Admitted.
+
+Lemma isEqvPath_lookup_path_oram id o lvl dlt p p' :
+  In id (List.map block_blockid dlt) ->
+  isEqvPath p p' lvl = true ->
+  In id (List.map block_blockid
+    (concat (lookup_path_oram
+      (up_oram_tr o lvl dlt p) p'))).
+Admitted.
+
 Lemma blocks_selection_wf : forall
   (p : path) (lvl : nat) (s : state),
   well_formed s ->
@@ -1483,9 +1514,18 @@ Proof.
       apply get_write_back_blocks_subset.
   - apply disjoint_dlt. auto.
   - apply up_oram_tr_preserves_pb; auto.
-  - admit.
+  - intros id Hid.
+    pose proof (Hid2 := Hid).
+    apply up_oram_tr_tree_or_delta in Hid2.
+    destruct Hid2 as [Hid2|Hid2].
+    (* in old tree *)
+    + apply blk_in_path_in_tree0 in Hid2.
+      apply in_up_oram_tr; auto.
+    (* in delta *)
+    + apply isEqvPath_lookup_path_oram; auto.
+      eapply get_write_back_blocks_pos_map; eauto.
   - auto.
-Admitted.
+Qed.
 
 Lemma write_back_wf : forall (step start : nat) (s : state) (p : path), 
   length p = LOP ->
