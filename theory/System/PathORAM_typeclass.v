@@ -1637,13 +1637,35 @@ Lemma remove_aux_removed : forall lst b,
     NoDup lst ->
     ~ In b (remove_aux lst b).
 Proof.
-Admitted.
-
+  induction lst; simpl; intros; auto.
+  destruct andb eqn: eq_cond.
+  - intro bp.
+    rewrite andb_true_iff in eq_cond.
+    destruct eq_cond.
+    repeat rewrite Nat.eqb_eq in *.
+    assert (a = b) by (destruct a,b; simpl in *; congruence).
+    subst.
+    inversion H; auto.
+  - intros [ | in_cond ]; subst.
+    + repeat rewrite Nat.eqb_refl in eq_cond; discriminate.
+    + eapply IHlst; eauto.
+      inversion H; auto.
+Qed.
+    
 Lemma NoDup_remove_aux_general : forall lst b,
     NoDup lst ->
     NoDup (remove_aux lst b).
 Proof.
-Admitted.
+  induction lst; simpl; intros; auto.
+  destruct andb eqn: eq_cond.
+  - inversion H; auto.
+  - constructor.
+    + intro pf.
+      apply In_remove_aux in pf.
+      inversion H; auto.
+    + apply IHlst.
+      inversion H; auto.
+Qed.
 
 Lemma remove_list_sub_removed : forall dlt lst b,
     NoDup lst ->
