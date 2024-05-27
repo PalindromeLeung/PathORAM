@@ -1970,13 +1970,18 @@ Proof.
   rewrite H in p_cond.
   rewrite Hb1 in p_cond; auto.
 Qed.
-      
-Lemma isEqvPath_lookup_path_oram id o lvl dlt p p' :
-  In id (List.map block_blockid dlt) ->
-  isEqvPath p p' lvl = true ->
-  In id (List.map block_blockid
-    (concat (lookup_path_oram
-      (up_oram_tr o lvl dlt p) p'))).
+
+Lemma isEqvPath_lookup_path_oram : forall o n id lvl dlt p p',
+    is_p_b_tr o (S n) ->
+    length p = n ->
+    length p' = n ->
+    (lvl < n)%nat ->
+    In id (List.map block_blockid dlt) ->
+    isEqvPath p p' lvl = true ->
+    In id (List.map block_blockid
+             (concat (lookup_path_oram
+                        (up_oram_tr o lvl dlt p) p'))).
+Proof.
 Admitted.
 
 Lemma blocks_selection_wf : forall
@@ -2007,7 +2012,7 @@ Proof.
     + apply blk_in_path_in_tree0 in Hid2.
       apply in_up_oram_tr; auto.
     (* in delta *)
-    + apply isEqvPath_lookup_path_oram; auto.
+    + apply isEqvPath_lookup_path_oram with (n := LOP); auto.
       eapply get_write_back_blocks_pos_map; eauto.
   - auto.
 Qed.
