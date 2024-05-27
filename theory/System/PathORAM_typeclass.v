@@ -1489,6 +1489,94 @@ Proof.
     apply NoDup_remove_aux; auto.
 Qed.
 
+Lemma NoDup_disjointness: forall {A B} (l1 : list A) (l2 : list A) (f : A -> B) ,
+    NoDup (List.map f l1) ->
+    NoDup (List.map f l2) ->
+    disjoint_list (List.map f l1) (List.map f l2) ->
+    NoDup (List.map f (l1 ++ l2)).
+Proof.
+  induction l1; intros; simpl; auto.
+  apply NoDup_cons.
+  - intro. rewrite map_app in H2.
+    apply in_app_or in H2.
+    destruct H2.
+    + inversion H. contradiction.
+    + apply (H1 (f a)). split; auto. left. reflexivity.
+  - apply IHl1; auto.
+    + inversion H. auto.
+    + intro. intro. unfold disjoint_list in H1.
+      apply (H1 a0).
+      destruct H2.
+      split; auto.
+      right. auto.
+Qed. 
+
+Lemma NoDup_app_disj : forall {A} (l1 l2 : list A),
+    NoDup (l1 ++ l2) ->
+    disjoint_list l1 l2.
+Proof.
+  induction l1; intros; simpl in *.
+  -  unfold disjoint_list.
+     intro. intro.
+     destruct H0.
+     contradiction.
+  - intro. intro.
+    destruct H0.
+    destruct H0.
+    + rewrite H0 in H.
+      inversion H.
+      apply H4.
+      apply in_or_app.
+      right; auto.
+    + unfold disjoint_list in IHl1.
+      unfold not in IHl1.
+      apply IHl1 with (a := a0)(l2 := l2).
+      inversion H; auto.
+      split; auto.
+Qed.
+
+Lemma NoDup_app_remove_mid : forall (A : Type) (l2 l1 l3 : list A) ,
+    NoDup (l1 ++ l2 ++ l3) -> NoDup (l1 ++ l3).
+Proof.
+  induction l2; intros.
+  - exact H.
+  - apply IHl2.
+    eapply NoDup_remove_1.
+    exact H.
+Qed.    
+
+Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
+  In id (List.map block_blockid (get_all_blks_tree
+    (up_oram_tr o lvl dlt p))) ->
+  In id (List.map block_blockid (get_all_blks_tree o)) \/
+  In id (List.map block_blockid dlt).
+Proof.
+  induction o; simpl; intros; auto.
+  destruct payload; simpl.
+  - destruct lvl; simpl in *.
+    + repeat rewrite map_app in *.
+      repeat rewrite in_app_iff in *.
+      tauto.
+    + destruct p; simpl in *.
+      * repeat rewrite map_app in *.
+        left. auto.
+      * destruct b0; simpl in *; try repeat rewrite map_app in *;
+          try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
+        -- edestruct IHo1; eauto.
+        -- edestruct IHo2; eauto.
+  - destruct lvl; simpl in *.
+    + repeat rewrite map_app in *.
+      repeat rewrite in_app_iff in *.
+      tauto.
+    + destruct p; simpl in *.
+      * repeat rewrite map_app in *.
+        left. auto.
+      * destruct b; simpl in *; try repeat rewrite map_app in *;
+          try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
+        -- edestruct IHo1; eauto.
+        -- edestruct IHo2; eauto.
+Qed.
+
 Lemma NoDup_up_oram_tree : forall o dlt lvl p,
     NoDup (List.map block_blockid dlt) ->
     NoDup (List.map block_blockid (get_all_blks_tree o)) -> 
@@ -1497,8 +1585,128 @@ Lemma NoDup_up_oram_tree : forall o dlt lvl p,
     NoDup
     (List.map block_blockid
        (get_all_blks_tree (up_oram_tr o lvl dlt p))).
-Admitted.
-
+Proof.
+  induction o; simpl; intros; auto.
+  destruct lvl; simpl; auto.
+  - destruct payload; simpl; auto.
+    + apply NoDup_disjointness; auto.
+      * repeat rewrite map_app in *.
+        apply NoDup_app_remove_l in H0; auto.
+      * intros id [Hid1 Hid2].
+        apply (H1 id); split; auto.
+        rewrite map_app.
+        apply in_or_app; auto.
+    + apply NoDup_disjointness; auto.
+      * repeat rewrite map_app in *.
+        intros id [Hid1 Hid2].
+        apply (H1 id); split; auto.
+  - destruct p; simpl; auto.
+    destruct b; simpl; auto.
+    destruct payload; simpl; auto.
+    + apply NoDup_disjointness; auto.
+      * repeat rewrite map_app in H0.
+        apply NoDup_app_remove_r in H0; auto.
+      * apply NoDup_disjointness.
+        -- apply IHo1; auto.
+           ++ repeat rewrite map_app in *.
+              apply NoDup_app_remove_l in H0; auto.
+              apply NoDup_app_remove_r in H0; auto.
+           ++ intros id [Hid1 Hid2].
+              apply (H1 id); split; auto.
+              repeat rewrite map_app.
+              apply in_or_app; right.
+              apply in_or_app; auto.
+        -- repeat rewrite map_app in H0.
+           do 2 apply NoDup_app_remove_l in H0; auto.
+        -- intros id [Hid1 Hid2].
+           apply up_oram_tr_tree_or_delta in Hid1.
+           destruct Hid1 as [Hid1|Hid1].
+           ++ repeat rewrite map_app in H0.
+              apply NoDup_app_remove_l in H0.
+              apply NoDup_app_disj in H0.
+              apply (H0 id); split; auto.
+           ++ apply (H1 id); split; auto.
+              repeat rewrite map_app.
+              apply in_or_app.
+              right.
+              apply in_or_app. auto.
+      * intros id [Hid1 Hid2].
+        repeat rewrite map_app in *.
+        apply in_app_or in Hid2; destruct Hid2 as [Hid2|Hid2].
+        -- apply up_oram_tr_tree_or_delta in Hid2; destruct Hid2 as [Hid2|Hid2].
+           ++ apply NoDup_app_disj in H0.
+              apply (H0 id); split; auto.
+              apply in_or_app; auto.
+           ++ apply (H1 id); split; auto.
+              apply in_or_app; left; auto.
+        -- apply NoDup_app_disj in H0.
+           apply (H0 id); split; auto.
+           apply in_or_app; right; auto.
+    + apply NoDup_disjointness.
+      * apply IHo1; auto.
+        -- rewrite map_app in H0.
+           apply NoDup_app_remove_r in H0; auto.
+        -- intros id [Hid1 Hid2].
+           apply (H1 id); split; auto.
+           rewrite map_app.
+           apply in_or_app; left; auto.
+      * rewrite map_app in H0.
+        apply NoDup_app_remove_l in H0; auto.
+      * intros id [Hid1 Hid2].
+        apply up_oram_tr_tree_or_delta in Hid1; destruct Hid1 as [Hid1|Hid1].
+        -- rewrite map_app in H0.
+           apply NoDup_app_disj in H0.
+           apply (H0 id); split; auto.
+        -- apply (H1 id); split; auto.
+           rewrite map_app.
+           apply in_or_app; right; auto.
+    + destruct payload.
+      * repeat rewrite map_app in H0, H1.
+        apply NoDup_disjointness.
+        -- apply NoDup_app_remove_r in H0; auto.
+        -- apply NoDup_app_remove_l in H0.
+           apply NoDup_disjointness.
+           ++ apply NoDup_app_remove_r in H0; auto.
+           ++ apply IHo2; auto.
+              ** apply NoDup_app_remove_l in H0; auto.
+              ** intros id [Hid1 Hid2].
+                 apply (H1 id); split; auto.
+                 apply in_or_app; right.
+                 apply in_or_app; right; auto.
+           ++ intros id [Hid1 Hid2].
+              apply up_oram_tr_tree_or_delta in Hid2; destruct Hid2 as [Hid2|Hid2].
+              ** apply NoDup_app_disj in H0.
+                 apply (H0 id); split; auto.
+              ** apply (H1 id); split; auto.
+                 apply in_or_app; right.
+                 apply in_or_app; left; auto.
+        -- intros id [Hid1 Hid2].
+           apply NoDup_app_disj in H0.
+           rewrite map_app in Hid2.
+           apply in_app_or in Hid2; destruct Hid2 as [Hid2|Hid2].
+           ++ apply (H0 id); split; auto.
+              apply in_or_app; left; auto.
+           ++ apply up_oram_tr_tree_or_delta in Hid2; destruct Hid2 as [Hid2|Hid2].
+              ** apply (H0 id); split; auto.
+                 apply in_or_app; right; auto.
+              ** apply (H1 id); split; auto.
+                 apply in_or_app; left; auto.           
+      * repeat rewrite map_app in H0, H1.
+        apply NoDup_disjointness.
+        -- apply NoDup_app_remove_r in H0; auto.
+        -- apply IHo2; auto.
+           ++ apply NoDup_app_remove_l in H0; auto.
+           ++ intros id [Hid1 Hid2].
+              apply (H1 id); split; auto.
+              apply in_or_app; right; auto.
+        -- intros id [Hid1 Hid2].
+           apply up_oram_tr_tree_or_delta in Hid2; destruct Hid2 as [Hid2|Hid2].
+           ++ apply NoDup_app_disj in H0.
+              apply (H0 id); split; auto.
+           ++ apply (H1 id); split; auto.
+              apply in_or_app; left; auto.
+Qed.
+    
 Lemma map_takeL {A B} (f : A -> B) : forall n l,
     List.map f (takeL n l) = takeL n (List.map f l).
 Proof.
@@ -1591,38 +1799,6 @@ Proof.
   destruct Hid2 as [b [Hb1 Hb2]].
   exists b.
   split; auto.
-Qed.
-
-Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
-  In id (List.map block_blockid (get_all_blks_tree
-    (up_oram_tr o lvl dlt p))) ->
-  In id (List.map block_blockid (get_all_blks_tree o)) \/
-  In id (List.map block_blockid dlt).
-Proof.
-  induction o; simpl; intros; auto.
-  destruct payload; simpl.
-  - destruct lvl; simpl in *.
-    + repeat rewrite map_app in *.
-      repeat rewrite in_app_iff in *.
-      tauto.
-    + destruct p; simpl in *.
-      * repeat rewrite map_app in *.
-        left. auto.
-      * destruct b0; simpl in *; try repeat rewrite map_app in *;
-          try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
-        -- edestruct IHo1; eauto.
-        -- edestruct IHo2; eauto.
-  - destruct lvl; simpl in *.
-    + repeat rewrite map_app in *.
-      repeat rewrite in_app_iff in *.
-      tauto.
-    + destruct p; simpl in *.
-      * repeat rewrite map_app in *.
-        left. auto.
-      * destruct b; simpl in *; try repeat rewrite map_app in *;
-          try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
-        -- edestruct IHo1; eauto.
-        -- edestruct IHo2; eauto.
 Qed.
 
 Lemma remove_list_sub_weaken : forall dlt lst b,
@@ -1755,14 +1931,26 @@ Proof.
   apply subset_rel_get_cand_bs in H.
   auto.
 Qed.
-    
-Lemma in_up_oram_tr id o lvl dlt p p' :
+
+Lemma path_eqv : forall p p' lvl,
+    isEqvPath p p' lvl = true <-> p = p'.
+Admitted.
+
+Lemma in_up_oram_tr : forall o id lvl dlt p p', 
   In id (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p'))) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
   In id (List.map block_blockid (concat (lookup_path_oram (up_oram_tr o lvl dlt p') p))).
 Proof.
-Admitted.
-
+  induction o; intros; auto.
+  destruct (isEqvPath p p' lvl) eqn : pEq_cond.
+  - (* p p' are the same *)
+    rewrite path_eqv in pEq_cond.
+    repeat rewrite <- pEq_cond in *.
+    admit.
+  - (* p p' are different *)
+    admit.
+Admitted.     
+      
 Lemma get_write_back_blocks_pos_map : forall id p stsh lvl pos_map,
   In id (List.map block_blockid
     (get_write_back_blocks p stsh 4 lvl pos_map)) ->
@@ -1942,62 +2130,6 @@ Proof.
   unfold get_post_wb_st.
   apply write_back_in_stash_kv_rel; simpl; auto. 
 Qed.
-
-Lemma NoDup_disjointness: forall {A B} (l1 : list A) (l2 : list A) (f : A -> B) ,
-    NoDup (List.map f l1) ->
-    NoDup (List.map f l2) ->
-    disjoint_list (List.map f l1) (List.map f l2) ->
-    NoDup (List.map f (l1 ++ l2)).
-Proof.
-  induction l1; intros; simpl; auto.
-  apply NoDup_cons.
-  - intro. rewrite map_app in H2.
-    apply in_app_or in H2.
-    destruct H2.
-    + inversion H. contradiction.
-    + apply (H1 (f a)). split; auto. left. reflexivity.
-  - apply IHl1; auto.
-    + inversion H. auto.
-    + intro. intro. unfold disjoint_list in H1.
-      apply (H1 a0).
-      destruct H2.
-      split; auto.
-      right. auto.
-Qed. 
-
-Lemma NoDup_app_disj : forall {A} (l1 l2 : list A),
-    NoDup (l1 ++ l2) ->
-    disjoint_list l1 l2.
-Proof.
-  induction l1; intros; simpl in *.
-  -  unfold disjoint_list.
-     intro. intro.
-     destruct H0.
-     contradiction.
-  - intro. intro.
-    destruct H0.
-    destruct H0.
-    + rewrite H0 in H.
-      inversion H.
-      apply H4.
-      apply in_or_app.
-      right; auto.
-    + unfold disjoint_list in IHl1.
-      unfold not in IHl1.
-      apply IHl1 with (a := a0)(l2 := l2).
-      inversion H; auto.
-      split; auto.
-Qed.
-
-Lemma NoDup_app_remove_mid : forall (A : Type) (l2 l1 l3 : list A) ,
-    NoDup (l1 ++ l2 ++ l3) -> NoDup (l1 ++ l3).
-Proof.
-  induction l2; intros.
-  - exact H.
-  - apply IHl2.
-    eapply NoDup_remove_1.
-    exact H.
-Qed.    
 
 Lemma In_path_in_tree : forall o p id,
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
