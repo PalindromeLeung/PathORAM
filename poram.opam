@@ -4,6 +4,6 @@ build: [dune build]
 install: [dune install]
 depends: [
 	 "ocaml" {>= "4.13.0"}
-	 "coq"  {>= "8.17.1"}
+	 "coq"  {= "8.17.1"}
    "coq-ext-lib" {>= "0.12.1"}
 ]
