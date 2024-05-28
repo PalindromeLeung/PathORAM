@@ -1932,26 +1932,12 @@ Proof.
   auto.
 Qed.
 
-Lemma path_eqv : forall p p' lvl,
-    isEqvPath p p' lvl = true <-> p = p'.
-Admitted.
-
-Lemma in_up_oram_tr : forall o id lvl dlt p p', 
-  In id (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p'))) ->
-  In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
-  (* locate_node_in_tr o lvl p' = None -> *)
-  In id (List.map block_blockid (concat (lookup_path_oram (up_oram_tr o lvl dlt p') p))).
+Lemma in_up_oram_tr : forall o id lvl dlt p p',
+    NoDup (List.map block_blockid (get_all_blks_tree o)) ->
+    In id (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p'))) ->
+    In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
+    In id (List.map block_blockid (concat (lookup_path_oram (up_oram_tr o lvl dlt p') p))).
 Proof.
-(*
-  induction o; intros; auto.
-  destruct (isEqvPath p p' lvl) eqn : pEq_cond.
-  - (* p p' are the same *)
-    rewrite path_eqv in pEq_cond.
-    repeat rewrite <- pEq_cond in *.
-    admit.
-  - (* p p' are different *)
-    admit.
- *)
 Admitted.     
       
 Lemma get_write_back_blocks_pos_map : forall id p stsh lvl pos_map,
@@ -2026,7 +2012,6 @@ Lemma blocks_selection_wf : forall
   well_formed s ->
   length p = LOP ->
   (lvl < LOP)%nat ->
-  (*locate_node_in_tr (state_oram s) lvl p = None ->*)
   well_formed (blocks_selection p lvl s).
 Proof.
   intros.
@@ -2046,10 +2031,8 @@ Proof.
     pose proof (Hid2 := Hid).
     apply up_oram_tr_tree_or_delta in Hid2.
     destruct Hid2 as [Hid2|Hid2].
-    (* in old tree *)
     + apply blk_in_path_in_tree0 in Hid2.
       apply in_up_oram_tr; auto.      
-    (* in delta *)
     + apply isEqvPath_lookup_path_oram with (n := LOP); auto.
       eapply get_write_back_blocks_pos_map; eauto.
   - auto.
@@ -2059,14 +2042,12 @@ Lemma write_back_wf : forall (step start : nat) (s : state) (p : path),
   length p = LOP ->
   well_formed s ->
   Nat.le (start + step) LOP ->
-  (* (forall lvl, (lvl < start)%nat -> locate_node_in_tr (state_oram s) lvl p = None) -> *)
   well_formed (write_back_r start p step  s).
 Proof.
   induction step; intros.
   - exact H0.
   - apply blocks_selection_wf; auto; try lia.
-    + apply IHstep; auto; try lia.
-    (* + fold @iterate_right. *)
+    apply IHstep; auto; try lia.
 Qed.
 
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
