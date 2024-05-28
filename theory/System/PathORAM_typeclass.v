@@ -1932,14 +1932,171 @@ Proof.
   auto.
 Qed.
 
+Lemma In_path_in_tree : forall o p id,
+  In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
+  In id (List.map block_blockid (get_all_blks_tree o)). 
+Proof.
+  induction o; simpl; intros; auto.
+  destruct p. 
+  - destruct payload; simpl in *; auto.
+    + rewrite app_nil_r in H.
+      rewrite map_app.
+      apply in_or_app.
+      left; auto.
+    + contradiction.
+  - destruct b.
+    + destruct payload.
+      * simpl in H.
+        rewrite map_app in H.
+        apply in_app_or in H.
+        repeat rewrite map_app.
+        apply in_or_app.
+        destruct H.
+        -- left; auto.
+        -- right. apply in_or_app.
+           left. eapply IHo1; eauto.
+      * rewrite map_app. 
+        apply in_or_app.
+        left.
+        eapply IHo1; eauto.
+    + destruct payload.
+      * simpl in H.
+        rewrite map_app in H.
+        apply in_app_or in H.
+        repeat rewrite map_app.
+        apply in_or_app.
+        destruct H.
+        -- left; auto.
+        -- right. apply in_or_app.
+           right. eapply IHo2; eauto.
+      * rewrite map_app. 
+        apply in_or_app.
+        right.
+        eapply IHo2; eauto.
+Qed.
+
 Lemma in_up_oram_tr : forall o id lvl dlt p p',
     NoDup (List.map block_blockid (get_all_blks_tree o)) ->
     In id (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p'))) ->
     In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
     In id (List.map block_blockid (concat (lookup_path_oram (up_oram_tr o lvl dlt p') p))).
 Proof.
-Admitted.     
-      
+  induction o; simpl; intros; auto.
+  destruct lvl; simpl in *.
+  - destruct p; simpl in *.
+    + rewrite app_nil_r.
+      rewrite map_app in *.
+      apply in_app_or in H0.
+      destruct H0; auto.
+      destruct payload.
+      * simpl in H1.
+        rewrite app_nil_r in H1.
+        rewrite map_app in H.
+        apply NoDup_app_disj in H.
+        elim (H id); split; auto.
+      * destruct H1.
+    + destruct b; simpl; auto.
+      * destruct payload; simpl; repeat rewrite map_app in *.
+        -- apply in_app_or in H0.
+           destruct H0.
+           ++ apply in_or_app.
+              left; auto.
+           ++ simpl in H1.
+              rewrite map_app in *.
+              apply in_app_or in H1.
+              apply in_or_app.
+              destruct H1.
+              ** apply NoDup_app_disj in H.
+                 elim (H id); split; auto.
+              ** right; auto.
+        -- apply in_app_or in H0.
+           destruct H0.
+           ++ apply in_or_app.
+              left; auto.
+           ++ apply in_or_app.
+              right; auto.
+      * destruct payload; simpl; repeat rewrite map_app in *.
+        -- apply in_app_or in H0.
+           destruct H0.
+           ++ apply in_or_app.
+              left; auto.
+           ++ simpl in H1.
+              rewrite map_app in *.
+              apply in_app_or in H1.
+              apply in_or_app.
+              destruct H1.
+              ** apply NoDup_app_disj in H.
+                 elim (H id); split; auto.
+              ** right; auto.
+        -- apply in_app_or in H0.
+           destruct H0.
+           ++ apply in_or_app.
+              left; auto.
+           ++ apply in_or_app.
+              right; auto.
+  - destruct p; simpl; auto.
+    + destruct p'; simpl.
+      * destruct payload; simpl in *; auto.
+      * destruct b; simpl in *; auto.
+    + destruct p'; simpl in *; auto.
+      destruct b; simpl in *; auto.
+      * destruct b0; simpl in *; auto.
+        destruct payload; simpl in *; auto; repeat rewrite map_app in *.
+        -- apply in_or_app.
+           apply in_app_or in H1.
+           destruct H1.
+           ++ left. auto.
+           ++ right. apply IHo1; auto.
+              ** apply NoDup_app_remove_l in H.
+                 apply NoDup_app_remove_r in H; auto.
+              ** apply in_app_or in H0.
+                 destruct H0.
+                 --- apply In_path_in_tree in H1.
+                     apply NoDup_app_disj in H.
+                     elim (H id); split; auto.
+                     apply in_or_app; left; auto.
+                 --- apply in_app_or in H0.
+                     destruct H0; auto.
+                     apply NoDup_app_remove_l in H.
+                     apply NoDup_app_disj in H.
+                     elim (H id); split; auto.
+                     apply In_path_in_tree in H1; auto.
+        -- apply IHo1; auto.
+           ++ apply NoDup_app_remove_r in H; auto.
+           ++ apply in_app_or in H0.
+              destruct H0; auto.
+              apply NoDup_app_disj in H.
+              elim (H id); split; auto.
+              apply In_path_in_tree in H1; auto.
+      * destruct b0; simpl in *; auto.
+        destruct payload; simpl in *; auto; repeat rewrite map_app in *.
+        -- apply in_or_app.
+           apply in_app_or in H1.
+           destruct H1.
+           ++ left. auto.
+           ++ right. apply IHo2; auto.
+              ** do 2 apply NoDup_app_remove_l in H; auto.
+              ** apply in_app_or in H0.
+                 destruct H0.
+                 --- apply In_path_in_tree in H1.
+                     apply NoDup_app_disj in H.
+                     elim (H id); split; auto.
+                     apply in_or_app; right; auto.
+                 --- apply in_app_or in H0.
+                     destruct H0; auto.
+                     apply NoDup_app_remove_l in H.
+                     apply NoDup_app_disj in H.
+                     elim (H id); split; auto.
+                     apply In_path_in_tree in H1; auto.
+        -- apply IHo2; auto.
+           ++ apply NoDup_app_remove_l in H; auto.
+           ++ apply in_app_or in H0.
+              destruct H0; auto.
+              apply NoDup_app_disj in H.
+              elim (H id); split; auto.
+              apply In_path_in_tree in H1; auto.
+Qed.
+        
 Lemma get_write_back_blocks_pos_map : forall id p stsh lvl pos_map,
   In id (List.map block_blockid
     (get_write_back_blocks p stsh 4 lvl pos_map)) ->
@@ -2155,49 +2312,6 @@ Proof.
   intros.
   unfold get_post_wb_st.
   apply write_back_in_stash_kv_rel; simpl; auto. 
-Qed.
-
-Lemma In_path_in_tree : forall o p id,
-  In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
-  In id (List.map block_blockid (get_all_blks_tree o)). 
-Proof.
-  induction o; simpl; intros; auto.
-  destruct p. 
-  - destruct payload; simpl in *; auto.
-    + rewrite app_nil_r in H.
-      rewrite map_app.
-      apply in_or_app.
-      left; auto.
-    + contradiction.
-  - destruct b.
-    + destruct payload.
-      * simpl in H.
-        rewrite map_app in H.
-        apply in_app_or in H.
-        repeat rewrite map_app.
-        apply in_or_app.
-        destruct H.
-        -- left; auto.
-        -- right. apply in_or_app.
-           left. eapply IHo1; eauto.
-      * rewrite map_app. 
-        apply in_or_app.
-        left.
-        eapply IHo1; eauto.
-    + destruct payload.
-      * simpl in H.
-        rewrite map_app in H.
-        apply in_app_or in H.
-        repeat rewrite map_app.
-        apply in_or_app.
-        destruct H.
-        -- left; auto.
-        -- right. apply in_or_app.
-           right. eapply IHo2; eauto.
-      * rewrite map_app. 
-        apply in_or_app.
-        right.
-        eapply IHo2; eauto.
 Qed.
 
 Lemma NoDup_path_oram : forall o p,
