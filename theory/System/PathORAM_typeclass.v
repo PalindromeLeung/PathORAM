@@ -1939,8 +1939,10 @@ Admitted.
 Lemma in_up_oram_tr : forall o id lvl dlt p p', 
   In id (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p'))) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
+  (* locate_node_in_tr o lvl p' = None -> *)
   In id (List.map block_blockid (concat (lookup_path_oram (up_oram_tr o lvl dlt p') p))).
 Proof.
+(*
   induction o; intros; auto.
   destruct (isEqvPath p p' lvl) eqn : pEq_cond.
   - (* p p' are the same *)
@@ -1949,6 +1951,7 @@ Proof.
     admit.
   - (* p p' are different *)
     admit.
+ *)
 Admitted.     
       
 Lemma get_write_back_blocks_pos_map : forall id p stsh lvl pos_map,
@@ -1982,13 +1985,48 @@ Lemma isEqvPath_lookup_path_oram : forall o n id lvl dlt p p',
              (concat (lookup_path_oram
                         (up_oram_tr o lvl dlt p) p'))).
 Proof.
-Admitted.
-
+  induction o; simpl; intros; auto.
+  destruct lvl; simpl; auto.
+  - destruct p'; simpl; auto.
+    + rewrite app_nil_r; auto.
+    + destruct b; simpl; rewrite map_app; apply in_or_app; left; auto.
+  - destruct p; simpl; auto.
+    + simpl in H0. lia.
+    + destruct b; simpl; auto.
+      * destruct p'; simpl; auto.
+        -- simpl in H1. lia.
+        -- destruct b; [|discriminate].
+           destruct payload.
+           ++ simpl.
+              rewrite map_app.
+              apply in_or_app; right.
+              destruct n as [|k]; [simpl in *; discriminate|].
+              destruct H.
+              apply IHo1 with (n := k); auto. lia.
+           ++ destruct n as [|k]; [simpl in *; discriminate|].
+              destruct H.
+              apply IHo1 with (n := k); auto. lia.
+      * destruct p'; simpl; auto.
+        -- simpl in H1. lia.
+        -- destruct b; [discriminate|].
+           destruct payload.
+           ++ simpl.
+              rewrite map_app.
+              apply in_or_app; right.
+              destruct n as [|k]; [simpl in *; discriminate|].
+              destruct H.
+              apply IHo2 with (n := k); auto. lia.
+           ++ destruct n as [|k]; [simpl in *; discriminate|].
+              destruct H.
+              apply IHo2 with (n := k); auto. lia.
+Qed.
+          
 Lemma blocks_selection_wf : forall
   (p : path) (lvl : nat) (s : state),
   well_formed s ->
   length p = LOP ->
   (lvl < LOP)%nat ->
+  (*locate_node_in_tr (state_oram s) lvl p = None ->*)
   well_formed (blocks_selection p lvl s).
 Proof.
   intros.
@@ -2010,7 +2048,7 @@ Proof.
     destruct Hid2 as [Hid2|Hid2].
     (* in old tree *)
     + apply blk_in_path_in_tree0 in Hid2.
-      apply in_up_oram_tr; auto.
+      apply in_up_oram_tr; auto.      
     (* in delta *)
     + apply isEqvPath_lookup_path_oram with (n := LOP); auto.
       eapply get_write_back_blocks_pos_map; eauto.
@@ -2020,13 +2058,15 @@ Qed.
 Lemma write_back_wf : forall (step start : nat) (s : state) (p : path), 
   length p = LOP ->
   well_formed s ->
-  Nat.le (start + step) LOP -> 
+  Nat.le (start + step) LOP ->
+  (* (forall lvl, (lvl < start)%nat -> locate_node_in_tr (state_oram s) lvl p = None) -> *)
   well_formed (write_back_r start p step  s).
 Proof.
   induction step; intros.
   - exact H0.
   - apply blocks_selection_wf; auto; try lia.
-    apply IHstep; auto; lia.
+    + apply IHstep; auto; try lia.
+    (* + fold @iterate_right. *)
 Qed.
 
 Lemma write_back_in_stash_kv_rel_aux : forall n s p id v start,
