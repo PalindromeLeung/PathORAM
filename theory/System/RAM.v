@@ -1,14 +1,31 @@
 Require Import Coq.Logic.Eqdep_dec.
 
-Module Type RAM.
-  (* TODO tweak to have monadic stuff 
-     so we can reference in the spec *)
+Module Type StateMonad.
+
+  Parameter State : forall (S X : Type), Type.
+
+  Parameter ret : forall {S X}, X -> State S X.
+
+  Parameter bind : forall {S X Y}, State S X -> (X -> State S Y) -> State S Y. 
+
+  Parameter get : forall {S}, State S S.
+
+  Parameter put : forall {S}, S -> State S unit.
+
+End StateMonad.
+
+Module Type RAM (M : StateMonad).
   Parameter K : Type.
   Parameter V : Type.
-  Parameter state : Type -> Type.
 
-  Parameter read : K -> state V.
-  Parameter write : K -> V -> state V.
+  (* Inner state, specific to implementation *)
+  Parameter St : Type.
+
+  (* Wrapped value type, specific to implementation *)
+  Parameter Vw : Type -> Type.
+
+  Parameter read : K -> M.State St (Vw V).
+  Parameter write : K -> V -> M.State St (Vw V).
 
   (* TODO laws
   Axiom read_read : ...

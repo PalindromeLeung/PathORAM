@@ -188,75 +188,90 @@ Qed.
 
 End Map.
 
-Module KV_RAM <: RAM.
+Module KV_State <: StateMonad.
+  Definition State S X := State S X.
 
-Parameter K : Type.
-Parameter V : Type.
-Context `{DecEq K}.
+  Definition ret {S} := @ret S.
+  Definition bind {S} := @bind S.
+  Definition get {S} := @get S.
+  Definition put {S} := @put S.
+End KV_State.
 
-Definition St : Type := Map K V.
-Definition state V := State St (option V).
+Module KV_RAM <: RAM (KV_State).
+  Import KV_State.
 
-Definition read (k : K) : State St (option V) :=
-  bind get (fun st =>
-  ret (lookup k st)).
+  Parameter K : Type.
+  Parameter V : Type.
+  Context `{DecEq K}.
 
-Definition write (k : K) (v : V) : State St (option V) :=
-  bind 
-    get 
-    (fun (st : Map K V) =>
-      bind
-        (put (insert k v st))
-        (fun _ => ret None)).
+  Definition St : Type := Map K V.
+  Definition Vw (V : Type) := option V.
 
-Definition write_and_read (k : K) (v : V) : State St (option V) :=
-  bind (write k v) (fun _ =>
-  read k).
+  Definition bind {X Y} := @bind St X Y.
+  Definition ret {X} := @ret St X.
+  Definition get := @get St.
+  Definition put := @put St.
 
-Lemma write_and_read_lemma (k : K) (v : V) :
-  state_lift
-    well_formed
-    well_formed
-    (eq (Some v))
-    (write_and_read k v).
-Proof.
-  apply (bind_lemma
-    (fun st => well_formed st /\ lookup k st = Some v)
-    (fun _ => True)).
-  - simpl.
-    apply (bind_lemma
+  Definition read (k : K) : State St (Vw V) :=
+    bind 
+      get
+      (fun st => ret (lookup k st)).
+
+  Definition write (k : K) (v : V) : State St (Vw V) :=
+    bind 
+      get 
+      (fun (st : Map K V) =>
+        bind
+          (put (insert k v st))
+          (fun _ => ret None)).
+
+  Definition write_and_read (k : K) (v : V) : State St (Vw V):=
+    bind (write k v) (fun _ => read k).
+
+  Lemma write_and_read_lemma (k : K) (v : V) :
+    state_lift
       well_formed
-      well_formed).
-    + apply get_lemma.
-    + intros st wf_st.
-      apply put_lemma.
-      split.
-      * apply well_formed_insert.
-        exact wf_st.
-      * apply lookup_insert.
-        exact wf_st.
-  - intros _ _.
-    apply (bind_lemma
       well_formed
-      (fun m => Some v = lookup k m)).
-    + apply (weaken_lemma
-        (fun st => well_formed st /\ lookup k st = Some v)
-        (fun st => well_formed st /\ lookup k st = Some v)).
-      * tauto.
-      * firstorder.
-      * apply get_lemma.
-    + intros st Hkv.
-      apply ret_lemma.
-      exact Hkv.
-Qed.
+      (eq (Some v))
+      (write_and_read k v).
+  Proof.
+    apply (bind_lemma
+      (fun st => well_formed st /\ lookup k st = Some v)
+      (fun _ => True)).
+    - simpl.
+      apply (bind_lemma
+        well_formed
+        well_formed).
+      + apply get_lemma.
+      + intros st wf_st.
+        apply put_lemma.
+        split.
+        * apply well_formed_insert.
+          exact wf_st.
+        * apply lookup_insert.
+          exact wf_st.
+    - intros _ _.
+      apply (bind_lemma
+        well_formed
+        (fun m => Some v = lookup k m)).
+      + apply (weaken_lemma
+          (fun st => well_formed st /\ lookup k st = Some v)
+          (fun st => well_formed st /\ lookup k st = Some v)).
+        * tauto.
+        * firstorder.
+        * apply get_lemma.
+      + intros st Hkv.
+        apply ret_lemma.
+        exact Hkv.
+  Qed.
 
-Theorem write_and_read_correct (k : K) (v : V) (s : St) :
-  well_formed s ->
-  fst (write_and_read k v s) = Some v.
-Proof.
-  intro wf_s.
-  destruct (write_and_read_lemma k v s wf_s) as [Hv _].
-  symmetry; exact Hv.
-Qed.
+  Theorem write_and_read_correct (k : K) (v : V) (s : St) :
+    well_formed s ->
+    fst (write_and_read k v s) = Some v.
+  Proof.
+    intro wf_s.
+    destruct (write_and_read_lemma k v s wf_s) as [Hv _].
+    symmetry; exact Hv.
+  Qed.
 
 End KV_RAM.
