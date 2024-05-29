@@ -12,14 +12,6 @@ Require Import POram.Utils.Lists.
 Require Import POram.Utils.Vectors.
 Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Distributions.
-(* Definition coin_flip' := uniform_dist (mk_n_list 2). *)
-
-(* How to disply the distribution?  *)
-
-(* Definition cond_dist {A}(p: event A) (d: dist A) : dist A := *)
-(*   norm_dist (Dist(filter_dist (dist_pmf d) p)). *)
-
-
 (*** PATH ORAM ***)
 
 (** 
@@ -84,6 +76,7 @@ Definition stash := list block.
 Definition bucket := list block.
 
 Variable LOP : nat.
+Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
 Inductive oram : Type :=
 | leaf
@@ -98,8 +91,6 @@ Fixpoint bound_pred (o : oram) (n : nat) : Prop :=
       | None => bound_pred g_l n /\ bound_pred g_r n
       end
   end.   
-
-Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
 Definition retT {S} {M} `{Monad M} {X} :
   X -> Poram_st S M X :=
@@ -266,8 +257,6 @@ Scheme Equality for list.
 Scheme Equality for prod.
 
 Definition isEqvPath (p1 p2 : path) (idx : nat) : bool := list_beq bool Bool.eqb  (takeL idx p1) (takeL idx p2).
-  
-
 
 Definition dummy_block : block := Block O O.
 
