@@ -958,35 +958,6 @@ Qed.
 Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
   forall x y, In x l -> In y l -> f x = f y -> x = y.
 
-Lemma NoDup_map:
-  forall A B (f: A -> B) (l: list A),
-  NoDup l -> 
-  inj_on_list l f -> 
-  NoDup (List.map f l).
-Proof.
-  intros A B f l.
-  induction l; intros.
-  - constructor.
-  - simpl; constructor.
-    + intro pf.
-      rewrite in_map_iff in pf.
-      destruct pf as [b [Hb1 Hb2]].
-      assert (a = b).
-      { apply H0.
-        * now left.
-        * now right.
-        * congruence.
-      }
-      subst.
-      inversion H; contradiction.
-    + apply IHl.
-      * inversion H; auto.
-      * intros x y Hx Hy Hxy.
-        apply H0; auto.
-        -- now right.
-        -- now right.
-Qed.
-
 Definition subset_rel {X} (sub lst : list X) : Prop :=
     forall x,
     In x sub ->
