@@ -10,4 +10,7 @@ _CoqProject
 _build
 *.v#
 .#*.v
+*.dpd
+*.png
+*.dot
 
