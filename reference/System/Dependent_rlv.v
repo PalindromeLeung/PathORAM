@@ -45,3 +45,22 @@ Proof.
     f_equal. apply fin_of_lt_irrel.
 Qed.
 (* --- END Talia's equivalent definition of nth to reuse later --- *)
+
+Require Import POram.System.PathORAM.
+Definition head_oram (o : oram) : option (list block) :=
+  match o with
+  | leaf => None
+  | node obkt _ _ => obkt
+  end.
+
+Definition tail_l_oram (o : oram) : oram :=
+  match o with
+  | leaf => leaf
+  | node  _ o_l _ => o_l
+  end.
+
+Definition tail_r_oram (o : oram) : oram :=
+  match o with
+  | leaf => leaf
+  | node _ _ o_r => o_r
+  end.
