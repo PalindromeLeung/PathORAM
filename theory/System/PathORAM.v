@@ -2104,9 +2104,6 @@ Proof.
   firstorder.
 Qed.
 
-Definition bid_in (l : list block) (x : block_id):=
-  In x (List.map block_blockid l).
-
 Lemma lookup_update_sameid : forall id m p_new, 
     lookup_dict
        (makeBoolList false LOP) id
