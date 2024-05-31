@@ -82,16 +82,6 @@ Inductive oram : Type :=
 | leaf
 | node (payload: option bucket) (o_l o_r : oram). 
 
-Fixpoint bound_pred (o : oram) (n : nat) : Prop :=
-  match o with 
-  | leaf => True
-  | node obkt g_l g_r =>
-      match obkt with
-      | Some bkt => (Nat.le (List.length bkt) n) /\ bound_pred g_l n /\ bound_pred g_r n
-      | None => bound_pred g_l n /\ bound_pred g_r n
-      end
-  end.   
-
 Definition retT {S} {M} `{Monad M} {X} :
   X -> Poram_st S M X :=
   fun x s => mreturn (x, s).
