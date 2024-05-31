@@ -19,7 +19,7 @@ Require Import POram.Utils.Distributions.
   A path ORAM with depth = 2 and bucket size = 3 looks like this:
 
   CLIENT
-  ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+2  ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 
   { ID ↦ PATH, …, ID ↦ PATH } ← POSITION MAP
   {BLOCK, …, BLOCK}           ← STASH
@@ -326,52 +326,6 @@ Fixpoint up_oram_tr (o : oram) (stop : nat) (d_n : bucket) :
         end
   end.
              
-(* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
-Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
-  match n with
-  | O =>
-    match v with
-    | Vector.nil _ => None
-    | Vector.cons _ h _ _ => Some h
-    end
-  | S p =>
-    match v with
-    | Vector.nil _ => None
-    | Vector.cons _ _ n1 t0 => nth_error_opt t0 p
-    end
-  end.
-
-Lemma nth_error_opt_some:
-  forall {A : Type} {m : nat} (v : Vector.t A m) (n : nat) (a : A),
-    nth_error_opt v n = Some a -> Nat.lt n m.
-Proof.
-  intros A m v n. revert A m v.
-  induction n; destruct v; intros; inversion H.
-  - auto with arith.
-  - specialize (IHn A n0 v a H1). auto with arith.
-Qed.
-
-Lemma fin_of_lt_irrel:
-  forall {m n : nat} (H1 H2 : Nat.lt n m), Fin.of_nat_lt H1 = Fin.of_nat_lt H2.
-Proof.
-  induction m; destruct n; intros; auto.
-  - inversion H1.
-  - inversion H1.
-  - simpl. f_equal. apply IHm.
-Qed.
-
-Lemma nth_error_OK:
-  forall {A : Type} {m : nat} (v : Vector.t A m) (n : nat) (a : A) (H : nth_error_opt v n = Some a),
-    nth_order v (nth_error_opt_some v n a H) = a.
-Proof.
-  intros A m v n. revert A m v. induction n; destruct v; intros; inversion H.
-  - subst. reflexivity.
-  - specialize (IHn A n0 v a H).
-    unfold nth_order in *. simpl in *. rewrite <- IHn. 
-    f_equal. apply fin_of_lt_irrel.
-Qed.
-(* --- END Talia's equivalent definition of nth to reuse later --- *)
-
 Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
@@ -884,11 +838,6 @@ Proof.
   apply calc_path_pos_map_same.
   symmetry.
   apply pos_map_stable_across_wb.
-Qed.
-
-Lemma takeL_nil : forall {X} n, @takeL X n [] = [].
-Proof.
-  induction n; simpl; auto.
 Qed.
 
 Lemma path_conversion : forall o lvl p p' b,
