@@ -2060,16 +2060,6 @@ Proof.
       * apply IHo2; auto. inversion H; auto.
 Qed.
 
-Lemma disj_map_inv : forall A B (l1 l2 : list A) (f : A -> B),
-  disjoint_list (List.map f l1) (List.map f l2) ->
-  disjoint_list l1 l2.
-Proof.
-  intros.
-  intros x [Hx1 Hx2].
-  apply (H (f x)); split;
-  now apply in_map.
-Qed.
-
 Lemma disj_map :
   forall A B (f : A -> B) (l1 l2 : list A),
     disjoint_list l1 l2 ->
