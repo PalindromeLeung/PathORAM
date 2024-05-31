@@ -814,7 +814,6 @@ Proof.
   reflexivity. 
 Qed.
 
-
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
     a <- dx ;; mreturn (a, st).
@@ -2597,11 +2596,28 @@ Qed.
 
 End PORAM.
 
+Module Dist_State <: StateMonad.
+  Definition State S X := Poram_st S dist X.
+
+  Definition ret {S X} := @retT S dist _ X.
+  Definition bind {S X} := @bindT S dist _ X.
+  Definition get {S} := @Poram_st_get S dist _.
+  Definition put {S} := @Poram_st_put S dist _.
+End Dist_State.
+
 (* Path ORAM is a RAM (functional correctness specification, WIP) *)
-Module PathORAM <: RAM.
+Module PathORAM <: RAM (Dist_State).
+  Import Dist_State.
+
   Definition K := block_id.
   Definition V := nat.
-  Definition state V := Poram_st state dist (path * V). 
+  Definition St : Type := state. 
+  Definition Vw (V : Type) := prod path V.
+
+  Definition bind {X Y} := @bind St X Y.
+  Definition ret {X} := @ret St X.
+  Definition get := @get St.
+  Definition put := @put St.
 
   Definition write k v := 
       PST <- get_State ;;
