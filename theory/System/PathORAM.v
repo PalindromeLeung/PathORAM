@@ -1997,17 +1997,6 @@ Proof.
               eapply NoDup_app_disj. exact H.
               split; eauto.
 Qed.
-           
-Lemma get_height_stable : forall o p,
-    get_height (clear_path o p) = get_height o.
-Proof.
-  induction o; simpl; auto.
-  - destruct p.
-    simpl; auto.
-    destruct b; simpl.
-    + rewrite IHo1; auto.
-    + rewrite IHo2; auto.
-Qed.
     
 Lemma clear_path_p_b_tree : forall o n p, 
   is_p_b_tr o n -> 
