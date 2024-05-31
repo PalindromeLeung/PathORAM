@@ -357,15 +357,6 @@ Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
     a <- dx ;; mreturn (a, st).
 
-Fixpoint concat_option (l : list (option bucket)) : list block :=
-  match l with
-  | [] => []
-  | h :: t => match h with
-            | None => concat_option t
-            | Some v => v ++ concat_option t
-            end
-  end.
-
 Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
   let m' := update_dict id p_new m in
   let bkts := lookup_path_oram o p in
