@@ -258,8 +258,6 @@ Scheme Equality for prod.
 
 Definition isEqvPath (p1 p2 : path) (idx : nat) : bool := list_beq bool Bool.eqb  (takeL idx p1) (takeL idx p2).
 
-Definition dummy_block : block := Block O O.
-
 Fixpoint get_cand_bs (h : stash)(p : path)(stop : nat)(m : position_map) : list block :=
   match h with
   | [] => []
