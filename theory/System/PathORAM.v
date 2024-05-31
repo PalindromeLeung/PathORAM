@@ -797,12 +797,6 @@ Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop 
   | Some v => In x v
   end.
 
-Lemma pos_map_stable_across_blk_sel : forall p lvl s,
-    state_position_map s = state_position_map (blocks_selection p lvl s).
-Proof.
-  reflexivity.
-Qed.
-
 Lemma pos_map_stable_across_wb : forall n p s start,
     state_position_map s = state_position_map (write_back_r start p n s).
 Proof.
