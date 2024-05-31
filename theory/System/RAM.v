@@ -26,16 +26,20 @@ Module Type RAM (M : StateMonad).
   (* Inner implementation of RAM (TODO move or something) *)
   Parameter S : Type.
 
+  (* Well-formedness over inner implementation (TODO move or remove from interface if possible) *)
+  Parameter well_formed : S -> Prop.
+
   (* Read and write operations *)
   Parameter read : K -> M.State S (Vw V).
   Parameter write : K -> V -> M.State S (Vw V).
 
-  (* Escape the monad *)
+  (* Get payload *)
   Parameter get_payload : M.state S (Vw V) -> option V.
 
   (* RAM laws (TODO maybe add uniform syntax here, and maybe change if not quite right) *)
   Axiom read_read :
     forall (k : K) (s : S), 
+      well_formed s ->
       get_payload ((M.bind (read k) (fun _ => read k)) s) =
       get_payload ((M.bind (read k) (fun v => M.ret v)) s). 
 

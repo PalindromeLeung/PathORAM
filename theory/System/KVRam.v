@@ -189,8 +189,8 @@ Qed.
 End Map.
 
 Module KV_State <: StateMonad.
-  Definition State S X := State S X.
-
+  Definition state (S X : Type) := prod X S.
+  Definition State (S X : Type) := S -> prod X S.
   Definition ret {S} := @ret S.
   Definition bind {S} := @bind S.
   Definition get {S} := @get S.
@@ -204,28 +204,31 @@ Module KV_RAM <: RAM (KV_State).
   Parameter V : Type.
   Context `{DecEq K}.
 
-  Definition St : Type := Map K V.
+  Definition S : Type := Map K V.
+  Definition well_formed := @well_formed K V.
   Definition Vw (V : Type) := option V.
 
-  Definition bind {X Y} := @bind St X Y.
-  Definition ret {X} := @ret St X.
-  Definition get := @get St.
-  Definition put := @put St.
+  Definition bind {X Y} := @bind S X Y.
+  Definition ret {X} := @ret S X.
+  Definition get := @get S.
+  Definition put := @put S.
 
-  Definition read (k : K) : State St (Vw V) :=
+  Definition read (k : K) : State S (Vw V) :=
     bind 
       get
-      (fun st => ret (lookup k st)).
+      (fun s => ret (lookup k s)).
 
-  Definition write (k : K) (v : V) : State St (Vw V) :=
+  Definition write (k : K) (v : V) : State S (Vw V) :=
     bind 
       get 
-      (fun (st : Map K V) =>
+      (fun (s : Map K V) =>
         bind
-          (put (insert k v st))
+          (put (insert k v s))
           (fun _ => ret None)).
 
-  Definition write_and_read (k : K) (v : V) : State St (Vw V):=
+  Definition get_payload (s : state S (Vw V)) := fst s.
+
+  Definition write_and_read (k : K) (v : V) : State S (Vw V):=
     bind (write k v) (fun _ => read k).
 
   Lemma write_and_read_lemma (k : K) (v : V) :
@@ -265,13 +268,35 @@ Module KV_RAM <: RAM (KV_State).
         exact Hkv.
   Qed.
 
-  Theorem write_and_read_correct (k : K) (v : V) (s : St) :
+  Theorem write_and_read_correct (k : K) (v : V) (s : S) :
     well_formed s ->
     fst (write_and_read k v s) = Some v.
   Proof.
     intro wf_s.
     destruct (write_and_read_lemma k v s wf_s) as [Hv _].
     symmetry; exact Hv.
+  Qed.
+
+  Lemma read_and_read_lemma (k : K) (s : S):
+    @state_lift S (Vw V)
+      well_formed
+      well_formed
+      (fun v => eq (get_payload (bind (read k) ret s)) v)
+      (bind (read k) (fun _ => read k)).
+  Proof.
+    admit. (* TODO *)
+  Admitted.
+
+  (* RAM laws (TODO move some of the above stuff here) *)
+  Theorem read_read :
+    forall (k : K) (s : S), 
+      well_formed s ->
+      get_payload ((bind (read k) (fun _ => read k)) s) =
+      get_payload ((bind (read k) (fun v => ret v)) s). 
+  Proof.
+    intros. pose proof (read_and_read_lemma k s). 
+    unfold state_lift in H1. specialize (H1 s H0). 
+    destruct H1. auto.
   Qed.
 
 End KV_RAM.
