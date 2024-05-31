@@ -2093,28 +2093,6 @@ Proof.
   apply (H a'); tauto.
 Qed.
 
-Lemma inj_on_list_app : forall {A B} (l1 l2 : list A) (f : A -> B),
-    NoDup (List.map f l1) ->
-    NoDup (List.map f l2) ->
-    disjoint_list (List.map f l1) (List.map f l2) ->
-    inj_on_list (l1 ++ l2) f.
-Proof.
-  intros.
-  intros x y Hx Hy Hxy.
-  apply in_app_or in Hx.
-  apply in_app_or in Hy.
-  destruct Hx, Hy.
-  - apply (NoDup_map_inj f l1); auto.
-  - elim (H1 (f x)); split.
-    + now apply in_map.
-    + rewrite Hxy; now apply in_map.
-  - elim (H1 (f y)); split.
-    + now apply in_map.
-    + rewrite <- Hxy; now apply in_map.
-  - apply (NoDup_map_inj f l2); auto.
-Qed.
-
-
 Lemma on_path_not_off_path: forall o p id,
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
