@@ -2060,29 +2060,6 @@ Proof.
       * apply IHo2; auto. inversion H; auto.
 Qed.
 
-Lemma disj_map :
-  forall A B (f : A -> B) (l1 l2 : list A),
-    disjoint_list l1 l2 ->
-    inj_on_list (l1 ++ l2) f -> 
-    disjoint_list (List.map f l1) (List.map f l2).
-Proof.
-  intros.
-  intros x [Hx1 Hx2].
-  rewrite in_map_iff in *.
-  destruct Hx1 as [a [Ha1 Ha2]].
-  destruct Hx2 as [a' [Ha3 Ha4]].
-  assert (a = a').
-  { apply H0.
-    - apply in_or_app.
-      now left.
-    - apply in_or_app.
-      now right.
-    - congruence.
-  }
-  subst.
-  apply (H a'); tauto.
-Qed.
-
 Lemma on_path_not_off_path: forall o p id,
   NoDup (List.map block_blockid (get_all_blks_tree o)) ->
   In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
