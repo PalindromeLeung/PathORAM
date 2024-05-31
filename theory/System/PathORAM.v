@@ -2598,21 +2598,6 @@ Proof.
     destruct s; auto.
   - apply stash_path_combined_rel_Wr.
 Qed.
-
-Lemma blk_in_path_in_lookup_oram : forall (id : block_id) (v : nat) (s : state) ,
-    blk_in_path id v s -> 
-    In (Block id v)
-      (concat
-         (lookup_path_oram (state_oram s)
-            (calc_path id s)
-         )
-      ).
-Proof.
-  intros.
-  unfold blk_in_path in H.
-  unfold calc_path. auto.
-Qed.
-
         
 Lemma zero_sum_stsh_tr_Rd_rev :
   forall (id : block_id) (v : nat) (s : state) (p p_new : path),
