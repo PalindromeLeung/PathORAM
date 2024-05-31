@@ -2,9 +2,11 @@ Require Import Coq.Logic.Eqdep_dec.
 
 Module Type StateMonad.
 
-  Parameter State : forall (S X : Type), Type.
+  Parameter state : forall (S X : Type), Type.
 
-  Parameter ret : forall {S X}, X -> State S X.
+  Definition State (S X : Type) := S -> state S X.
+
+  Parameter ret : forall {S X : Type}, X -> State S X.
 
   Parameter bind : forall {S X Y}, State S X -> (X -> State S Y) -> State S Y. 
 
@@ -18,21 +20,24 @@ Module Type RAM (M : StateMonad).
   Parameter K : Type.
   Parameter V : Type.
 
-  (* Inner state, specific to implementation *)
-  Parameter St : Type.
-
   (* Wrapped value type, specific to implementation *)
   Parameter Vw : Type -> Type.
 
-  (* Read and write operations *)
-  Parameter read : K -> M.State St (Vw V).
-  Parameter write : K -> V -> M.State St (Vw V).
+  (* Inner implementation of RAM (TODO move or something) *)
+  Parameter S : Type.
 
-  (* RAM laws (TODO maybe add uniform syntax here) *)
+  (* Read and write operations *)
+  Parameter read : K -> M.State S (Vw V).
+  Parameter write : K -> V -> M.State S (Vw V).
+
+  (* Escape the monad *)
+  Parameter get_payload : M.state S (Vw V) -> option V.
+
+  (* RAM laws (TODO maybe add uniform syntax here, and maybe change if not quite right) *)
   Axiom read_read :
-    forall (k : K), 
-      M.bind (read k) (fun _ => read k) =
-      M.bind (read k) (fun v => M.ret v). 
+    forall (k : K) (s : S), 
+      get_payload ((M.bind (read k) (fun _ => read k)) s) =
+      get_payload ((M.bind (read k) (fun v => M.ret v)) s). 
 
   (* TODO remaining laws
 write(key,value) ; read(key)  == write(key,value) ; return(value) -- read-write law
