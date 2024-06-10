@@ -2597,6 +2597,7 @@ Qed.
 End PORAM.
 
 Module Dist_State <: StateMonad.
+  Definition state S X := dist (X * S).
   Definition State S X := Poram_st S dist X.
 
   Definition ret {S X} := @retT S dist _ X.
@@ -2607,17 +2608,22 @@ End Dist_State.
 
 (* Path ORAM is a RAM (functional correctness specification, WIP) *)
 Module PathORAM <: RAM (Dist_State).
-  Import Dist_State.
 
   Definition K := block_id.
   Definition V := nat.
-  Definition St : Type := state. 
+  Definition S : Type := state. 
   Definition Vw (V : Type) := prod path V.
 
-  Definition bind {X Y} := @bind St X Y.
-  Definition ret {X} := @ret St X.
-  Definition get := @get St.
-  Definition put := @put St.
+  Import Dist_State.
+  Definition bind {X Y} := @bind S X Y.
+  Definition ret {X} := @ret S X.
+  Definition get := @get S.
+  Definition put := @put S.
+
+  Definition well_formed s := 
+    let o := state_oram s in
+    let len_m := get_height o in
+    well_formed len_m s.
 
   Definition write k v := 
       PST <- get_State ;;
@@ -2630,6 +2636,20 @@ Module PathORAM <: RAM (Dist_State).
     let o := state_oram PST in
     let len_m := get_height o in
     read_access len_m k.
+
+  Definition get_payload (s : state S (Vw V)) :=
+   @get_payload s.
+
+  (* RAM laws (TODO move some of the above stuff here) *)
+  Theorem read_read :
+    forall (k : K) (s : S), 
+      well_formed s ->
+      get_payload ((bind (read k) (fun _ => read k)) s) =
+      get_payload ((bind (read k) (fun v => ret v)) s). 
+  Proof.
+    admit.
+  Admitted.
+
 End PathORAM.
 
 
