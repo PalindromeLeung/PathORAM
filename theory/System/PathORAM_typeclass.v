@@ -2640,6 +2640,8 @@ Module PathORAM <: RAM (Dist_State).
   Definition get_payload (s : state S (Vw V)) :=
    @get_payload s.
 
+  (* TODO state the needed lemma for read_read, and prove read_write given what we have *)
+
   (* RAM laws (TODO move some of the above stuff here) *)
   Theorem read_read :
     forall (k : K) (s : S), 
