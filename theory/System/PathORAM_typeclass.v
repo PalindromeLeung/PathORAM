@@ -2659,28 +2659,20 @@ Module PathORAM <: RAM (Dist_State).
     admit. (* TODO *)
   Admitted.
 
-  (* TODO unsure about this as phrased *)
-  Lemma read_and_write_lemma (k : K) (v : V) (s : S):
-    @state_prob_lift state dist Monad_dist Monad_dist Pred_Dist_Lift (Vw V) 
-      well_formed 
-      well_formed
-      (fun v1 => eq (get_payload (bind (write k v) ret s)) (Some (snd v1)))
-      (bind (write k v) (fun _ => read k)).
+  Lemma read_and_write_compat_lemma_1 :
+    forall k v s,
+      get_payload ((bind (write k v) (fun _ => read k)) s) =
+      get_payload (write_and_read_access (get_height (state_oram s)) k v s).
   Proof.
-    pose proof write_and_read_access_lift. admit.
-    (* TODO how related to the one proven already? *)
+    intros. (* TODO help how to prove this compat lemma? *)
   Admitted.
 
-  (* TODO unsure about this as phrased *)
-  Lemma extract_payload_read_write k (v : V) (s : state) : 
-    plift
-      (fun '(x, s') => get_payload (bind (write k v) ret s) = Some (snd x) /\ well_formed s')
-      (bind (write k v) (fun _ => read k) s) -> 
-    get_payload (bind (write k v) (fun _ => read k) s) = get_payload ((bind (write k v) ret) s).
-  Proof.
-    intros. pose proof extract_payload. admit.
-    (* TODO how related to the one proven already? *)
-  Admitted.
+  Lemma read_and_write_compat_lemma_2 :
+    forall k v s,
+      get_payload ((bind (write k v) (fun v => ret v)) s) = Some v.
+    Proof.
+      (* TODO how to prove this compat lemma too? *)
+    Admitted.
 
   (* --- RAM laws --- *)
 
@@ -2699,7 +2691,9 @@ Module PathORAM <: RAM (Dist_State).
       get_payload ((bind (write k v) (fun _ => read k)) s) =
       get_payload ((bind (write k v) (fun v => ret v)) s).
   Proof.
-    intros. apply extract_payload_read_write. apply read_and_write_lemma. auto.
+    intros. rewrite read_and_write_compat_lemma_1.
+    rewrite read_and_write_compat_lemma_2.
+    apply PathORAM_simulates_RAM. apply H.
   Qed.
 
 End PathORAM.
