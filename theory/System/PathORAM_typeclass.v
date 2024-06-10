@@ -2659,6 +2659,29 @@ Module PathORAM <: RAM (Dist_State).
     admit. (* TODO *)
   Admitted.
 
+  (* TODO unsure about this as phrased *)
+  Lemma read_and_write_lemma (k : K) (v : V) (s : S):
+    @state_prob_lift state dist Monad_dist Monad_dist Pred_Dist_Lift (Vw V) 
+      well_formed 
+      well_formed
+      (fun v1 => eq (get_payload (bind (write k v) ret s)) (Some (snd v1)))
+      (bind (write k v) (fun _ => read k)).
+  Proof.
+    pose proof write_and_read_access_lift. admit.
+    (* TODO how related to the one proven already? *)
+  Admitted.
+
+  (* TODO unsure about this as phrased *)
+  Lemma extract_payload_read_write k (v : V) (s : state) : 
+    plift
+      (fun '(x, s') => get_payload (bind (write k v) ret s) = Some (snd x) /\ well_formed s')
+      (bind (write k v) (fun _ => read k) s) -> 
+    get_payload (bind (write k v) (fun _ => read k) s) = get_payload ((bind (write k v) ret) s).
+  Proof.
+    intros. pose proof extract_payload. admit.
+    (* TODO how related to the one proven already? *)
+  Admitted.
+
   (* --- RAM laws --- *)
 
   Theorem read_read :
@@ -2676,7 +2699,8 @@ Module PathORAM <: RAM (Dist_State).
       get_payload ((bind (write k v) (fun _ => read k)) s) =
       get_payload ((bind (write k v) (fun v => ret v)) s).
   Proof.
-  Admitted.
+    intros. apply extract_payload_read_write. apply read_and_write_lemma. auto.
+  Qed.
 
 End PathORAM.
 
