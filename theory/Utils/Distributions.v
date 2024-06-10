@@ -112,12 +112,6 @@ Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
   | x :: l => if f x then x::(filter l f) else filter l f 
   end.
 
-Fixpoint length {A} (l : list A) : nat :=
-  match l with
-    | [] => O
-    | _ :: m => S (length m)
-  end.
-
 Fixpoint takeL {A} n (l : list A) : list A :=
   match n with
   | O => []
