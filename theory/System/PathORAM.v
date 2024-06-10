@@ -462,7 +462,6 @@ Definition write_and_read_access (id : block_id) (v : nat) :
   Poram_st state dist (path * nat) :=
   bindT (write_access id v ) (fun _ => read_access id).
 
-
 Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
 
 (*
@@ -571,15 +570,29 @@ Proof.
   constructor. split; auto.
   apply Forall_nil.
 Qed.
+Print dist.
 
-Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
-  match dist_pmf dist_a with 
-  | [] => None
-  | h :: t => match h with
-            | (((_,v),_), _)  => Some v
-            end
+Lemma zero_one_neq : ~ (0 == 1)%Q.
+Proof.
+  intro pf.
+  inversion pf.
+Qed.
+
+Definition get_first_val {X} (d : dist X) : X :=
+  match d with
+  | {| dist_pmf := dist; dist_law := law |} =>
+    match dist as l return ((sum_dist l == 1)%Q -> X) with
+    | [] => fun law => 
+      match zero_one_neq law with end
+    | (x,_) :: _ => fun _ => x
+       end law
   end.
-             
+
+Definition get_payload (dist_a : dist (path * nat * state)): nat :=
+  match get_first_val dist_a with
+  | (_,v,_) => v
+  end.
+
 Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
   let s := state_stash st in 
   In (Block id v) s.
@@ -2490,23 +2503,26 @@ Qed.
 
 Lemma extract_payload (id : block_id) (v: nat) (s : state) : 
   plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
-  get_payload (write_and_read_access id v s) = Some v.
+  get_payload (write_and_read_access id v s) = v.
 Proof.
   intros ops_on_s.
   destruct (write_and_read_access id v s). unfold get_payload.
   simpl in *. destruct dist_pmf.
-  - simpl in *. inversion dist_law.
+  - simpl in *.
+    destruct (zero_one_neq).
   - simpl in *.  destruct p.  destruct p.  destruct p. simpl in ops_on_s. inversion ops_on_s.
     destruct H1. simpl in H1. congruence.
 Qed. 
 
 Theorem PathORAM_simulates_RAM (id : block_id) (v : nat) (s : state) :
   well_formed s ->
-    get_payload(write_and_read_access id v s) = Some v.
+    get_payload(write_and_read_access id v s) = v.
 Proof.
   intros wf_s.
   apply extract_payload.
   apply write_and_read_access_lift. auto.
 Qed.
+
+Check write_and_read_access.
 
 End PORAM.
