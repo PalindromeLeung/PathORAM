@@ -2614,11 +2614,11 @@ Module PathORAM <: RAM (Dist_State).
   Definition S : Type := state. 
   Definition Vw (V : Type) := prod path V.
 
-  Import Dist_State.
-  Definition bind {X Y} := @bind S X Y.
-  Definition ret {X} := @ret S X.
-  Definition get := @get S.
-  Definition put := @put S.
+  Module M := Dist_State.
+  Definition bind {X Y} := @M.bind S X Y.
+  Definition ret {X} := @M.ret S X.
+  Definition get := @M.get S.
+  Definition put := @M.put S.
 
   Definition well_formed s := 
     let o := state_oram s in
@@ -2637,20 +2637,38 @@ Module PathORAM <: RAM (Dist_State).
     let len_m := get_height o in
     read_access len_m k.
 
-  Definition get_payload (s : state S (Vw V)) :=
+  Definition get_payload (s : M.state S (Vw V)) :=
    @get_payload s.
 
-  (* TODO state the needed lemma for read_read, and prove read_write given what we have *)
+  Lemma read_and_read_lemma (k : K) (s : S):
+    @state_prob_lift state dist Monad_dist Monad_dist Pred_Dist_Lift (Vw V) 
+      well_formed 
+      well_formed
+      (fun v => eq (get_payload (bind (read k) ret s)) (Some (snd v)))
+      (bind (read k) (fun _ => read k)).
+  Proof.
+    unfold state_prob_lift. intros. admit. (* TODO *)
+  Admitted.
 
-  (* RAM laws (TODO move some of the above stuff here) *)
+  Lemma extract_payload_read_read k (s : state) : 
+    plift
+      (fun '(x, s') => get_payload (bind (read k) ret s) = Some (snd x) /\ well_formed s')
+      (bind (read k) (fun _ => read k) s) -> 
+    get_payload (bind (read k) (fun _ => read k) s) = get_payload ((bind (read k) ret) s).
+  Proof.
+    admit. (* TODO *)
+  Admitted.
+
+  (* --- RAM laws --- *)
+
   Theorem read_read :
     forall (k : K) (s : S), 
       well_formed s ->
       get_payload ((bind (read k) (fun _ => read k)) s) =
       get_payload ((bind (read k) (fun v => ret v)) s). 
   Proof.
-    admit.
-  Admitted.
+    intros. apply extract_payload_read_read. apply read_and_read_lemma. auto.
+  Qed.
 
   Theorem read_write :
     forall (k : K) (v : V) (s : S),
