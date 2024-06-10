@@ -299,4 +299,12 @@ Module KV_RAM <: RAM (KV_State).
     destruct H1. auto.
   Qed.
 
+  Theorem read_write :
+    forall (k : K) (v : V) (s : S),
+      well_formed s ->
+      get_payload ((bind (write k v) (fun _ => read k)) s) =
+      get_payload ((bind (write k v) (fun v => ret v)) s).
+  Proof.
+  Admitted.
+
 End KV_RAM.
