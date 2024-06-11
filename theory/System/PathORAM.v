@@ -12,6 +12,7 @@ Require Import POram.Utils.Lists.
 Require Import POram.Utils.Vectors.
 Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Distributions.
+Require Import POram.Utils.Tree.
 (*** PATH ORAM ***)
 
 (** 
@@ -65,12 +66,12 @@ Require Import POram.Utils.Distributions.
 
 **)
 Section PORAM. 
+
 Definition block_id := nat.
 Record block : Type := Block
   { block_blockid : block_id
   ; block_payload : nat
   }.
-Definition path := list bool.
 Definition position_map := dict block_id path.
 Definition stash := list block.
 Definition bucket := list block.
@@ -78,9 +79,7 @@ Definition bucket := list block.
 Variable LOP : nat.
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
-Inductive oram : Type :=
-| leaf
-| node (payload: option bucket) (o_l o_r : oram). 
+Definition oram : Type := tree (option bucket).
 
 Definition retT {S} {M} `{Monad M} {X} :
   X -> Poram_st S M X :=
@@ -110,55 +109,7 @@ Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
 Definition Poram_st_put {S M} `{Monad M} (st : S) :
   Poram_st S M unit := fun s => mreturn(tt, st).
 
-Fixpoint get_height (o : oram) : nat :=
-  match o with
-  | leaf => 0
-  | node  _ l r => S (max (get_height l) (get_height r))
-  end.
-
-
-Fixpoint is_p_b_tr (o : oram) (l : nat) : Prop :=
-  match o, l with
-  | leaf, O => True
-  | node _ o_l o_r, S l' =>
-      is_p_b_tr o_l l' /\ is_p_b_tr o_r l'
-  | _, _ => False
-  end.    
-
-Fixpoint coord_in_bound (o : oram) (p : path) (stop: nat) : Prop :=
-  match o with
-  | leaf => False 
-  | node d_o o_l o_r =>
-      match stop with
-      | 0%nat => True 
-      | S stop' =>
-          match p with
-          | [] => False 
-          | true :: xs => coord_in_bound o_l xs stop' 
-          | false :: xs => coord_in_bound o_r xs stop'
-          end
-      end
-  end.
-
-Lemma pb_coord_in_bound : forall (o : oram) (p : path) (k lvl : nat), 
-    is_p_b_tr o (S k) ->
-    (length p) = k -> 
-    Nat.le lvl k ->
-    coord_in_bound o p lvl.
-Proof.
-  intro o.
-  induction o; simpl.
-  - intros. inversion H.
-  - intros. destruct lvl; simpl; auto.
-    destruct p; simpl in *; try lia.
-    destruct b; simpl in *.
-    + apply IHo1 with (k := (length p)); try rewrite H0.
-      tauto. reflexivity.
-      rewrite <- H0 in H1. lia.
-    + apply IHo2 with (k := (length p)); try lia.
-      destruct H. rewrite H0. auto.
-Qed.
-
+(* TODO: add to Tree.v? *)
 Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
   match o with
   | leaf => fun _ => []
@@ -198,7 +149,7 @@ Fixpoint clear_path (o : oram ) : path -> oram :=
             end
         end
   end.
-           
+
 Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
   match n with
   | O => []
@@ -276,25 +227,9 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-Fixpoint up_oram_tr (o : oram) (stop : nat) (d_n : bucket) :
-  path -> oram :=
-  match o in oram return path -> oram with
-  | leaf => fun _ => leaf
-  | node d_o o_l o_r =>
-      fun p =>
-        match stop with
-        | O => node (Some d_n) o_l o_r
-        | S stop' =>
-            match p with
-            | [] => node d_o o_l o_r
-            | x :: xs =>
-                match x with
-                | true => node d_o (up_oram_tr o_l stop' d_n xs ) o_r
-                | false => node d_o o_l(up_oram_tr o_r stop' d_n xs)
-                end
-            end
-        end
-  end.
+Definition up_oram_tr (o : oram) (stop : nat) (d_n : bucket)
+  (p : path) : oram :=
+  update_tree o stop (Some d_n) p.
              
 Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
   (* unpack the state *)
@@ -352,7 +287,6 @@ Proof.
   reflexivity. 
 Qed.
 
-
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
   fun st =>
     a <- dx ;; mreturn (a, st).
@@ -375,7 +309,6 @@ Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h 
 Definition get_post_wb_st (s : state) (id_path : path):=
   write_back_r O id_path (length id_path) s.
   
-
 Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
   let bkts := lookup_path_oram o p in
   let bkt_blocks := concat bkts in
@@ -403,6 +336,7 @@ Definition access (id : block_id) (op : operation) :
   (* return the path l and the return value *)
   mreturn((p, ret_data)).
 
+(* TODO: move to Tree.v? *)
 Fixpoint get_all_blks_tree (o : oram) : list block :=
   match o with
   | leaf => []
@@ -471,7 +405,6 @@ Proof.
     2:{exact H0. }
     intros (a, b) pa. exact pa.
 Qed.
-
 
 #[export] Instance Pred_Dist_Lift : PredLift dist.
 refine 
@@ -733,23 +666,10 @@ Proof.
   left; auto.
 Qed.
 
-Fixpoint locate_node_in_tr (o : oram) (lvl : nat) : path -> (option bucket):=
-  match o in oram return path -> (option bucket) with
-  | leaf => fun _ => None
-  | node d o_l o_r =>
-      fun p =>
-        match lvl with
-        | O => d
-        | S lv =>
-            match p with
-            | [] => None
-            | x :: xs =>
-                match x with
-                | true => locate_node_in_tr o_l lv xs
-                | false => locate_node_in_tr o_r lv xs
-                end
-            end
-        end
+Definition locate_node_in_tr (o : oram) (lvl : nat) (p : path) : option bucket :=
+  match lookup_tree o lvl p with
+  | None => None
+  | Some o => o
   end.
 
 Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop :=
@@ -811,20 +731,12 @@ Lemma locate_comp_block_selection :
     locate_node_in_tr (up_oram_tr o lvl dlt p') lvl' p =
       locate_node_in_tr o lvl' p.
 Proof.
-  intro o.
-  induction o; simpl; auto.
-  - intros.
-    destruct lvl'.
-    + lia.
-    + destruct lvl; simpl in *; auto.
-      destruct p; simpl in *. 
-      * destruct p'; simpl in *; auto.
-        destruct b; simpl in *; auto.
-      * apply Arith_prebase.lt_S_n in H.
-        destruct p'; simpl; auto.
-        destruct b0, b; simpl; auto.
+  intros.
+  unfold locate_node_in_tr.
+  unfold up_oram_tr.
+  rewrite lookup_tree_update_tree; auto.
 Qed.
-        
+
 Lemma at_lvl_in_path_blocks_selection :
   forall s p p' lvl lvl' b,
   (lvl < lvl')%nat ->
@@ -851,7 +763,6 @@ Proof.
       * intros. apply IHo1; auto. (* yep I can tell that the IHp is not strong enough *)
       * intros. apply IHo2; auto.
 Qed.
-
         
 Lemma takeL_in : forall {X} (x : X) n l,
    In x (takeL n l) -> In x l. 
@@ -1029,7 +940,7 @@ Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
   In id (List.map block_blockid dlt).
 Proof.
   induction o; simpl; intros; auto.
-  destruct payload; simpl.
+  destruct data; simpl.
   - destruct lvl; simpl in *.
     + repeat rewrite map_app in *.
       repeat rewrite in_app_iff in *.
@@ -1065,7 +976,7 @@ Lemma NoDup_up_oram_tree : forall o dlt lvl p,
 Proof.
   induction o; simpl; intros; auto.
   destruct lvl; simpl; auto.
-  - destruct payload; simpl; auto.
+  - destruct data; simpl; auto.
     + apply NoDup_disjointness; auto.
       * repeat rewrite map_app in *.
         apply NoDup_app_remove_l in H0; auto.
@@ -1079,7 +990,7 @@ Proof.
         apply (H1 id); split; auto.
   - destruct p; simpl; auto.
     destruct b; simpl; auto.
-    destruct payload; simpl; auto.
+    destruct data; simpl; auto.
     + apply NoDup_disjointness; auto.
       * repeat rewrite map_app in H0.
         apply NoDup_app_remove_r in H0; auto.
@@ -1137,7 +1048,7 @@ Proof.
         -- apply (H1 id); split; auto.
            rewrite map_app.
            apply in_or_app; right; auto.
-    + destruct payload.
+    + destruct data.
       * repeat rewrite map_app in H0, H1.
         apply NoDup_disjointness.
         -- apply NoDup_app_remove_r in H0; auto.
@@ -1248,16 +1159,7 @@ Lemma up_oram_tr_preserves_pb : forall o lvl dlt p n,
     is_p_b_tr o n ->
     is_p_b_tr (up_oram_tr o lvl dlt p) n.
 Proof.
-  induction o; simpl; intros; auto.
-  destruct lvl; simpl; auto.
-  destruct p; simpl; auto.
-  destruct b; simpl; auto.
-  destruct n; simpl; auto.
-  - split; try tauto.
-    apply IHo1; tauto.
-  - destruct n; simpl; auto.
-    +  split; try tauto.
-       apply IHo2; tauto.
+  intros; apply update_tree_preserves_pb; auto.
 Qed.
 
 Lemma disjoint_weaken2 : forall dlt l lst, 
@@ -1415,14 +1317,14 @@ Lemma In_path_in_tree : forall o p id,
 Proof.
   induction o; simpl; intros; auto.
   destruct p. 
-  - destruct payload; simpl in *; auto.
+  - destruct data; simpl in *; auto.
     + rewrite app_nil_r in H.
       rewrite map_app.
       apply in_or_app.
       left; auto.
     + contradiction.
   - destruct b.
-    + destruct payload.
+    + destruct data.
       * simpl in H.
         rewrite map_app in H.
         apply in_app_or in H.
@@ -1436,7 +1338,7 @@ Proof.
         apply in_or_app.
         left.
         eapply IHo1; eauto.
-    + destruct payload.
+    + destruct data.
       * simpl in H.
         rewrite map_app in H.
         apply in_app_or in H.
@@ -1465,7 +1367,7 @@ Proof.
       rewrite map_app in *.
       apply in_app_or in H0.
       destruct H0; auto.
-      destruct payload.
+      destruct data.
       * simpl in H1.
         rewrite app_nil_r in H1.
         rewrite map_app in H.
@@ -1473,7 +1375,7 @@ Proof.
         elim (H id); split; auto.
       * destruct H1.
     + destruct b; simpl; auto.
-      * destruct payload; simpl; repeat rewrite map_app in *.
+      * destruct data; simpl; repeat rewrite map_app in *.
         -- apply in_app_or in H0.
            destruct H0.
            ++ apply in_or_app.
@@ -1492,7 +1394,7 @@ Proof.
               left; auto.
            ++ apply in_or_app.
               right; auto.
-      * destruct payload; simpl; repeat rewrite map_app in *.
+      * destruct data; simpl; repeat rewrite map_app in *.
         -- apply in_app_or in H0.
            destruct H0.
            ++ apply in_or_app.
@@ -1513,12 +1415,12 @@ Proof.
               right; auto.
   - destruct p; simpl; auto.
     + destruct p'; simpl.
-      * destruct payload; simpl in *; auto.
+      * destruct data; simpl in *; auto.
       * destruct b; simpl in *; auto.
     + destruct p'; simpl in *; auto.
       destruct b; simpl in *; auto.
       * destruct b0; simpl in *; auto.
-        destruct payload; simpl in *; auto; repeat rewrite map_app in *.
+        destruct data; simpl in *; auto; repeat rewrite map_app in *.
         -- apply in_or_app.
            apply in_app_or in H1.
            destruct H1.
@@ -1546,7 +1448,7 @@ Proof.
               elim (H id); split; auto.
               apply In_path_in_tree in H1; auto.
       * destruct b0; simpl in *; auto.
-        destruct payload; simpl in *; auto; repeat rewrite map_app in *.
+        destruct data; simpl in *; auto; repeat rewrite map_app in *.
         -- apply in_or_app.
            apply in_app_or in H1.
            destruct H1.
@@ -1573,7 +1475,7 @@ Proof.
               elim (H id); split; auto.
               apply In_path_in_tree in H1; auto.
 Qed.
-        
+
 Lemma get_write_back_blocks_pos_map : forall id p stsh lvl pos_map,
   In id (List.map block_blockid
     (get_write_back_blocks p stsh 4 lvl pos_map)) ->
@@ -1616,7 +1518,7 @@ Proof.
       * destruct p'; simpl; auto.
         -- simpl in H1. lia.
         -- destruct b; [|discriminate].
-           destruct payload.
+           destruct data.
            ++ simpl.
               rewrite map_app.
               apply in_or_app; right.
@@ -1629,7 +1531,7 @@ Proof.
       * destruct p'; simpl; auto.
         -- simpl in H1. lia.
         -- destruct b; [discriminate|].
-           destruct payload.
+           destruct data.
            ++ simpl.
               rewrite map_app.
               apply in_or_app; right.
@@ -1730,25 +1632,25 @@ Proof.
     + unfold locate_node_in_tr in H.
       simpl.
       destruct lvl; try discriminate.
-      destruct payload; 
+      destruct data; 
         inversion H; subst; try discriminate. left. auto.
     + destruct lvl; simpl in *.
       destruct b0; simpl.
-      destruct payload; simpl.
+      destruct data; simpl.
       * left. inversion H. reflexivity.
       * discriminate.
-      * destruct payload; simpl.
+      * destruct data; simpl.
         -- left. inversion H. reflexivity.
         -- discriminate.
       * destruct b0; simpl in *.
-        destruct payload; simpl.
+        destruct data; simpl.
         -- right. eapply IHo1; eauto.
         -- eapply IHo1; eauto.
-        -- destruct payload; simpl.
+        -- destruct data; simpl.
            ++ right.  eapply IHo2; eauto.
            ++ eapply IHo2; eauto.
 Qed.
-      
+
 Lemma weaken_at_lvl_in_path : forall o lvl p id v,
   at_lvl_in_path o lvl p (Block id v) ->
   blk_in_p id v o p.
@@ -1799,14 +1701,14 @@ Proof.
   - constructor.
   - simpl in *.
     destruct p.
-    + destruct payload.
+    + destruct data.
       * simpl.
         rewrite app_nil_r.
         repeat rewrite map_app in H.
         apply NoDup_app_remove_r in H; auto.
       * constructor.
     + destruct b.
-      * destruct payload.
+      * destruct data.
         -- simpl in *.
            apply NoDup_disjointness.
            ++ repeat rewrite map_app in H.
@@ -1824,7 +1726,7 @@ Proof.
         -- apply IHo1.
            rewrite map_app in H.
            apply NoDup_app_remove_r in H; auto.
-      * destruct payload.
+      * destruct data.
         -- simpl in *.
            apply NoDup_disjointness.
            ++ repeat rewrite map_app in H.
@@ -1853,11 +1755,11 @@ Proof.
     + rewrite map_app in H.
       apply in_app_or in H.
       destruct H.
-      * destruct payload; repeat rewrite map_app.
+      * destruct data; repeat rewrite map_app.
         -- apply in_or_app; right.
            apply in_or_app; left; auto.
         -- apply in_or_app; left; auto.
-      * destruct payload; repeat rewrite map_app.
+      * destruct data; repeat rewrite map_app.
         -- apply in_or_app; right.
            apply in_or_app; right; auto.
         -- apply in_or_app; right; auto.
@@ -1865,17 +1767,17 @@ Proof.
       * rewrite map_app in H.
         apply in_app_or in H.
         destruct H.
-        -- destruct payload; repeat rewrite map_app.
+        -- destruct data; repeat rewrite map_app.
            ++ apply in_or_app; right.
               apply in_or_app; left; auto.
               eapply IHo1; eauto.
            ++ apply in_or_app; left.
               eapply IHo1; eauto.
-        -- destruct payload; repeat rewrite map_app.
+        -- destruct data; repeat rewrite map_app.
            ++ apply in_or_app; right.
               apply in_or_app; right; auto.
            ++ apply in_or_app; right; auto.
-      * destruct payload; repeat rewrite map_app.
+      * destruct data; repeat rewrite map_app.
         -- rewrite map_app in H.
            apply in_app_or in H.
            destruct H.
@@ -1899,12 +1801,12 @@ Proof.
   induction o; simpl in *; intros.
   - apply NoDup_nil.
   - destruct p; simpl.
-    + destruct payload; auto.
+    + destruct data; auto.
       repeat rewrite map_app in *.
       apply NoDup_app_remove_l in H. auto.
     + destruct b; simpl.
       * apply NoDup_disjointness.
-        -- destruct payload; apply IHo1.
+        -- destruct data; apply IHo1.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               apply NoDup_app_remove_r in H.
@@ -1912,7 +1814,7 @@ Proof.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_r in H.
               auto.
-        -- destruct payload; simpl.
+        -- destruct data; simpl.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               apply NoDup_app_remove_l in H.
@@ -1922,7 +1824,7 @@ Proof.
               auto.
         -- intros id [Hid1 Hid2].
            apply get_all_blks_tree_clear_path_weaken in Hid1.
-           destruct payload; simpl.
+           destruct data; simpl.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               eapply NoDup_app_disj. exact H.
@@ -1931,7 +1833,7 @@ Proof.
               eapply NoDup_app_disj. exact H.
               split; eauto.
       * apply NoDup_disjointness.
-        -- destruct payload; simpl.
+        -- destruct data; simpl.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               apply NoDup_app_remove_r in H.
@@ -1939,7 +1841,7 @@ Proof.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_r in H.
               auto.
-        -- destruct payload; apply IHo2.
+        -- destruct data; apply IHo2.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               apply NoDup_app_remove_l in H.
@@ -1949,7 +1851,7 @@ Proof.
               auto.
         -- intros id [Hid1 Hid2].
            apply get_all_blks_tree_clear_path_weaken in Hid2.
-           destruct payload; simpl.
+           destruct data; simpl.
            ++ repeat rewrite map_app in *.
               apply NoDup_app_remove_l in H.
               eapply NoDup_app_disj. exact H.
@@ -1988,7 +1890,7 @@ Lemma on_path_not_off_path: forall o p id,
 Proof.
   induction o; auto; intros.
   destruct p. 
-  - destruct payload; simpl in *.
+  - destruct data; simpl in *.
     + repeat rewrite map_app in *.
       apply NoDup_app_disj in H.
       intro Hid.
@@ -1997,7 +1899,7 @@ Proof.
         rewrite app_nil_r in H0; auto.
       * auto.
     + auto.
-  - destruct payload; simpl in *.
+  - destruct data; simpl in *.
     + destruct b; simpl in *.
       * repeat rewrite map_app in *. (* true *)
         apply in_app_or in H0.
@@ -2150,20 +2052,20 @@ Proof.
   destruct p; simpl in *.
   - destruct p'.
     + simpl.
-      destruct payload; auto.
+      destruct data; auto.
       repeat rewrite map_app in *.
       apply NoDup_app_disj in H.
       simpl in H1; rewrite app_nil_r in H1.
       apply (H id); split; auto.
     + destruct b.
-      * destruct payload; simpl in *; auto.
+      * destruct data; simpl in *; auto.
         rewrite map_app in *.
         apply in_app_or in H1.
         destruct H1; auto.
         apply NoDup_app_disj in H.
         elim (H id); split; auto.
         rewrite map_app; auto.
-      * destruct payload; simpl in *; auto.
+      * destruct data; simpl in *; auto.
         rewrite map_app in *.
         apply in_app_or in H1.
         destruct H1; auto.
@@ -2171,7 +2073,7 @@ Proof.
         elim (H id); split; auto.
         rewrite map_app; auto.
   - destruct p'.
-    + destruct payload; simpl in *.
+    + destruct data; simpl in *.
       * rewrite app_nil_r in H1.
         destruct b.
         -- simpl in *.
@@ -2192,7 +2094,7 @@ Proof.
            right; eapply get_all_blks_tree_clear_path_weaken; eauto.
       * contradiction.
     + destruct b0; simpl in *.
-      * destruct payload; simpl in *.
+      * destruct data; simpl in *.
         -- destruct b; simpl in *.
            ++ repeat rewrite map_app in *.
               apply in_app_or in H1.
@@ -2230,7 +2132,7 @@ Proof.
            ++ apply NoDup_app_disj in H.
               elim (H id); split; auto.
               eapply In_path_in_tree; eauto.
-      * destruct payload; simpl in *.
+      * destruct data; simpl in *.
         -- destruct b; simpl in *.
            ++ repeat rewrite map_app in *.
               apply in_app_or in H1.
