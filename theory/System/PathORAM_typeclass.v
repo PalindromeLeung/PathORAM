@@ -2673,8 +2673,19 @@ Module PathORAM <: RAM (Dist_State).
     forall k v s,
       get_payload ((bind (write k v) (fun _ => ret (wrap v))) s) = Some v.
     Proof.
-      (* TODO how to prove this compat lemma too? *)
-    Admitted.
+      intros. unfold get_payload. unfold PathORAM_typeclass.get_payload.
+      destruct (bind (write k v) (fun _ : path * nat => ret (wrap v)) s) eqn:?.
+      simpl. destruct dist_pmf0.
+      - discriminate.
+      - destruct p. destruct p. destruct v0. f_equal.
+        unfold bind in Heqd. unfold M.bind in Heqd. 
+        unfold bindT in Heqd. destruct (write k v s) eqn:?.
+        simpl in Heqd. inversion Heqd. unfold mbind_dist_pmf in H0.
+        simpl in H0. destruct dist_pmf1.
+        + discriminate.
+        + simpl in H0. destruct p0. simpl in H0. destruct p0. simpl in H0.
+         unfold wrap in H0. inversion H0. reflexivity.
+    Qed.
 
   (* --- RAM laws --- *)
 
