@@ -2502,10 +2502,10 @@ Lemma extract_payload (id : block_id) (v: nat) (s : state) :
 Proof.
   intros ops_on_s.
   unfold get_payload.
-  pose proof (dist_lift_peek _ _ ops_on_s) as pf.
+  apply dist_lift_peek in ops_on_s.
   destruct peek.
   destruct p.
-  destruct pf; congruence.
+  destruct ops_on_s; congruence.
 Qed.
 
 Theorem PathORAM_simulates_RAM (id : block_id) (v : nat) (s : state) :
