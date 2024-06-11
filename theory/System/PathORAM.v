@@ -2517,6 +2517,4 @@ Proof.
   apply write_and_read_access_lift. auto.
 Qed.
 
-Check write_and_read_access.
-
 End PORAM.
