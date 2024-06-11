@@ -36,6 +36,9 @@ Module Type RAM (M : StateMonad).
   (* Get payload *)
   Parameter get_payload : M.state S (Vw V) -> option V.
 
+  (* Wrap value *)
+  Parameter wrap : V -> Vw V.
+
   (* --- RAM laws (TODO maybe add uniform syntax here, and maybe change if not quite right) --- *)
   Axiom read_read :
     forall (k : K) (s : S), 
@@ -47,7 +50,7 @@ Module Type RAM (M : StateMonad).
     forall (k : K) (v : V) (s : S),
       well_formed s ->
       get_payload ((M.bind (write k v) (fun _ => read k)) s) =
-      get_payload ((M.bind (write k v) (fun v => M.ret v)) s).
+      get_payload ((M.bind (write k v) (fun _ => M.ret (wrap v))) s).
 
   (* TODO remaining laws
 v1 <- read(key1) ; v2 <- read(key2) ; f(v1,v2) == v2 <- read(key2) ; v1 <- read(key1) ; f(v1,v2) -- read-commute law (doesn't require key1 =/= key2)

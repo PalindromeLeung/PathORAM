@@ -226,6 +226,8 @@ Module KV_RAM <: RAM (KV_State).
           (put (insert k v s))
           (fun _ => ret None)).
 
+  Definition wrap (v : V) := Some v.
+
   Definition get_payload (s : state S (Vw V)) := fst s.
 
   Definition write_and_read (k : K) (v : V) : State S (Vw V):=
@@ -303,7 +305,7 @@ Module KV_RAM <: RAM (KV_State).
     forall (k : K) (v : V) (s : S),
       well_formed s ->
       get_payload ((bind (write k v) (fun _ => read k)) s) =
-      get_payload ((bind (write k v) (fun v => ret v)) s).
+      get_payload ((bind (write k v) (fun _ => ret (wrap v))) s).
   Proof.
   Admitted.
 

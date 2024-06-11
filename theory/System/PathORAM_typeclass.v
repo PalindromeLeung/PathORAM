@@ -2637,6 +2637,8 @@ Module PathORAM <: RAM (Dist_State).
     let len_m := get_height o in
     read_access len_m k.
 
+  Definition wrap v : Vw V := ([], v). (* path doesn't matter for this *)
+
   Definition get_payload (s : M.state S (Vw V)) :=
    @get_payload s.
 
@@ -2669,7 +2671,7 @@ Module PathORAM <: RAM (Dist_State).
 
   Lemma read_and_write_compat_lemma_2 :
     forall k v s,
-      get_payload ((bind (write k v) (fun v => ret v)) s) = Some v.
+      get_payload ((bind (write k v) (fun _ => ret (wrap v))) s) = Some v.
     Proof.
       (* TODO how to prove this compat lemma too? *)
     Admitted.
@@ -2689,7 +2691,7 @@ Module PathORAM <: RAM (Dist_State).
     forall (k : K) (v : V) (s : S),
       well_formed s ->
       get_payload ((bind (write k v) (fun _ => read k)) s) =
-      get_payload ((bind (write k v) (fun v => ret v)) s).
+      get_payload ((bind (write k v) (fun _ => ret (wrap v))) s).
   Proof.
     intros. rewrite read_and_write_compat_lemma_1.
     rewrite read_and_write_compat_lemma_2.
