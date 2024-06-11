@@ -406,6 +406,18 @@ Proof.
     intros (a, b) pa. exact pa.
 Qed.
 
+Lemma dist_lift_peek {X} (P : X -> Prop) (dx : dist X) :
+  dist_lift P dx ->
+  P (peek dx).
+Proof.
+  intro.
+  destruct dx; simpl.
+  destruct dist_pmf.
+  - destruct zero_one_neq.
+  - destruct p.
+    inversion H; auto.
+Qed.
+
 #[export] Instance Pred_Dist_Lift : PredLift dist.
 refine 
   {|
@@ -570,26 +582,9 @@ Proof.
   constructor. split; auto.
   apply Forall_nil.
 Qed.
-Print dist.
-
-Lemma zero_one_neq : ~ (0 == 1)%Q.
-Proof.
-  intro pf.
-  inversion pf.
-Qed.
-
-Definition get_first_val {X} (d : dist X) : X :=
-  match d with
-  | {| dist_pmf := dist; dist_law := law |} =>
-    match dist as l return ((sum_dist l == 1)%Q -> X) with
-    | [] => fun law => 
-      match zero_one_neq law with end
-    | (x,_) :: _ => fun _ => x
-       end law
-  end.
 
 Definition get_payload (dist_a : dist (path * nat * state)): nat :=
-  match get_first_val dist_a with
+  match peek dist_a with
   | (_,v,_) => v
   end.
 
@@ -2506,13 +2501,12 @@ Lemma extract_payload (id : block_id) (v: nat) (s : state) :
   get_payload (write_and_read_access id v s) = v.
 Proof.
   intros ops_on_s.
-  destruct (write_and_read_access id v s). unfold get_payload.
-  simpl in *. destruct dist_pmf.
-  - simpl in *.
-    destruct (zero_one_neq).
-  - simpl in *.  destruct p.  destruct p.  destruct p. simpl in ops_on_s. inversion ops_on_s.
-    destruct H1. simpl in H1. congruence.
-Qed. 
+  unfold get_payload.
+  pose proof (dist_lift_peek _ _ ops_on_s) as pf.
+  destruct peek.
+  destruct p.
+  destruct pf; congruence.
+Qed.
 
 Theorem PathORAM_simulates_RAM (id : block_id) (v : nat) (s : state) :
   well_formed s ->

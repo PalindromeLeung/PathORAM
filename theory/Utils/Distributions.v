@@ -153,3 +153,21 @@ Fixpoint mk_n_list (n: nat):list nat :=
   | O => []
   | S n' => [n'] ++ mk_n_list n'
   end.
+
+Lemma zero_one_neq : ~ (0 == 1)%Q.
+Proof.
+  intro pf.
+  inversion pf.
+Qed.
+
+(* extract a value from a distribution arbitrarily, in this case
+   taking the first elt of the underlying list *)
+Definition peek {X} (d : dist X) : X :=
+  match d with
+  | {| dist_pmf := dist; dist_law := law |} =>
+    match dist as l return ((sum_dist l == 1)%Q -> X) with
+    | [] => fun law => 
+      match zero_one_neq law with end
+    | (x,_) :: _ => fun _ => x
+       end law
+  end.
