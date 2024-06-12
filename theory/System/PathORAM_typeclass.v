@@ -2714,28 +2714,26 @@ Module PathORAM <: RAM (Dist_State).
       get_payload (write_and_read_access LOP k v s).
   Proof.
     intros LOP k v s wf_s.
-    transitivity (Some v).
-    - assert (opt_lift (eq v) (get_payload (bind (write k v) (fun _ => read k) s))).
-      { eapply lift_payload; eauto.
+    rewrite PathORAM_simulates_RAM; auto.
+    assert (opt_lift (eq v) (get_payload (bind (write k v) (fun _ => read k) s))).
+    { eapply lift_payload; eauto.
+      eapply state_prob_bind.
+      + unfold write.
         eapply state_prob_bind.
-        + unfold write.
-          eapply state_prob_bind.
-          * apply get_State_wf.
-          * intros s' wf_s'.
-            rewrite get_height_wf with (LOP := LOP); auto.
-            apply write_access_wf.
-        + intros _ _.
-          unfold read.
-          eapply state_prob_bind.
-          * apply get_State_wf.
-          * simpl; intros s' [wf_s' Hkv].
-            rewrite get_height_wf with (LOP := LOP); auto.
-            apply read_access_wf.
-      }
-      unfold opt_lift in H.
-      destruct get_payload; auto. contradiction.
-    - symmetry.
-      apply PathORAM_simulates_RAM; auto.
+        * apply get_State_wf.
+        * intros s' wf_s'.
+          rewrite get_height_wf with (LOP := LOP); auto.
+          apply write_access_wf.
+      + intros _ _.
+        unfold read.
+        eapply state_prob_bind.
+        * apply get_State_wf.
+        * simpl; intros s' [wf_s' Hkv].
+          rewrite get_height_wf with (LOP := LOP); auto.
+          apply read_access_wf.
+    }
+    unfold opt_lift in H.
+    destruct get_payload; auto. contradiction.
   Qed.
 
   Lemma read_and_write_compat_lemma_1 :
