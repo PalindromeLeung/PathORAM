@@ -37,6 +37,35 @@ Module MonadNotation.
 End MonadNotation.
 Import MonadNotation.
 
+Definition StateT (S : Type) (M : Type -> Type) (X : Type) : Type :=
+  S -> M (X * S)%type.
+
+Definition StateT_ret {S} {M} `{Monad M} {X} :
+  X -> StateT S M X :=
+  fun x s => mreturn (x, s).
+
+Definition StateT_bind {S} {M} `{Monad M} {X Y} :
+  StateT S M X ->
+  (X -> StateT S M Y) ->
+  StateT S M Y :=
+  fun mx f s =>
+    mbind (mx s) (fun '(x, s') => f x s').
+
+Global Instance StateT_Monad {M} {S} `{Monad M} : Monad (StateT S M) := {|
+  mreturn A := StateT_ret;
+  mbind X Y := StateT_bind
+  |}.
+
+Definition get {S M} `{Monad M}: StateT S M S :=
+  fun s => mreturn(s,s). 
+
+Definition put {S M} `{Monad M} (st : S) :
+  StateT S M unit := fun s => mreturn(tt, st).
+
+Definition lift {S M} `{Monad M} {A} (m : M A) : StateT S M A :=
+    fun st =>
+    a <- m ;; mreturn (a, st).
+
 (* user-defined well-formedness criteria for a datatype, e.g., that a dictionary
  * represented by an association-list has sorted and non-duplicate keys
  *)
@@ -44,4 +73,6 @@ Class WF (A : Type) := { wf : A -> Type }.
 
 (* MISSING: correctness criteria, e.g., that `Ord` is an actual total order, etc.
  *)
+
+
 

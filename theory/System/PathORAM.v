@@ -77,37 +77,17 @@ Definition stash := list block.
 Definition bucket := list block.
 
 Variable LOP : nat.
-Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
 Definition oram : Type := tree (option bucket).
-
-Definition retT {S} {M} `{Monad M} {X} :
-  X -> Poram_st S M X :=
-  fun x s => mreturn (x, s).
-
-Definition bindT {S} {M} `{Monad M} {X Y} :
-  Poram_st S M X ->
-  (X -> Poram_st S M Y) ->
-  Poram_st S M Y.
-Proof.
-  unfold Poram_st.
-  intros mx f s.
-  apply (mbind (mx s)).
-  intros [x s'].
-  exact (f x s').
-Defined.
 
 Record state : Type := State
   { state_position_map : position_map
   ; state_stash : stash
   ; state_oram : oram
   }.
-  
-Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
-  fun s => mreturn(s,s). 
 
-Definition Poram_st_put {S M} `{Monad M} (st : S) :
-  Poram_st S M unit := fun s => mreturn(tt, st).
+Definition Poram : Type -> Type :=
+  StateT state dist.
 
 (* TODO: add to Tree.v? *)
 Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
@@ -166,11 +146,6 @@ Definition blk_in_p (id : block_id) (v : nat) (o : oram) (p: path) :=
 
 Definition blk_in_path (id : block_id) (v : nat) (s : state): Prop :=
   blk_in_p id v (state_oram s) (calc_path id s).
-
-#[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
-  {|mreturn A := retT; mbind X Y := bindT |}.
-
-Definition get_State : Poram_st(state) dist(state) := Poram_st_get.
 
 Inductive operation := 
   | Read : operation 
@@ -287,10 +262,6 @@ Proof.
   reflexivity. 
 Qed.
 
-Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
-  fun st =>
-    a <- dx ;; mreturn (a, st).
-
 Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
   let m' := update_dict id p_new m in
   let bkts := lookup_path_oram o p in
@@ -317,8 +288,8 @@ Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
   ret_data. 
 
 Definition access (id : block_id) (op : operation) :
-  Poram_st state dist (path * nat) :=
-  PST <- get_State ;;
+  Poram (path * nat) :=
+  PST <- get ;;
   (* unpack the state *)
   let m := state_position_map PST in
   let h := state_stash  PST in
@@ -327,12 +298,12 @@ Definition access (id : block_id) (op : operation) :
   let len_m := LOP in
   let p := lookup_dict (makeBoolList false len_m) id m in
   (* flip a bunch of coins to get the new path *)      
-  p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
+  p_new <- lift (constm_vec coin_flip len_m) ;;
   (* get the updated path oram state to put and the data to return *)
   let n_st := get_post_wb_st (get_pre_wb_st id op m h o p p_new) p in
   let ret_data := get_ret_data id h p o in
   (* put the updated state back *)
-  _ <- Poram_st_put n_st ;;
+  _ <- put n_st ;;
   (* return the path l and the return value *)
   mreturn((p, ret_data)).
 
@@ -434,7 +405,7 @@ Proof.
 Qed.
 
 Lemma state_prob_lift_weaken {S X} {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
-  (P : X -> Prop) (m : Poram_st S dist X) :
+  (P : X -> Prop) (m : StateT S dist X) :
   (forall s, Post s -> Post' s) ->
   state_prob_lift Pre Post P m ->
   state_prob_lift Pre Post' P m.
@@ -452,16 +423,13 @@ Proof.
     apply H1.
 Qed.    
 
-Definition read_access (id : block_id) :
-  Poram_st state dist (path * nat) := access id Read.
+Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
 
-Definition write_access (id : block_id) (v : nat) :
-  Poram_st state dist (path * nat) := access id (Write v).
+Definition write_access (id : block_id) (v : nat) : Poram (path * nat) := access id (Write v).
 
-Definition write_and_read_access (id : block_id) (v : nat) :
-  Poram_st state dist (path * nat) :=
-  bindT (write_access id v ) (fun _ => read_access id).
-
+Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) :=
+  _ <- write_access id  v;;
+  read_access id.
 
 Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
 
@@ -470,10 +438,10 @@ Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
  *)
 Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
       (Mid : S -> Prop) {Post : S -> Prop} (P: X -> Prop) {Q: Y -> Prop}
-      {mx : Poram_st S M X} {f : X -> Poram_st S M Y} : 
+      {mx : StateT S M X} {f : X -> StateT S M Y} : 
   state_prob_lift Pre Mid P mx ->
   (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
-  state_prob_lift Pre Post Q (bindT mx f).
+  state_prob_lift Pre Post Q (mbind mx f).
 Proof.
   intros.
   unfold state_prob_lift. intros.
@@ -484,7 +452,7 @@ Proof.
 Qed.
 
 Lemma state_prob_ret {S X} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop} {P : X -> Prop} {x : X}:
-  P x -> state_prob_lift Pre Pre P (retT x).
+  P x -> state_prob_lift Pre Pre P (mreturn x).
 Proof.
   intros.
   unfold state_prob_lift. intros.
@@ -495,7 +463,7 @@ Proof.
 Qed.
 
 Lemma get_State_wf {Pre : state-> Prop} :
-  state_prob_lift Pre Pre Pre get_State.
+  state_prob_lift Pre Pre Pre get.
 Proof.
   intros.
   unfold state_prob_lift; intros.
@@ -511,12 +479,12 @@ Qed.
 
 Lemma dist2Poram_wf {X} (dx : dist X) (P : X -> Prop) {Pre : state -> Prop}:
   dist_lift P dx ->
-  state_prob_lift Pre Pre P (dist2Poram dx).
+  state_prob_lift Pre Pre P (lift dx).
 Proof.
   intros. 
   unfold state_prob_lift.
   intros. unfold plift. unfold Pred_Dist_Lift. unfold dist_lift.
-  unfold dist2Poram. simpl. 
+  unfold lift. simpl. 
   rewrite Forall_map.
   unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat.
   rewrite Forall_map.
@@ -543,7 +511,7 @@ Proof.
 Qed.
 
 Lemma coin_flip_wf {Pre : state -> Prop} (l : nat):
-  state_prob_lift Pre Pre (fun p => length p = l) (dist2Poram (constm_vec coin_flip l)).
+  state_prob_lift Pre Pre (fun p => length p = l) (lift (constm_vec coin_flip l)).
 Proof.
   eapply dist2Poram_wf.
   induction l.
@@ -560,14 +528,14 @@ Proof.
 Qed.
 
 Lemma put_wf {Pre Pre' : state -> Prop} {s : state}:
-  Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
+  Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (put s).
 Proof.
   intros.
   unfold state_prob_lift; intros.
   unfold plift.
   unfold Pred_Dist_Lift.
   unfold dist_lift.
-  unfold Poram_st_put. simpl.
+  unfold put. simpl.
   constructor. split; auto.
   apply Forall_nil.
 Qed.
