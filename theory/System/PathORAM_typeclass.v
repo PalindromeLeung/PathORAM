@@ -2753,7 +2753,6 @@ Module PathORAM <: RAM (Dist_State).
     forall k v s,
       get_payload ((bind (write k v) (fun _ => ret (wrap v))) s) = Some v.
     Proof.
-      simpl.
       intros. unfold get_payload. unfold PathORAM_typeclass.get_payload.
       destruct (bind (write k v) (fun _ : path * nat => ret (wrap v)) s) eqn:?.
       simpl. destruct dist_pmf0.
@@ -2785,9 +2784,9 @@ Module PathORAM <: RAM (Dist_State).
       get_payload ((bind (write k v) (fun _ => read k)) s) =
       get_payload ((bind (write k v) (fun _ => ret (wrap v))) s).
   Proof.
-    intros. rewrite read_and_write_compat_lemma_1.
+    intros. rewrite read_and_write_compat_lemma_1; auto.
     rewrite read_and_write_compat_lemma_2.
-    apply PathORAM_simulates_RAM. apply H; auto. exact H.
+    apply PathORAM_simulates_RAM. apply H.
   Qed.
 
 End PathORAM.
