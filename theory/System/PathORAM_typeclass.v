@@ -2685,7 +2685,6 @@ Module PathORAM <: RAM (Dist_State).
       inversion Hm; tauto.
   Qed.
 
-  (* not provable because of off-by-one *)
   Lemma is_p_b_tr_height : forall o n,
     is_p_b_tr o n ->
     get_height o = n.
