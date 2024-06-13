@@ -2709,6 +2709,15 @@ Module PathORAM <: RAM (Dist_State).
     apply PathORAM_simulates_RAM. apply H.
   Qed.
 
+  Theorem read_write_commute :
+    forall (k1 k2 : K) (v : V) f (s : S),
+      well_formed s ->
+      k1 <> k2 ->
+      get_payload (bind (read k1) (fun v' => bind (write k2 v) (fun _ => f v')) s) =
+      get_payload (bind (write k2 v) (fun _ => bind (read k1) f) s).
+  Proof.
+  Admitted.
+
 End PathORAM.
 
 

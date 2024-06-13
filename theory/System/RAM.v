@@ -61,7 +61,6 @@ Module Type RAM (M : StateMonad).
 
   (* TODO remaining laws
 v1 <- read(key1) ; v2 <- read(key2) ; f(v1,v2) == v2 <- read(key2) ; v1 <- read(key1) ; f(v1,v2) -- read-commute law (doesn't require key1 =/= key2)
-v <- read(key1); write(key2,value); f(v) == write(key2,value) ; v <- read(key1) ; f(v) -- read-write-commute law (requires key1 =/= key2)
 write(key1,value1) ; write(key2,value2) == write(key2,value2) ; write(key1,value1) -- write-commute law (requires key1 =/= key2)
   *)
 
