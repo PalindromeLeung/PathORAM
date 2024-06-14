@@ -2658,8 +2658,13 @@ Module PathORAM <: RAM (Dist_State).
       (bind (read k) (fun _ => read k) s) -> 
     get_payload (bind (read k) (fun _ => read k) s) = get_payload ((bind (read k) ret) s).
   Proof.
-    admit. (* TODO *)
-  Admitted.
+    intros. destruct (bind (read k) (fun _ => read k) s). destruct (bind (read k) ret s).
+    unfold get_payload, PathORAM_typeclass.get_payload. 
+    destruct dist_pmf0, dist_pmf1; try discriminate.
+    simpl in *. destruct p. destruct p. destruct p. destruct p0. destruct p0. destruct p0.
+    simpl in H. inversion H. destruct H2. simpl in *.
+    rewrite <- H2. reflexivity.
+  Qed.
 
   Definition opt_lift {X} (P : X -> Prop) : option X -> Prop :=
     fun o =>
