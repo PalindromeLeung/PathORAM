@@ -2623,19 +2623,19 @@ Module PathORAM <: RAM (Dist_State).
   Definition well_formed s := 
     let o := state_oram s in
     let len_m := get_height o in
-    well_formed len_m s.
+    well_formed (pred len_m) s.
 
   Definition write k v := 
       PST <- get_State ;;
       let o := state_oram PST in
       let len_m := get_height o in
-      write_access len_m k v.
+      write_access (pred len_m) k v.
 
   Definition read k :=
     PST <- get_State ;;
     let o := state_oram PST in
     let len_m := get_height o in
-    read_access len_m k.
+    read_access (pred len_m) k.
 
   Definition wrap v : Vw V := ([], v). (* path doesn't matter for this *)
 
@@ -2661,13 +2661,91 @@ Module PathORAM <: RAM (Dist_State).
     admit. (* TODO *)
   Admitted.
 
+  Definition opt_lift {X} (P : X -> Prop) : option X -> Prop :=
+    fun o =>
+      match o with
+      | None => False
+      | Some x => P x
+      end.
+
+  Lemma lift_payload {Pre Post : state -> Prop} {P : nat -> Prop} 
+    (m : Poram_st S dist (path * nat)) s :
+    Pre s ->
+    state_prob_lift Pre Post (fun '(_,x) => P x) m ->
+    opt_lift P (PathORAM_typeclass.get_payload (m s)).
+  Proof.
+    intros Hs Hm.
+    unfold opt_lift.
+    unfold PathORAM_typeclass.get_payload.
+    specialize (Hm s Hs).
+    destruct (m s); simpl.
+    destruct dist_pmf0.
+    - discriminate.
+    - destruct p. destruct p. destruct p.
+      inversion Hm; tauto.
+  Qed.
+
+  Lemma is_p_b_tr_height : forall o n,
+    is_p_b_tr o n ->
+    get_height o = n.
+  Proof.
+    induction o; intros n Ho; simpl in *.
+    - destruct n; auto.
+      contradiction.
+    - destruct n; destruct Ho.
+      rewrite (IHo1 n); auto.
+      rewrite (IHo2 n); auto.
+      rewrite Nat.max_id; auto.
+  Qed.
+
+  Lemma get_height_wf : forall LOP s,
+    PathORAM_typeclass.well_formed LOP s ->
+    get_height (state_oram s) = Datatypes.S LOP.
+  Proof.
+    intros LOP s Hs.
+    apply is_pb_tr in Hs.
+    apply is_p_b_tr_height; auto.
+  Qed.
+
+  Lemma read_and_write_compat_lemma_1_aux :
+    forall LOP k v s,
+      PathORAM_typeclass.well_formed LOP s ->
+      get_payload ((bind (write k v) (fun _ => read k)) s) =
+      get_payload (write_and_read_access LOP k v s).
+  Proof.
+    intros LOP k v s wf_s.
+    rewrite PathORAM_simulates_RAM; auto.
+    assert (opt_lift (eq v) (get_payload (bind (write k v) (fun _ => read k) s))).
+    { eapply lift_payload; eauto.
+      eapply state_prob_bind.
+      + unfold write.
+        eapply state_prob_bind.
+        * apply get_State_wf.
+        * intros s' wf_s'.
+          rewrite get_height_wf with (LOP := LOP); auto.
+          apply write_access_wf.
+      + intros _ _.
+        unfold read.
+        eapply state_prob_bind.
+        * apply get_State_wf.
+        * simpl; intros s' [wf_s' Hkv].
+          rewrite get_height_wf with (LOP := LOP); auto.
+          apply read_access_wf.
+    }
+    unfold opt_lift in H.
+    destruct get_payload; auto. contradiction.
+  Qed.
+
   Lemma read_and_write_compat_lemma_1 :
     forall k v s,
+      well_formed s ->
       get_payload ((bind (write k v) (fun _ => read k)) s) =
-      get_payload (write_and_read_access (get_height (state_oram s)) k v s).
+      get_payload (write_and_read_access (pred (get_height (state_oram s))) k v s).
   Proof.
-    intros. (* TODO help how to prove this compat lemma? *)
-  Admitted.
+    intros k v s wf_s.
+    apply read_and_write_compat_lemma_1_aux.
+    exact wf_s.
+  Qed.
 
   Lemma read_and_write_compat_lemma_2 :
     forall k v s,
@@ -2704,17 +2782,10 @@ Module PathORAM <: RAM (Dist_State).
       get_payload ((bind (write k v) (fun _ => read k)) s) =
       get_payload ((bind (write k v) (fun _ => ret (wrap v))) s).
   Proof.
-    intros. rewrite read_and_write_compat_lemma_1.
+    intros. rewrite read_and_write_compat_lemma_1; auto.
     rewrite read_and_write_compat_lemma_2.
     apply PathORAM_simulates_RAM. apply H.
   Qed.
 
 End PathORAM.
 
-
-End PORAM.
-
-Print PathORAM.write.
-
-Check PathORAM_simulates_RAM.
-Print Assumptions PathORAM_simulates_RAM.
