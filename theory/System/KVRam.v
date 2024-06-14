@@ -318,4 +318,12 @@ Module KV_RAM <: RAM (KV_State).
   Proof.
   Admitted.
 
+  Theorem read_commute :
+    forall (k1 k2 : K) f (s : S),
+      well_formed s ->
+      get_payload (bind (read k1) (fun v1 => bind (read k2) (fun v2 => f v1 v2)) s) =
+      get_payload (bind (read k2) (fun v2 => bind (read k1) (fun v1 => f v1 v2)) s).
+  Proof.
+  Admitted.
+
 End KV_RAM.

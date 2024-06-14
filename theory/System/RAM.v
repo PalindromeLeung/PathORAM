@@ -59,8 +59,13 @@ Module Type RAM (M : StateMonad).
       get_payload (M.bind (read k1) (fun v' => M.bind (write k2 v) (fun _ => f v')) s) =
       get_payload (M.bind (write k2 v) (fun _ => M.bind (read k1) f) s).
 
+  Axiom read_commute :
+    forall (k1 k2 : K) f (s : S),
+      well_formed s ->
+      get_payload (M.bind (read k1) (fun v1 => M.bind (read k2) (fun v2 => f v1 v2)) s) =
+      get_payload (M.bind (read k2) (fun v2 => M.bind (read k1) (fun v1 => f v1 v2)) s).
+
   (* TODO remaining laws
-v1 <- read(key1) ; v2 <- read(key2) ; f(v1,v2) == v2 <- read(key2) ; v1 <- read(key1) ; f(v1,v2) -- read-commute law (doesn't require key1 =/= key2)
 write(key1,value1) ; write(key2,value2) == write(key2,value2) ; write(key1,value1) -- write-commute law (requires key1 =/= key2)
   *)
 
