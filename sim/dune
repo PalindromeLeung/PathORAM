@@ -1,0 +1,21 @@
+(coq.extraction
+  (prelude SimExtract)
+  (extracted_modules POram)
+  (theories POram))
+
+(library
+  (name extracted_code)
+  (modules Rand POram))
+
+(executable
+  (name sim)
+  (public_name sim)
+  (modules sim)
+  (libraries extracted_code))
+
+(env
+  (dev
+    (flags (:standard -w -39))
+    (ocamlopt_flags (:standard -O3)))
+  (release
+    (ocamlopt_flags (:standard -O3))))
