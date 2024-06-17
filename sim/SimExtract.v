@@ -87,7 +87,7 @@ Proof.
     reflexivity.
 Qed.
 
-Fixpoint get_traces_aux (acc : list path) (LOP : nat) (ops : list (block_id * operation)) : Poram_st state dist (list path) :=
+Fixpoint get_traces_aux (acc : list path) (LOP : nat) (ops : list (block_id * operation)) : Poram (list path) :=
   match ops with
   | [] => mreturn acc
   | (id,op) :: ops' =>
@@ -99,7 +99,7 @@ Definition get_traces (LOP : nat) (ops : list (block_id * operation)) (init : st
   p <- get_traces_aux [] LOP ops init;;
   mreturn (fst p).
 
-Fixpoint get_vals_aux (acc : list nat) (LOP : nat) (ops : list (block_id * operation)) : Poram_st state dist (list nat) :=
+Fixpoint get_vals_aux (acc : list nat) (LOP : nat) (ops : list (block_id * operation)) : Poram (list nat) :=
   match ops with
   | [] => mreturn acc
   | (id,op) :: ops' =>
