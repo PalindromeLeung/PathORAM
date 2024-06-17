@@ -13,6 +13,12 @@
   (modules sim)
   (libraries extracted_code))
 
+(executable
+  (name functional)
+  (public_name functional)
+  (modules functional)
+  (libraries extracted_code))
+
 (env
   (dev
     (flags (:standard -w -39))

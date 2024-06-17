@@ -99,6 +99,18 @@ Definition get_traces (LOP : nat) (ops : list (block_id * operation)) (init : st
   p <- get_traces_aux [] LOP ops init;;
   mreturn (fst p).
 
+Fixpoint get_vals_aux (acc : list nat) (LOP : nat) (ops : list (block_id * operation)) : Poram_st state dist (list nat) :=
+  match ops with
+  | [] => mreturn acc
+  | (id,op) :: ops' =>
+    p <- access LOP id op;;
+    get_vals_aux (snd p :: acc) LOP ops'
+  end.
+
+Definition get_vals (LOP : nat) (ops : list (block_id * operation)) (init : state) : dist (list nat) :=
+  p <- get_vals_aux [] LOP ops init;;
+  mreturn (List.rev (fst p)).
+
 Require Import Extraction.
 Require Import ExtrOcamlBasic.
 Require Import ExtrOcamlNatInt.
@@ -112,4 +124,4 @@ Extract Constant coin_flip => "Rand.coin_flip".
 
 Set Warnings "-extraction-default-directory".
 
-Extraction "POram.ml" empty_state get_traces .
+Extraction "POram.ml" empty_state get_traces get_vals.
