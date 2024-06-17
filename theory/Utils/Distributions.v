@@ -155,12 +155,42 @@ Fixpoint mk_n_list (n: nat):list nat :=
   | S n' => [n'] ++ mk_n_list n'
   end.
 
+Lemma zero_one_neq : ~ (0 == 1)%Q.
+Proof.
+  intro pf.
+  inversion pf.
+Qed.
+
+(* extract a value from a distribution arbitrarily, in this case
+   taking the first elt of the underlying list *)
+Definition peek {X} (d : dist X) : X :=
+  match d with
+  | {| dist_pmf := dist; dist_law := law |} =>
+    match dist as l return ((sum_dist l == 1)%Q -> X) with
+    | [] => fun law => 
+      match zero_one_neq law with end
+    | (x,_) :: _ => fun _ => x
+       end law
+  end.
+
 (* WARNING: distribution should contain non-zero weighted support *)
 Definition dist_lift {X} (P : X -> Prop) (d : dist X) : Prop.
 Proof.   
   destruct d.
   eapply (Forall P (List.map fst dist_pmf0)).
 Defined.
+
+Lemma dist_lift_peek {X} (P : X -> Prop) (dx : dist X) :
+  dist_lift P dx ->
+  P (peek dx).
+Proof.
+  intro Hdx.
+  destruct dx as [dist law]; simpl.
+  destruct dist as [|p dist].
+  - destruct zero_one_neq.
+  - destruct p.
+    inversion Hdx; auto.
+Qed.
 
 Lemma dist_lift_ret : forall (X : Type) (x : X) (P : X -> Prop), P x -> dist_lift P (mreturn x).
 Proof.

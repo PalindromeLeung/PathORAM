@@ -354,14 +354,11 @@ Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) 
 
 Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
 
-Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
-  match dist_pmf dist_a with 
-  | [] => None
-  | h :: t => match h with
-            | (((_,v),_), _)  => Some v
-            end
+Definition get_payload (dist_a : dist (path * nat * state)): nat :=
+  match peek dist_a with
+  | (_,v,_) => v
   end.
-             
+
 Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
   let s := state_stash st in 
   In (Block id v) s.
@@ -2275,19 +2272,19 @@ Qed.
 
 Lemma extract_payload (id : block_id) (v: nat) (s : state) : 
   plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
-  get_payload (write_and_read_access id v s) = Some v.
+  get_payload (write_and_read_access id v s) = v.
 Proof.
   intros ops_on_s.
-  destruct (write_and_read_access id v s). unfold get_payload.
-  simpl in *. destruct dist_pmf.
-  - simpl in *. inversion dist_law.
-  - simpl in *.  destruct p.  destruct p.  destruct p. simpl in ops_on_s. inversion ops_on_s.
-    destruct H1. simpl in H1. congruence.
-Qed. 
+  unfold get_payload.
+  apply dist_lift_peek in ops_on_s.
+  destruct peek.
+  destruct p.
+  destruct ops_on_s; congruence.
+Qed.
 
 Theorem PathORAM_simulates_RAM (id : block_id) (v : nat) (s : state) :
   well_formed s ->
-    get_payload(write_and_read_access id v s) = Some v.
+    get_payload(write_and_read_access id v s) = v.
 Proof.
   intros wf_s.
   apply extract_payload.
