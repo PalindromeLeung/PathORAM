@@ -346,18 +346,6 @@ Record well_formed (s : state ) : Prop :=
 
 Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
 
-Lemma dist_lift_peek {X} (P : X -> Prop) (dx : dist X) :
-  dist_lift P dx ->
-  P (peek dx).
-Proof.
-  intro.
-  destruct dx; simpl.
-  destruct dist_pmf.
-  - destruct zero_one_neq.
-  - destruct p.
-    inversion H; auto.
-Qed.
-
 Definition write_access (id : block_id) (v : nat) : Poram (path * nat) := access id (Write v).
 
 Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) :=

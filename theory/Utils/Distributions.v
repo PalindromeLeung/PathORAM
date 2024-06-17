@@ -180,6 +180,18 @@ Proof.
   eapply (Forall P (List.map fst dist_pmf0)).
 Defined.
 
+Lemma dist_lift_peek {X} (P : X -> Prop) (dx : dist X) :
+  dist_lift P dx ->
+  P (peek dx).
+Proof.
+  intro Hdx.
+  destruct dx as [dist law]; simpl.
+  destruct dist as [|p dist].
+  - destruct zero_one_neq.
+  - destruct p.
+    inversion Hdx; auto.
+Qed.
+
 Lemma dist_lift_ret : forall (X : Type) (x : X) (P : X -> Prop), P x -> dist_lift P (mreturn x).
 Proof.
   intros; simpl.
