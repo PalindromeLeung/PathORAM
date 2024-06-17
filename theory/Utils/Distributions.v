@@ -1,4 +1,5 @@
 Require Import POram.Utils.Classes.
+Require Import POram.Utils.Vectors.
 Import MonadNotation.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Lists.List.
@@ -171,3 +172,73 @@ Definition peek {X} (d : dist X) : X :=
     | (x,_) :: _ => fun _ => x
        end law
   end.
+
+(* WARNING: distribution should contain non-zero weighted support *)
+Definition dist_lift {X} (P : X -> Prop) (d : dist X) : Prop.
+Proof.   
+  destruct d.
+  eapply (Forall P (List.map fst dist_pmf0)).
+Defined.
+
+Lemma dist_lift_ret : forall (X : Type) (x : X) (P : X -> Prop), P x -> dist_lift P (mreturn x).
+Proof.
+  intros; simpl.
+  repeat constructor; auto.
+Qed.
+
+Lemma dist_lift_bind :
+forall (X Y : Type) (P : X -> Prop)
+  (Q : Y -> Prop) (mx : dist X)
+  (f : X -> dist Y),
+dist_lift P mx ->
+(forall x : X, P x -> dist_lift Q (f x)) ->
+dist_lift Q (x <- mx;; f x).
+Proof.
+  intros. simpl mbind. unfold mbind_dist.
+    unfold dist_lift. rewrite Forall_map. unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat. rewrite Forall_map.
+    eapply Forall_impl.
+    2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H. }
+    intros (k,v) pk. simpl. unfold update_probs. rewrite Forall_map.
+    specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
+    2:{exact H0. }
+    intros (a, b) pa. exact pa.
+Qed.
+
+Global Instance Pred_Dist_Lift : PredLift dist :=
+  {|
+    plift := @dist_lift;
+    plift_ret := dist_lift_ret;
+    plift_bind := dist_lift_bind;
+  |}.
+
+Lemma coin_flip_triv :
+  plift (fun _ => True) coin_flip.
+Proof.
+  repeat constructor.
+Qed.
+
+Definition coin_flips (n : nat) : dist (list bool) :=
+  constm_vec coin_flip n.
+
+Lemma coin_flips_length (n : nat):
+  plift (fun p => length p = n) (coin_flips n).
+Proof.
+  apply constm_vec_length.
+  exact coin_flip_triv.
+Qed.
+
+Lemma dist_lift_weaken {X} (P Q : X -> Prop) (d : dist X) :
+  (forall x, P x -> Q x) -> 
+  dist_lift P d -> dist_lift Q d.
+Proof.
+  intros.
+  unfold dist_lift in *.
+  destruct d.
+  eapply Forall_impl; eauto.
+Qed.
+
+Lemma dist_has_weakening : has_weakening dist.
+Proof.
+  intros X P Q HPQ m.
+  apply dist_lift_weaken; auto.
+Qed.
