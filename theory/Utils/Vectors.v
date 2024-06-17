@@ -40,6 +40,22 @@ Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat
       mreturn (cons x xs)
   end.
 
+Lemma constm_vec_length {A} {M} `{PredLift M} (m : M A) n :
+  plift (fun _ => True) m ->
+  plift (fun p => length p = n) (constm_vec m n).
+Proof.
+  intro Hm.
+  induction n.
+  - apply plift_ret; auto.
+  - eapply plift_bind; eauto.
+    intros x _.
+    eapply plift_bind; eauto.
+    simpl.
+    intros l Hl.
+    apply plift_ret.
+    simpl; auto.
+Qed.
+
 Definition to_list_vec {A : Type} {n : nat} := @Vector.to_list A n.
 Definition map_vec {A B : Type} {n : nat} f := @Vector.map A B f n.
 

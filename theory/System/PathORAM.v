@@ -13,6 +13,7 @@ Require Import POram.Utils.Vectors.
 Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Distributions.
 Require Import POram.Utils.Tree.
+Require Import POram.Utils.StateT.
 (*** PATH ORAM ***)
 
 (** 
@@ -77,37 +78,17 @@ Definition stash := list block.
 Definition bucket := list block.
 
 Variable LOP : nat.
-Definition Poram_st S M A : Type := S -> M (A * S)%type.
 
 Definition oram : Type := tree (option bucket).
-
-Definition retT {S} {M} `{Monad M} {X} :
-  X -> Poram_st S M X :=
-  fun x s => mreturn (x, s).
-
-Definition bindT {S} {M} `{Monad M} {X Y} :
-  Poram_st S M X ->
-  (X -> Poram_st S M Y) ->
-  Poram_st S M Y.
-Proof.
-  unfold Poram_st.
-  intros mx f s.
-  apply (mbind (mx s)).
-  intros [x s'].
-  exact (f x s').
-Defined.
 
 Record state : Type := State
   { state_position_map : position_map
   ; state_stash : stash
   ; state_oram : oram
   }.
-  
-Definition Poram_st_get {S M} `{Monad M}: Poram_st S M S :=
-  fun s => mreturn(s,s). 
 
-Definition Poram_st_put {S M} `{Monad M} (st : S) :
-  Poram_st S M unit := fun s => mreturn(tt, st).
+Definition Poram : Type -> Type :=
+  StateT state dist.
 
 (* TODO: add to Tree.v? *)
 Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
@@ -166,11 +147,6 @@ Definition blk_in_p (id : block_id) (v : nat) (o : oram) (p: path) :=
 
 Definition blk_in_path (id : block_id) (v : nat) (s : state): Prop :=
   blk_in_p id v (state_oram s) (calc_path id s).
-
-#[global] Instance PoramM {S M } `{Monad M} : Monad (Poram_st S M) :=
-  {|mreturn A := retT; mbind X Y := bindT |}.
-
-Definition get_State : Poram_st(state) dist(state) := Poram_st_get.
 
 Inductive operation := 
   | Read : operation 
@@ -287,10 +263,6 @@ Proof.
   reflexivity. 
 Qed.
 
-Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
-  fun st =>
-    a <- dx ;; mreturn (a, st).
-
 Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
   let m' := update_dict id p_new m in
   let bkts := lookup_path_oram o p in
@@ -317,8 +289,8 @@ Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
   ret_data. 
 
 Definition access (id : block_id) (op : operation) :
-  Poram_st state dist (path * nat) :=
-  PST <- get_State ;;
+  Poram (path * nat) :=
+  PST <- get ;;
   (* unpack the state *)
   let m := state_position_map PST in
   let h := state_stash  PST in
@@ -327,12 +299,12 @@ Definition access (id : block_id) (op : operation) :
   let len_m := LOP in
   let p := lookup_dict (makeBoolList false len_m) id m in
   (* flip a bunch of coins to get the new path *)      
-  p_new <- dist2Poram (constm_vec coin_flip len_m) ;;
+  p_new <- liftT (coin_flips len_m) ;;
   (* get the updated path oram state to put and the data to return *)
   let n_st := get_post_wb_st (get_pre_wb_st id op m h o p p_new) p in
   let ret_data := get_ret_data id h p o in
   (* put the updated state back *)
-  _ <- Poram_st_put n_st ;;
+  _ <- put n_st ;;
   (* return the path l and the return value *)
   mreturn((p, ret_data)).
 
@@ -372,205 +344,15 @@ Record well_formed (s : state ) : Prop :=
      forall id, length(lookup_dict (makeBoolList false len_m) id m) = LOP;
   }.
 
-Class PredLift M `{Monad M} := {
-  plift {X} : (X -> Prop) -> M X -> Prop;
-  lift_ret {X} : forall x (P : X -> Prop), P x -> plift P (mreturn x);
-  lift_bind {X Y} : forall (P : X -> Prop) (Q : Y -> Prop)
-    (mx : M X) (f : X -> M Y), plift P mx ->
-    (forall x, P x -> plift Q (f x)) ->
-    plift Q (mbind mx f)
-  }.
+Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
 
-(* WARNING: distribution should contain non-zero weighted support *)
-Definition dist_lift {X} (P : X -> Prop) (d : dist X) : Prop.
-Proof.   
-  destruct d.
-  eapply (Forall P (List.map fst dist_pmf)).
-Defined.
+Definition write_access (id : block_id) (v : nat) : Poram (path * nat) := access id (Write v).
 
-Lemma dist_lift_lemma :
-forall (X Y : Type) (P : X -> Prop)
-  (Q : Y -> Prop) (mx : dist X)
-  (f : X -> dist Y),
-dist_lift P mx ->
-(forall x : X, P x -> dist_lift Q (f x)) ->
-dist_lift Q (x <- mx;; f x).
-Proof.
-  intros. simpl mbind. unfold mbind_dist.
-    unfold dist_lift. rewrite Forall_map. unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat. rewrite Forall_map.
-    eapply Forall_impl.
-    2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H. }
-    intros (k,v) pk. simpl. unfold update_probs. rewrite Forall_map.
-    specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
-    2:{exact H0. }
-    intros (a, b) pa. exact pa.
-Qed.
-
-#[export] Instance Pred_Dist_Lift : PredLift dist.
-refine 
-  {|
-    plift := @dist_lift;
-    lift_ret := _;
-    lift_bind := dist_lift_lemma;
-  |}.
-Proof.
-  - intros. simpl mreturn. unfold mreturn_dist. unfold dist_lift. simpl. constructor.
-    + assumption.
-    + constructor.
-Defined.
-
-Definition state_prob_lift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Prop) (P : X -> Prop) :=
-  fun mx =>
-    forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s). 
-
-Lemma dist_lift_weaken {X} (P Q : X -> Prop) (d : dist X) :
-  (forall x, P x -> Q x) -> 
-  dist_lift P d -> dist_lift Q d.
-Proof.
-  intros.
-  unfold dist_lift in *.
-  destruct d.
-  eapply Forall_impl; eauto.
-Qed.
-
-Lemma state_prob_lift_weaken {S X} {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
-  (P : X -> Prop) (m : Poram_st S dist X) :
-  (forall s, Post s -> Post' s) ->
-  state_prob_lift Pre Post P m ->
-  state_prob_lift Pre Post' P m.
-Proof.
-  intros.
-  unfold state_prob_lift.
-  intros.
-  unfold plift.
-  unfold Pred_Dist_Lift. simpl.
-  apply dist_lift_weaken with (P := (fun '(x, s') => P x /\ Post s')).
-  - intros.
-    destruct x. 
-    destruct H2; auto.
-  - unfold state_prob_lift in H0. apply H0.
-    apply H1.
-Qed.    
-
-Definition read_access (id : block_id) :
-  Poram_st state dist (path * nat) := access id Read.
-
-Definition write_access (id : block_id) (v : nat) :
-  Poram_st state dist (path * nat) := access id (Write v).
-
-Definition write_and_read_access (id : block_id) (v : nat) :
-  Poram_st state dist (path * nat) :=
-  bindT (write_access id v ) (fun _ => read_access id).
-
+Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) :=
+  _ <- write_access id  v;;
+  read_access id.
 
 Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
-
-(*
- * state_prob_bind is analogous to the sequencing rule in Hoare Logic
- *)
-Lemma state_prob_bind {S X Y} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop}
-      (Mid : S -> Prop) {Post : S -> Prop} (P: X -> Prop) {Q: Y -> Prop}
-      {mx : Poram_st S M X} {f : X -> Poram_st S M Y} : 
-  state_prob_lift Pre Mid P mx ->
-  (forall x, P x -> state_prob_lift Mid Post Q (f x)) ->
-  state_prob_lift Pre Post Q (bindT mx f).
-Proof.
-  intros.
-  unfold state_prob_lift. intros.
-  eapply lift_bind; eauto.
-  intros.
-  destruct x.
-  apply H3; tauto.
-Qed.
-
-Lemma state_prob_ret {S X} {M} `{Monad M} `{PredLift M} {Pre : S -> Prop} {P : X -> Prop} {x : X}:
-  P x -> state_prob_lift Pre Pre P (retT x).
-Proof.
-  intros.
-  unfold state_prob_lift. intros.
-  unfold plift.
-  destruct H1.
-  apply lift_ret0.
-  split; auto.
-Qed.
-
-Lemma get_State_wf {Pre : state-> Prop} :
-  state_prob_lift Pre Pre Pre get_State.
-Proof.
-  intros.
-  unfold state_prob_lift; intros.
-  unfold plift.
-  simpl. 
-  apply Forall_forall.
-  intros.
-  destruct x.
-  inversion H0. inversion H1.
-  split; rewrite H4 in H3; rewrite H3 in H; auto.
-  inversion H1.
-Qed.
-
-Lemma dist2Poram_wf {X} (dx : dist X) (P : X -> Prop) {Pre : state -> Prop}:
-  dist_lift P dx ->
-  state_prob_lift Pre Pre P (dist2Poram dx).
-Proof.
-  intros. 
-  unfold state_prob_lift.
-  intros. unfold plift. unfold Pred_Dist_Lift. unfold dist_lift.
-  unfold dist2Poram. simpl. 
-  rewrite Forall_map.
-  unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat.
-  rewrite Forall_map.
-  destruct dx; simpl.
-  rewrite Forall_forall; intros.
-  rewrite Forall_forall; intros.
-  destruct x0; simpl.
-  destruct p; simpl.
-  split. unfold dist_lift in H.
-  rewrite Forall_forall in H. apply H. destruct x. destruct H2. inversion H2; subst.
-  assert (Hpair : x0 = fst (x0, q0)). { simpl. reflexivity. } rewrite Hpair.
-  apply in_map; auto.
-  destruct H2.
-  destruct x. 
-  destruct H2.
-  inversion H2; subst; auto.
-  inversion H2. 
-Qed.
-
-Lemma dist_lift_coin_flip :
-  dist_lift (fun _ => True) coin_flip.
-Proof.
-  repeat constructor; auto.
-Qed.
-
-Lemma coin_flip_wf {Pre : state -> Prop} (l : nat):
-  state_prob_lift Pre Pre (fun p => length p = l) (dist2Poram (constm_vec coin_flip l)).
-Proof.
-  eapply dist2Poram_wf.
-  induction l.
-  - simpl. auto.
-  - simpl constm_vec.
-    eapply dist_lift_lemma.
-    + apply dist_lift_coin_flip.
-    + intros.
-      eapply dist_lift_lemma.
-      * exact IHl.
-      * intros. simpl in H0.
-        repeat constructor.
-        simpl in *; congruence.
-Qed.
-
-Lemma put_wf {Pre Pre' : state -> Prop} {s : state}:
-  Pre' s -> state_prob_lift Pre Pre' (fun _ => True) (Poram_st_put s).
-Proof.
-  intros.
-  unfold state_prob_lift; intros.
-  unfold plift.
-  unfold Pred_Dist_Lift.
-  unfold dist_lift.
-  unfold Poram_st_put. simpl.
-  constructor. split; auto.
-  apply Forall_nil.
-Qed.
 
 Definition get_payload (dist_a : dist (path * nat * state)): option nat :=
   match dist_pmf dist_a with 
@@ -2428,46 +2210,48 @@ Proof.
 Qed.
 
 Lemma read_access_wf (id : block_id)(v : nat) :
-  state_prob_lift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
+  state_plift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
 Proof.
   remember (fun st : state => well_formed st /\ kv_rel id v st) as Inv. 
-  apply (state_prob_bind Inv Inv).
-  - apply get_State_wf.
+  apply (state_plift_bind Inv Inv).
+  - apply state_plift_get.
   - intros.
-    apply (state_prob_bind Inv (fun p => length p = LOP)).
-    + apply coin_flip_wf.
+    apply (state_plift_bind Inv (fun p => length p = LOP)).
+    + apply state_plift_liftT.
+      apply coin_flips_length.
     + intros. simpl.
-      apply (state_prob_bind Inv (fun _ => True)).
-      * apply put_wf. rewrite HeqInv in H; destruct H.
+      apply (state_plift_bind Inv (fun _ => True)).
+      * apply state_plift_put. rewrite HeqInv in H; destruct H.
         rewrite HeqInv. split.
         -- apply get_post_wb_st_wf; [|apply H].
            apply get_pre_wb_st_wf; auto. destruct x. exact H.
         -- apply zero_sum_stsh_tr_Rd_rev; auto. apply H. 
-      * intros. rewrite HeqInv. apply state_prob_ret.
+      * intros. rewrite HeqInv. apply state_plift_ret.
         rewrite HeqInv in H. destruct H. simpl.
         symmetry. apply zero_sum_stsh_tr_Rd; destruct x; auto.
-Qed. 
+Qed.
 
 Lemma write_access_wf (id : block_id) (v : nat) :
-  state_prob_lift (fun st => @well_formed st) (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+  state_plift (fun st => @well_formed st) (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
 Proof.
   remember (fun st : state => well_formed st) as Inv.
-  apply (state_prob_bind Inv Inv).
-  - apply get_State_wf.
+  apply (state_plift_bind Inv Inv).
+  - apply state_plift_get.
   - intros.
     rewrite HeqInv in H.
-    apply (state_prob_bind Inv (fun p => length p = LOP)).
-    + apply coin_flip_wf.
+    apply (state_plift_bind Inv (fun p => length p = LOP)).
+    + apply state_plift_liftT.
+      apply coin_flips_length.
     + intros. simpl.
-      apply (state_prob_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
-      * apply put_wf; simpl; split.
+      apply (state_plift_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
+      * apply state_plift_put; simpl; split.
         apply get_post_wb_st_wf; auto.
         -- apply get_pre_wb_st_wf; auto. destruct x; exact H.
         -- apply H.
         -- apply zero_sum_stsh_tr_Wr; auto. 
            apply H.
-      * intros. rewrite HeqInv. eapply state_prob_ret. auto.
-Qed. 
+      * intros. rewrite HeqInv. eapply state_plift_ret. auto.
+Qed.
 
 (*
  * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
@@ -2475,15 +2259,16 @@ Qed.
  *)
 
 Lemma write_and_read_access_lift (id : block_id)(v : nat):
-  state_prob_lift (@well_formed) well_formed (has_value v)
+  state_plift (@well_formed) well_formed (has_value v)
                   (write_and_read_access id v).
 Proof.
-  apply (state_prob_bind
+  apply (state_plift_bind
            (fun st => well_formed st /\ kv_rel id v st)
            (fun _ => True)).
   - eapply write_access_wf.
   - intros _ _.
-    apply (state_prob_lift_weaken (fun st : state => well_formed st /\ kv_rel id v st)).
+    apply (state_plift_weaken (fun st : state => well_formed st /\ kv_rel id v st)).
+    + exact dist_has_weakening.
     + tauto.
     + apply read_access_wf.
 Qed.

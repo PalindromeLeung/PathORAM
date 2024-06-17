@@ -45,3 +45,16 @@ Class WF (A : Type) := { wf : A -> Type }.
 (* MISSING: correctness criteria, e.g., that `Ord` is an actual total order, etc.
  *)
 
+Class PredLift M `{Monad M} := {
+  plift {X} : (X -> Prop) -> M X -> Prop;
+  plift_ret {X} : forall x (P : X -> Prop), P x -> plift P (mreturn x);
+  plift_bind {X Y} : forall (P : X -> Prop) (Q : Y -> Prop)
+    (mx : M X) (f : X -> M Y), plift P mx ->
+    (forall x, P x -> plift Q (f x)) ->
+    plift Q (mbind mx f)
+  }.
+
+Definition has_weakening M `{PredLift M} : Prop :=
+  forall X (P Q : X -> Prop),
+    (forall x, P x -> Q x) ->
+  forall m, plift P m -> plift Q m.
