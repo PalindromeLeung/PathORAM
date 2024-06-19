@@ -16,68 +16,11 @@ Require Import POram.Utils.Tree.
 Require Import POram.Utils.StateT.
 Require Import POram.Utils.NoDup.
 Require Export POram.System.PathORAMDef.
-(* TODO: add to Tree.v? *)
 
 Section PORAM_PROOF.
 
   Context `{C : Config}.
-  
-  Scheme Equality for nat.
-  Fixpoint remove_aux (lst : list block) (x : block) : list block :=
-    match lst with
-    | [] => []
-    | h :: t => 
-        if andb (Nat.eqb (block_blockid h) (block_blockid x))
-             (Nat.eqb (block_payload h) (block_payload x))
-        then t 
-        else h :: (remove_aux t x)
-    end.
-
-  Fixpoint remove_list_sub (sublist : list block) (lst : list block) : list block :=
-    match sublist with
-    | [] => lst
-    | h :: t => remove_list_sub t (remove_aux lst h)
-    end.
-  
-  Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
-    match lb with
-    | [] => 0
-    | h :: t =>
-        if Nat.eqb (block_blockid h) id then block_payload (h%nat)
-        else lookup_ret_data id t
-    end.
-
-  Definition up_oram_tr (o : oram) (stop : nat) (d_n : bucket)
-    (p : path) : oram :=
-    update_tree o stop (Some d_n) p.
-  
-  Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
-    (* unpack the state *)
-    let m := state_position_map s in (* pos_map *) 
-    let h := state_stash s in        (* stash *)
-    let o := state_oram s in         (* oram tree *)
-    let wbs := get_write_back_blocks p h 4 lvl m in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
-    let up_h := remove_list_sub wbs h in 
-    let up_o := up_oram_tr o lvl wbs p in
-    (State m up_h up_o).
-
-  (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
-
-  Fixpoint write_back (s : state) (p : path) (lvl : nat) : state := 
-    match lvl with
-    | O => s 
-    | S m => write_back (blocks_selection p m s) p m
-    end.
-
-  Fixpoint iterate_right {X} (start : nat) (p : path) (f : path -> nat -> X -> X) (n : nat) (x : X) : X :=
-    match n with
-    | O => x
-    | S m => f p start (iterate_right (S start) p f m x)
-    end.
-
-  Definition write_back_r (start : nat) (p : path) (step : nat) (s : state):=
-    iterate_right start p blocks_selection step s.
-  
+    
   Lemma iterate_right_split {X} n : forall (start k : nat) (f : path -> nat -> X -> X) (p : path) (x : X),
       iterate_right start p f (n+k) x =
         iterate_right start p f n
@@ -108,83 +51,8 @@ Section PORAM_PROOF.
     reflexivity. 
   Qed.
 
-  Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
-    let m' := update_dict id p_new m in
-    let bkts := lookup_path_oram o p in
-    let bkt_blocks := concat bkts in
-    let h' := bkt_blocks ++ h in
-    let h'' := remove_list 
-                 (fun blk => (block_blockid blk) =? id) h' in  
-    let h''' :=
-      match op with
-      | Read => h'
-      | Write d => (Block id d) ::  h''
-      end in
-    let o' := clear_path o p in 
-    State m' h''' o'.
-
-  Definition get_post_wb_st (s : state) (id_path : path):=
-    write_back_r O id_path (length id_path) s.
-  
-  Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
-    let bkts := lookup_path_oram o p in
-    let bkt_blocks := concat bkts in
-    let h' := bkt_blocks ++ h in
-    let ret_data := lookup_ret_data id h' in
-    ret_data. 
-
-  Definition access (id : block_id) (op : operation) :
-    Poram (path * nat) :=
-    PST <- get ;;
-    (* unpack the state *)
-    let m := state_position_map PST in
-    let h := state_stash  PST in
-    let o := state_oram PST in 
-    (* get path for the index we are querying *)
-    let len_m := LOP in
-    let p := lookup_dict (makeBoolList false len_m) id m in
-    (* flip a bunch of coins to get the new path *)      
-    p_new <- liftT (coin_flips len_m) ;;
-    (* get the updated path oram state to put and the data to return *)
-    let n_st := get_post_wb_st (get_pre_wb_st id op m h o p p_new) p in
-    let ret_data := get_ret_data id h p o in
-    (* put the updated state back *)
-    _ <- put n_st ;;
-    (* return the path l and the return value *)
-    mreturn((p, ret_data)).
 
   (* TODO: move to Tree.v? *)
-  Fixpoint get_all_blks_tree (o : oram) : list block :=
-    match o with
-    | leaf => []
-    | node obkt o_l o_r => 
-        match obkt with
-        | None => get_all_blks_tree o_l ++ get_all_blks_tree o_r
-        | Some bkt => bkt ++ (get_all_blks_tree o_l ++ get_all_blks_tree o_r)
-        end
-    end.
-
-  Record well_formed (s : state ) : Prop := 
-    {
-      no_dup_stash : NoDup (List.map block_blockid (state_stash s)); 
-      no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
-      tree_stash_disj : disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
-                          (List.map block_blockid (state_stash s)); 
-      is_pb_tr : is_p_b_tr (state_oram s) (S LOP);
-      blk_in_path_in_tree :
-      forall id, 
-        let m := state_position_map s in
-        let p := lookup_dict (makeBoolList false LOP) id m in
-        let o := state_oram s in 
-        let bkts := lookup_path_oram o p in
-        let bkt_blocks := concat bkts in
-        In id (List.map block_blockid (get_all_blks_tree o)) ->
-        In id (List.map block_blockid bkt_blocks);
-      path_length : 
-      let m := (state_position_map s) in
-      let len_m := LOP in 
-      forall id, length(lookup_dict (makeBoolList false len_m) id m) = LOP;
-    }.
 
   Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
 
@@ -1077,7 +945,7 @@ Section PORAM_PROOF.
       pose proof (Hid2 := Hid).
       apply up_oram_tr_tree_or_delta in Hid2.
       destruct Hid2 as [Hid2|Hid2].
-      + apply blk_in_path_in_tree0 in Hid2.
+      + apply blk_in_path_in_tree in Hid2.
         apply in_up_oram_tr; auto.      
       + apply isEqvPath_lookup_path_oram with (n := LOP); auto.
         eapply get_write_back_blocks_pos_map; eauto.
@@ -1709,13 +1577,13 @@ Section PORAM_PROOF.
       + rewrite Nat.eqb_eq in id_cond. 
         rewrite <- id_cond in *; clear id_cond.
         pose (get_all_blks_tree_clear_path_weaken _ _ _ Hid') as Hid'2.
-        specialize (blk_in_path_in_tree0 id Hid'2).
-        rewrite H in blk_in_path_in_tree0; clear Hid'2.
+        specialize (blk_in_path_in_tree id Hid'2).
+        rewrite H in blk_in_path_in_tree; clear Hid'2.
         elim on_path_not_off_path with (id := id) (o := o) (p := p); auto.
       + rewrite Nat.eqb_neq in id_cond.
         rewrite lookup_update_diffid; auto.
         apply lookup_off_path; auto.
-        apply blk_in_path_in_tree0.
+        apply blk_in_path_in_tree.
         eapply get_all_blks_tree_clear_path_weaken; eauto.
     - intro.
       destruct (Nat.eqb id id0) eqn : id_cond.
@@ -1798,7 +1666,7 @@ Section PORAM_PROOF.
       + rewrite <- H in Hid'1; clear H.
         apply on_path_not_off_path with (id := id) (o := o) (p := p); auto.
         rewrite <- H1.
-        apply blk_in_path_in_tree0.
+        apply blk_in_path_in_tree.
         eapply get_all_blks_tree_clear_path_weaken; eauto.
       + eapply disjoint_list_dlt; eauto; split; eauto.
         rewrite in_map_iff in *.
@@ -1811,13 +1679,13 @@ Section PORAM_PROOF.
       + rewrite Nat.eqb_eq in id_cond. 
         rewrite <- id_cond in *; clear id_cond.
         pose (get_all_blks_tree_clear_path_weaken _ _ _ Hid') as Hid'2.
-        specialize (blk_in_path_in_tree0 id Hid'2).
-        rewrite H1 in blk_in_path_in_tree0; clear Hid'2.
+        specialize (blk_in_path_in_tree id Hid'2).
+        rewrite H1 in blk_in_path_in_tree; clear Hid'2.
         elim on_path_not_off_path with (id := id) (o := o) (p := p); auto.
       + rewrite Nat.eqb_neq in id_cond.
         rewrite lookup_update_diffid; auto.
         apply lookup_off_path; auto.
-        apply blk_in_path_in_tree0.
+        apply blk_in_path_in_tree.
         eapply get_all_blks_tree_clear_path_weaken; eauto.
     - intro.
       destruct (Nat.eqb id id0) eqn : id_cond.
@@ -1938,7 +1806,7 @@ Section PORAM_PROOF.
   Qed.
 
   Lemma read_access_wf (id : block_id)(v : nat) :
-    state_plift (fun st => @well_formed st /\ kv_rel id v st) (fun st => @well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
+    state_plift (fun st => well_formed st /\ kv_rel id v st) (fun st => well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
   Proof.
     remember (fun st : state => well_formed st /\ kv_rel id v st) as Inv. 
     apply (state_plift_bind Inv Inv).
@@ -1960,7 +1828,7 @@ Section PORAM_PROOF.
   Qed.
 
   Lemma write_access_wf (id : block_id) (v : nat) :
-    state_plift (fun st => @well_formed st) (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+    state_plift (fun st => well_formed st) (fun st => well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
   Proof.
     remember (fun st : state => well_formed st) as Inv.
     apply (state_plift_bind Inv Inv).
@@ -1971,14 +1839,14 @@ Section PORAM_PROOF.
       + apply state_plift_liftT.
         apply coin_flips_length.
       + intros. simpl.
-        apply (state_plift_bind (fun st => @well_formed st /\ kv_rel id v st) (fun _ => True)).
+        apply (state_plift_bind (fun st => well_formed st /\ kv_rel id v st) (fun _ => True)).
         * apply state_plift_put; simpl; split.
           apply get_post_wb_st_wf; auto.
           -- apply get_pre_wb_st_wf; auto. destruct x; exact H.
           -- apply H.
           -- apply zero_sum_stsh_tr_Wr; auto. 
              apply H.
-        * intros. rewrite HeqInv. eapply state_plift_ret. auto.
+        * intros. eapply state_plift_ret. auto.
   Qed.
 
   (*
@@ -1987,7 +1855,7 @@ Section PORAM_PROOF.
    *)
 
   Lemma write_and_read_access_lift (id : block_id)(v : nat):
-    state_plift (@well_formed) well_formed (has_value v)
+    state_plift (well_formed) well_formed (has_value v)
       (write_and_read_access id v).
   Proof.
     apply (state_plift_bind
