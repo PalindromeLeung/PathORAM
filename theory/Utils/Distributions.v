@@ -107,21 +107,6 @@ Definition event (A : Type) := A -> bool.
 
 (* might collide when you import the List Lib. *)
 
-Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
-  match l with
-  | [] => []
-  | x :: l => if f x then x::(filter l f) else filter l f 
-  end.
-
-Fixpoint takeL {A} n (l : list A) : list A :=
-  match n with
-  | O => []
-  | S m => match l with
-          | [] => []
-          | h :: t => h :: takeL m t 
-          end
-  end.
-
 (* The goal of evalDist is to evaluate the probability when given an event under a certain distribution.      *)
 
 (* 1. get the list -- dist_pmf *)
