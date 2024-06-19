@@ -1,7 +1,10 @@
 Require Import Coq.Lists.List.
 Import ListNotations.
+Require Import Coq.Classes.EquivDec.
 Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Tree.
+Require Import POram.Utils.Lists.
+Require Import POram.Utils.Classes.
 Require Import POram.Utils.StateT.
 Require Import POram.Utils.Distributions.
 (*** PATH ORAM ***)
@@ -55,8 +58,16 @@ Require Import POram.Utils.Distributions.
   - oram         ⩴ ⟨bucket⟩ | ⟨bucket | oram ◇ oram⟩
   Note: we will just use association lists to represent dictionaries, e.g., for `block_id ⇰ path`.
 
-**)
+ **)
+
+Class Config: Type :=
+  {
+    LOP : nat;
+  }.
+
 Section PORAM.
+  Context `{Config}.
+  
 Definition block_id := nat.
 Record block : Type := Block
   { block_blockid : block_id
@@ -65,8 +76,6 @@ Record block : Type := Block
 Definition position_map := dict block_id path.
 Definition stash := list block.
 Definition bucket := list block.
-
-Variable LOP : nat.
 
 Definition oram : Type := tree (option bucket).
 
@@ -140,6 +149,7 @@ Definition blk_in_p (id : block_id) (v : nat) (o : oram) (p: path) :=
 Definition blk_in_path (id : block_id) (v : nat) (s : state): Prop :=
   blk_in_p id v (state_oram s) (calc_path id s).
 
+Scheme Equality for list.
 Definition isEqvPath (p1 p2 : path) (idx : nat) : bool := list_beq bool Bool.eqb  (takeL idx p1) (takeL idx p2).
 
 Fixpoint get_cand_bs (h : stash)(p : path)(stop : nat)(m : position_map) : list block :=
