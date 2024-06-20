@@ -1756,13 +1756,50 @@ Section PORAM_PROOF.
     apply write_and_read_access_lift. auto.
   Qed.
 
+  Lemma zero_sum_stsh_tr_Wr_neq:
+  forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
+  well_formed s ->
+  length p = LOP ->
+  length p_new = LOP ->
+  kv_rel i v' s -> 
+  i <> k -> 
+  kv_rel i v'
+    (get_post_wb_st
+       (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
+          (state_oram s) (calc_path k s) p_new) p).
+  Admitted.
+  
   Lemma write_access_neq : forall i k v v',
       i <> k -> 
       state_plift (fun s : state => well_formed s /\ kv_rel i v' s)
         (fun st : state => well_formed st /\ kv_rel i v' st)
         (fun _ =>  True)
         (write_access k v).
-  Admitted.
+  Proof.
+    intros.
+    unfold write_access.
+    unfold access.
+    eapply state_plift_bind.
+    - apply state_plift_get.
+    - intros.
+      eapply state_plift_bind.
+      + apply state_plift_liftT.
+        apply coin_flips_length.
+      + intros p p_len.
+        eapply state_plift_bind.
+        2:{ intros.
+            apply state_plift_ret; auto.
+        }
+        apply state_plift_put.
+        split.
+        * apply get_post_wb_st_wf.
+          -- apply get_pre_wb_st_wf; auto.
+             destruct x; simpl in *; tauto.
+          -- apply path_length. apply H0.
+        * destruct H0.
+          apply zero_sum_stsh_tr_Wr_neq; auto.
+          apply path_length; auto.
+  Qed.
   
   Theorem PathORAM_simulates_RAM_idx_neq :
     forall (i k : block_id) (v v' : nat),
