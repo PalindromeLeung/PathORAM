@@ -3,6 +3,7 @@ Import ListNotations.
 Require Import POram.Utils.Classes.
 Import MonadNotation.
 Require Import Coq.Classes.EquivDec.
+Require Import Coq.QArith.QArith.
 Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Tree.
 Require Import POram.Utils.Lists.
@@ -334,6 +335,18 @@ Section PORAM.
     | Some v => In x v
     end.
 
-
+  Lemma block_eqb_correct : eqb_correct block_eqb.
+  Proof.
+    unfold block_eqb.
+    intros [id v] [id' v']; simpl.
+    split; intro pf.
+    - rewrite Bool.andb_true_iff in pf.
+      destruct pf.
+      rewrite Nat.eqb_eq in *.
+      congruence.
+    - inversion pf.
+      do 2 rewrite Nat.eqb_refl.
+      auto.
+  Qed.
 
 End PORAM.

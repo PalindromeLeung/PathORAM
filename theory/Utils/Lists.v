@@ -172,3 +172,12 @@ Proof.
   apply IHdlt in H.
   apply In_remove_aux in H; auto.
 Qed.
+
+Lemma map_takeL {A B} (f : A -> B) : forall n l,
+    List.map f (takeL n l) = takeL n (List.map f l).
+Proof.
+  induction n; auto.
+  intro.
+  destruct l; simpl; try reflexivity.
+  rewrite IHn. reflexivity.
+Qed.
