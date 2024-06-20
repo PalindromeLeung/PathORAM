@@ -1747,14 +1747,37 @@ Section PORAM_PROOF.
     destruct ops_on_s; congruence.
   Qed.
 
-  Theorem PathORAM_simulates_RAM (id : block_id) (v : nat) (s : state) :
-    well_formed s ->
-    get_payload(write_and_read_access id v s) = v.
+  Theorem PathORAM_simulates_RAM_idx_eq (i k : block_id) (v : nat) (s : state) :
+    well_formed s -> i = k -> 
+    get_payload(write_and_read_access i v s) = v.
   Proof.
-    intros wf_s.
+    intros wf_s idxeq.
     apply extract_payload.
     apply write_and_read_access_lift. auto.
   Qed.
 
+  Lemma write_access_neq : forall i k v v',
+      i <> k -> 
+      state_plift (fun s : state => well_formed s /\ kv_rel i v' s)
+        (fun st : state => well_formed st /\ kv_rel i v' st)
+        (fun _ =>  True)
+        (write_access k v).
+  Admitted.
+  
+  Theorem PathORAM_simulates_RAM_idx_neq :
+    forall (i k : block_id) (v v' : nat),
+      i <> k -> 
+      state_plift
+        (fun s => well_formed s /\ kv_rel i v' s)
+        (fun s => well_formed s /\ kv_rel i v' s)
+        (has_value v')
+        (_ <- write_access k v ;; read_access i).
+  Proof.
+    intros.
+    eapply state_plift_bind.
+    - apply write_access_neq; auto.
+    - intros [p x] _. apply read_access_wf. 
+  Qed.
+    
 End PORAM_PROOF.
 
