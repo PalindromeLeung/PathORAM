@@ -51,32 +51,6 @@ Section PORAM_PROOF.
     reflexivity. 
   Qed.
 
-
-  (* TODO: move to Tree.v? *)
-
-  Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
-
-  Definition write_access (id : block_id) (v : nat) : Poram (path * nat) := access id (Write v).
-
-  Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) :=
-    _ <- write_access id  v;;
-    read_access id.
-
-  Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
-
-  Definition get_payload (dist_a : dist (path * nat * state)): nat :=
-    match peek dist_a with
-    | (_,v,_) => v
-    end.
-
-  Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
-    let s := state_stash st in 
-    In (Block id v) s.
-
-  (* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
-  Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
-    (blk_in_stash id v st) \/ (blk_in_path id v st). 
-
   Lemma remove_aux_lemma : forall (lst : list block) (a blk: block),
       In blk lst ->
       In blk (remove_aux lst a) \/ a = blk.
@@ -123,8 +97,7 @@ Section PORAM_PROOF.
     unfold blk_in_stash in H.
     apply remove_list_sub_lemma.
     auto.
-  Qed.  
-
+  Qed.
 
   Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
       kv_rel id v s ->
@@ -141,7 +114,6 @@ Section PORAM_PROOF.
     - unfold blk_in_path in H. auto.
   Qed.
 
-
   Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
       blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
                             (state_stash s)
@@ -153,18 +125,6 @@ Section PORAM_PROOF.
       unfold blk_in_stash; simpl.
     left; auto.
   Qed.
-
-  Definition locate_node_in_tr (o : oram) (lvl : nat) (p : path) : option bucket :=
-    match lookup_tree o lvl p with
-    | None => None
-    | Some o => o
-    end.
-
-  Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop :=
-    match locate_node_in_tr o lvl p with
-    | None => False
-    | Some v => In x v
-    end.
 
   Lemma pos_map_stable_across_wb : forall n p s start,
       state_position_map s = state_position_map (write_back_r start p n s).

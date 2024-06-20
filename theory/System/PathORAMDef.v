@@ -309,6 +309,42 @@ Section PORAM.
       forall id, length(lookup_dict (makeBoolList false len_m) id m) = LOP;
     }.
 
+  Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
+
+  Definition write_access (id : block_id) (v : nat) : Poram (path * nat) :=
+    access id (Write v).
+
+  Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) :=
+    _ <- write_access id  v;;
+    read_access id.
+
+  Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
+
+  Definition get_payload (dist_a : dist (path * nat * state)): nat :=
+    match peek dist_a with
+    | (_,v,_) => v
+    end.
+
+  Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
+    let s := state_stash st in 
+    In (Block id v) s.
+
+  (* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
+  Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
+    (blk_in_stash id v st) \/ (blk_in_path id v st).
+  
+  Definition locate_node_in_tr (o : oram) (lvl : nat) (p : path) : option bucket :=
+    match lookup_tree o lvl p with
+    | None => None
+    | Some o => o
+    end.
+
+  Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop :=
+    match locate_node_in_tr o lvl p with
+    | None => False
+    | Some v => In x v
+    end.
+
 
 
 End PORAM.
