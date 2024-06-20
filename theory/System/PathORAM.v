@@ -274,26 +274,7 @@ Section PORAM_PROOF.
       apply IHlst with (a := a0). auto.
   Qed.
 
-  Lemma remove_aux_removed : forall lst b,
-      NoDup lst ->
-      ~ In b (remove_aux lst b).
-  Proof.
-    induction lst; simpl; intros; auto.
-    destruct andb eqn: eq_cond.
-    - intro bp.
-      rewrite andb_true_iff in eq_cond.
-      destruct eq_cond.
-      repeat rewrite Nat.eqb_eq in *.
-      assert (a = b) by (destruct a,b; simpl in *; congruence).
-      subst.
-      inversion H; auto.
-    - intros [ | in_cond ]; subst.
-      + repeat rewrite Nat.eqb_refl in eq_cond; discriminate.
-      + eapply IHlst; eauto.
-        inversion H; auto.
-  Qed.
-
-  Lemma NoDup_remove_aux : forall lst x,
+      Lemma NoDup_remove_aux : forall lst x,
       NoDup (List.map block_blockid lst) ->
       NoDup (List.map block_blockid (remove_aux lst x)).
   Proof.
@@ -312,17 +293,7 @@ Section PORAM_PROOF.
       + apply IHlst.
         inversion H; auto.
   Qed.
-  
-  Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
-      NoDup (List.map block_blockid lst) -> 
-      NoDup (List.map block_blockid (remove_list_sub dlt lst)).
-  Proof.
-    induction dlt; simpl.
-    - intros; auto.
-    - intros.
-      apply IHdlt.
-      apply NoDup_remove_aux; auto.
-  Qed.
+
 
   Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
       In id (List.map block_blockid (get_all_blks_tree
@@ -506,6 +477,17 @@ Section PORAM_PROOF.
       + left; auto.
       + right; apply IHlst; auto.
     - right. apply IHlst; auto.
+  Qed.
+
+  Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
+      NoDup (List.map block_blockid lst) -> 
+      NoDup (List.map block_blockid (remove_list_sub dlt lst)).
+  Proof.
+    induction dlt; simpl.
+    - intros; auto.
+    - intros.
+      apply IHdlt.
+      apply NoDup_remove_aux; auto.
   Qed.
 
   Lemma NoDup_get_write_back_blocks : forall lst p lvl pos_map, 

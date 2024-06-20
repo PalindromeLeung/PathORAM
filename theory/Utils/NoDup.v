@@ -1,9 +1,9 @@
+Require Import Coq.Bool.Bool.
 Require Import Coq.Lists.List.
+Require Import Coq.QArith.QArith.
 Import ListNotations.
 Require Import POram.Utils.Lists.
-
-Definition disjoint_list {A} (l1 l2 : list A) :=
-  forall a, ~ (In a l1 /\ In a l2).
+Require Import POram.System.PathORAMDef.
 
 Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
   forall x y, In x l -> In y l -> f x = f y -> x = y.
@@ -12,6 +12,8 @@ Definition subset_rel {X} (sub lst : list X) : Prop :=
   forall x,
     In x sub ->
     In x lst.
+
+(*** NoDup general lemmas ***)
 
 Lemma NoDup_disjointness: forall {A B} (l1 : list A) (l2 : list A) (f : A -> B) ,
     NoDup (List.map f l1) ->
@@ -107,3 +109,24 @@ Proof.
       * eapply IHl; eauto.
         now inversion nd_fl.
 Qed.
+
+(*** NoDup PORAM specific lemmas ***)
+
+  Lemma remove_aux_removed : forall lst b,
+      NoDup lst ->
+      ~ In b (remove_aux lst b).
+  Proof.
+    induction lst; simpl; intros; auto.
+    destruct andb eqn: eq_cond.
+    - intro bp.
+      rewrite andb_true_iff in eq_cond.
+      destruct eq_cond.
+      repeat rewrite Nat.eqb_eq in *.
+      assert (a = b) by (destruct a,b; simpl in *; congruence).
+      subst.
+      inversion H; auto.
+    - intros [ | in_cond ]; subst.
+      + repeat rewrite Nat.eqb_refl in eq_cond; discriminate.
+      + eapply IHlst; eauto.
+        inversion H; auto.
+  Qed.

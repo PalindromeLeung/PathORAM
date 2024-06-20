@@ -6,6 +6,9 @@ Import ListNotations.
 (* #[export] Instance Functor_list : Functor list := { map := List.map }. *)
 #[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
 
+Definition disjoint_list {A} (l1 l2 : list A) :=
+  forall a, ~ (In a l1 /\ In a l2).
+
 Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
   match l with
   | [] => []

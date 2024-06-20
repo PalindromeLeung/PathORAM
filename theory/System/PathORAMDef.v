@@ -9,7 +9,7 @@ Require Import POram.Utils.Lists.
 Require Import POram.Utils.Classes.
 Require Import POram.Utils.StateT.
 Require Import POram.Utils.Distributions.
-Require Import POram.Utils.NoDup.
+
 (*** PATH ORAM ***)
 
 (** 
@@ -176,7 +176,7 @@ Section PORAM.
     end.
 
 
-    Scheme Equality for nat.
+  Scheme Equality for nat.
   Fixpoint remove_aux (lst : list block) (x : block) : list block :=
     match lst with
     | [] => []
