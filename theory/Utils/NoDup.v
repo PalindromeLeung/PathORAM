@@ -110,23 +110,50 @@ Proof.
         now inversion nd_fl.
 Qed.
 
-(*** NoDup PORAM specific lemmas ***)
-
-  Lemma remove_aux_removed : forall lst b,
+  Lemma remove_aux_removed {A} (A_eqb : A -> A -> bool)
+    (A_eqb_correct : eqb_correct A_eqb) :
+    forall (lst : list A) (a : A),
       NoDup lst ->
-      ~ In b (remove_aux lst b).
+      ~ In a (remove_aux A_eqb lst a).
   Proof.
-    induction lst; simpl; intros; auto.
-    destruct andb eqn: eq_cond.
+    induction lst as [|a' lst]; simpl; intros; auto.
+    destruct A_eqb eqn: eq_cond.
     - intro bp.
-      rewrite andb_true_iff in eq_cond.
-      destruct eq_cond.
-      repeat rewrite Nat.eqb_eq in *.
-      assert (a = b) by (destruct a,b; simpl in *; congruence).
+      rewrite (A_eqb_correct a' a) in eq_cond.
       subst.
       inversion H; auto.
-    - intros [ | in_cond ]; subst.
-      + repeat rewrite Nat.eqb_refl in eq_cond; discriminate.
+    - intros [| in_cond]; subst.
+      + rewrite eqb_correct_refl in eq_cond; auto.
+        discriminate.
       + eapply IHlst; eauto.
         inversion H; auto.
   Qed.
+
+  Lemma NoDup_remove_aux_general {A} (A_eqb : A -> A -> bool) : forall lst b,
+      NoDup lst ->
+      NoDup (remove_aux A_eqb lst b).
+  Proof.
+    induction lst; simpl; intros; auto.
+    destruct A_eqb eqn: eq_cond.
+    - inversion H; auto.
+    - constructor.
+      + intro pf.
+        apply In_remove_aux in pf.
+        inversion H; auto.
+      + apply IHlst.
+        inversion H; auto.
+  Qed.
+
+Lemma remove_list_sub_removed {A} (A_eqb : A -> A -> bool)
+  (A_eqb_correct : eqb_correct A_eqb) : forall dlt lst b,
+    NoDup lst ->
+    In b (remove_list_sub A_eqb dlt lst) ->
+    ~ In b dlt.
+Proof.
+  induction dlt; intros; simpl in *; auto.
+  intros [ | in_cond]; subst.
+  - apply remove_list_sub_weaken in H0.
+    apply remove_aux_removed in H0; auto.
+  - apply IHdlt in H0; auto.
+    apply NoDup_remove_aux_general; auto.
+Qed.
