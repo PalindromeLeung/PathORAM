@@ -177,21 +177,6 @@ Section PORAM.
 
 
   Scheme Equality for nat.
-  Fixpoint remove_aux (lst : list block) (x : block) : list block :=
-    match lst with
-    | [] => []
-    | h :: t => 
-        if andb (Nat.eqb (block_blockid h) (block_blockid x))
-             (Nat.eqb (block_payload h) (block_payload x))
-        then t 
-        else h :: (remove_aux t x)
-    end.
-
-  Fixpoint remove_list_sub (sublist : list block) (lst : list block) : list block :=
-    match sublist with
-    | [] => lst
-    | h :: t => remove_list_sub t (remove_aux lst h)
-    end.
   
   Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
     match lb with
@@ -204,6 +189,10 @@ Section PORAM.
   Definition up_oram_tr (o : oram) (stop : nat) (d_n : bucket)
     (p : path) : oram :=
     update_tree o stop (Some d_n) p.
+
+  Definition block_eqb (b1 b2 : block) : bool :=
+    (Nat.eqb (block_blockid b1) (block_blockid b2)) &&
+    (Nat.eqb (block_payload b1) (block_payload b2)).
   
   Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
     (* unpack the state *)
@@ -211,7 +200,7 @@ Section PORAM.
     let h := state_stash s in        (* stash *)
     let o := state_oram s in         (* oram tree *)
     let wbs := get_write_back_blocks p h 4 lvl m in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
-    let up_h := remove_list_sub wbs h in 
+    let up_h := remove_list_sub block_eqb wbs h in 
     let up_o := up_oram_tr o lvl wbs p in
     (State m up_h up_o).
 

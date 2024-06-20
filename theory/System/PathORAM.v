@@ -51,52 +51,31 @@ Section PORAM_PROOF.
     reflexivity. 
   Qed.
 
-  Lemma remove_aux_lemma : forall (lst : list block) (a blk: block),
-      In blk lst ->
-      In blk (remove_aux lst a) \/ a = blk.
+  Lemma block_eqb_correct : eqb_correct block_eqb.
   Proof.
-    intros.
-    induction lst; intuition.
-    simpl.
-    destruct andb eqn: eq_cond; simpl.
-    - destruct H.
-      + right.
-        rewrite andb_true_iff in eq_cond.
-        do 2 rewrite Nat.eqb_eq in eq_cond.
-        rewrite <- H. destruct a, a0; f_equal; simpl in *; firstorder.
-      + tauto.
-    - destruct H.
-      + do 2 left; auto.
-      + apply IHlst in H. tauto.
+    unfold block_eqb.
+    intros [id v] [id' v']; simpl.
+    split; intro pf.
+    - rewrite Bool.andb_true_iff in pf.
+      destruct pf.
+      rewrite Nat.eqb_eq in *.
+      congruence.
+    - inversion pf.
+      do 2 rewrite Nat.eqb_refl.
+      auto.
   Qed.
-  
-  Lemma remove_list_sub_lemma : forall (x : block) (sub : list block) (lst : list block),
-      In x lst ->
-      In x (remove_list_sub sub lst) \/ In x sub.
-  Proof.
-    intros blk s_lst.
-    induction s_lst. 
-    - simpl.  intros. left; auto.
-    - intros. simpl remove_list_sub.
-      pose proof (IHs_lst (remove_aux lst a))%list.
-      destruct (remove_aux_lemma _ a _ H).
-      + apply H0 in H1. destruct H1.
-        * left. auto.
-        * right. right; auto.
-      + right. left; auto.
-  Qed.
-  
+
   Lemma kv_in_list_partition:
     forall (id : block_id) (v : nat) (s : state) (del : list block),
       blk_in_stash id v s ->
       (In (Block id v)
-         (remove_list_sub del (state_stash s))  \/
+         (remove_list_sub block_eqb del (state_stash s))  \/
          (In (Block id v) del)).
   Proof.
     intros.
     unfold blk_in_stash in H.
-    apply remove_list_sub_lemma.
-    auto.
+    apply remove_list_sub_lemma; auto.
+    exact block_eqb_correct.
   Qed.
 
   Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
@@ -263,23 +242,13 @@ Section PORAM_PROOF.
           apply H.
   Qed.
 
-  Lemma In_remove_aux : forall lst x a,
-      In x (remove_aux lst a) ->
-      In x lst.
+  (* TODO: make this generic and move elsewhere *)
+  Lemma NoDup_remove_aux : forall lst x,
+    NoDup (List.map block_blockid lst) ->
+    NoDup (List.map block_blockid (remove_aux block_eqb lst x)).
   Proof.
     induction lst; simpl; intros; auto.
-    destruct andb eqn: eq_cond; simpl.
-    - right; auto.
-    - destruct H; auto. right.
-      apply IHlst with (a := a0). auto.
-  Qed.
-
-      Lemma NoDup_remove_aux : forall lst x,
-      NoDup (List.map block_blockid lst) ->
-      NoDup (List.map block_blockid (remove_aux lst x)).
-  Proof.
-    induction lst; simpl; intros; auto.
-    destruct andb eqn: eq_cond; simpl.
+    destruct block_eqb eqn: eq_cond; simpl.
     - inversion H; auto.
     - apply NoDup_cons_iff. split.
       + intro.
@@ -293,7 +262,6 @@ Section PORAM_PROOF.
       + apply IHlst.
         inversion H; auto.
   Qed.
-
 
   Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
       In id (List.map block_blockid (get_all_blks_tree
@@ -479,9 +447,10 @@ Section PORAM_PROOF.
     - right. apply IHlst; auto.
   Qed.
 
+  (* TODO: make generic and move elsewhere *)
   Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
       NoDup (List.map block_blockid lst) -> 
-      NoDup (List.map block_blockid (remove_list_sub dlt lst)).
+      NoDup (List.map block_blockid (remove_list_sub block_eqb dlt lst)).
   Proof.
     induction dlt; simpl.
     - intros; auto.
@@ -540,42 +509,6 @@ Section PORAM_PROOF.
     split; auto.
   Qed.
 
-  Lemma remove_list_sub_weaken : forall dlt lst b,
-      In b (remove_list_sub dlt lst) -> In b lst.
-  Proof.
-    induction dlt; simpl; intros; auto.
-    apply IHdlt in H.
-    apply In_remove_aux in H; auto.
-  Qed.  
-  
-  Lemma NoDup_remove_aux_general : forall lst b,
-      NoDup lst ->
-      NoDup (remove_aux lst b).
-  Proof.
-    induction lst; simpl; intros; auto.
-    destruct andb eqn: eq_cond.
-    - inversion H; auto.
-    - constructor.
-      + intro pf.
-        apply In_remove_aux in pf.
-        inversion H; auto.
-      + apply IHlst.
-        inversion H; auto.
-  Qed.
-
-  Lemma remove_list_sub_removed : forall dlt lst b,
-      NoDup lst ->
-      In b (remove_list_sub dlt lst) ->
-      ~ In b dlt.
-  Proof.
-    induction dlt; intros; simpl in *; auto.
-    intros [ | in_cond]; subst.
-    - apply remove_list_sub_weaken in H0.
-      apply remove_aux_removed in H0; auto.    
-    - apply IHdlt in H0; auto.
-      apply NoDup_remove_aux_general; auto.
-  Qed.    
-
   Lemma disjoint_dlt : forall o lvl dlt lst p,
       NoDup (List.map block_blockid lst) ->
       subset_rel dlt lst ->
@@ -584,7 +517,7 @@ Section PORAM_PROOF.
         (List.map block_blockid lst) -> 
       disjoint_list
         (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p)))
-        (List.map block_blockid (remove_list_sub dlt lst)).
+        (List.map block_blockid (remove_list_sub block_eqb dlt lst)).
   Proof.
     intros.
     intros id [Hid1 Hid2].
@@ -611,7 +544,8 @@ Section PORAM_PROOF.
       }
       subst.
       apply remove_list_sub_removed in Hc2; auto.
-      eapply NoDup_map_inv; eauto.
+      + apply block_eqb_correct.
+      + eapply NoDup_map_inv; eauto.
   Qed.
   
   Lemma get_write_back_blocks_subset : forall lst p lvl pos_map,
@@ -1823,3 +1757,4 @@ Section PORAM_PROOF.
   Qed.
 
 End PORAM_PROOF.
+
