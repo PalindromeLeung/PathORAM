@@ -8,6 +8,11 @@ Definition disjoint_list {A} (l1 l2 : list A) :=
 Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
   forall x y, In x l -> In y l -> f x = f y -> x = y.
 
+Definition subset_rel {X} (sub lst : list X) : Prop :=
+  forall x,
+    In x sub ->
+    In x lst.
+
 Lemma NoDup_disjointness: forall {A B} (l1 : list A) (l2 : list A) (f : A -> B) ,
     NoDup (List.map f l1) ->
     NoDup (List.map f l2) ->

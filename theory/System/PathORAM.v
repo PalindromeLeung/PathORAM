@@ -263,11 +263,6 @@ Section PORAM_PROOF.
           apply H.
   Qed.
 
-  Definition subset_rel {X} (sub lst : list X) : Prop :=
-    forall x,
-      In x sub ->
-      In x lst.
-
   Lemma In_remove_aux : forall lst x a,
       In x (remove_aux lst a) ->
       In x lst.
