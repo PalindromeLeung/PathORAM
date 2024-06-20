@@ -203,12 +203,12 @@ Section PORAM_PROOF.
       coord_in_bound o p lvl ->
       at_lvl_in_path (up_oram_tr o lvl del p) lvl p (Block id v).
   Proof.
-    induction o; simpl in *; try contradiction. (* discharged the first case *)
+    induction o; simpl in *; try contradiction.
     - unfold at_lvl_in_path in *.
       destruct lvl; simpl in *; auto.
       + destruct p; simpl in *; auto.
         destruct b; simpl in *.
-        * intros. apply IHo1; auto. (* yep I can tell that the IHp is not strong enough *)
+        * intros. apply IHo1; auto.
         * intros. apply IHo2; auto.
   Qed.
 
@@ -1803,11 +1803,6 @@ Section PORAM_PROOF.
              apply H.
         * intros. eapply state_plift_ret. auto.
   Qed.
-
-  (*
-   * this lemma is saying that the write_and_read_access preserves the well-formedness invariant
-   * and returns the correct value
-   *)
 
   Lemma write_and_read_access_lift (id : block_id)(v : nat):
     state_plift (well_formed) well_formed (has_value v)
