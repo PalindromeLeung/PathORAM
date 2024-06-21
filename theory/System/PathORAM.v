@@ -1461,6 +1461,73 @@ Section PORAM_PROOF.
     apply write_and_read_access_lift. auto.
   Qed.
 
+  Lemma blk_in_stash_get_pre_wb_st :
+    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
+      blk_in_stash i v' s ->
+      i <> k ->
+      blk_in_stash i v'
+        (get_pre_wb_st k
+           (Write v)
+           (state_position_map s)
+           (state_stash s)
+           (state_oram s)
+           (calc_path k s)
+           p_new).
+  Proof.
+    intros.
+    unfold get_pre_wb_st.
+    unfold blk_in_stash in *.
+    simpl; right.
+    apply In_remove_list.
+    - apply in_or_app; right; auto.
+    - simpl.
+      rewrite Nat.eqb_neq; auto.
+  Qed.
+
+  Lemma blk_in_stash_get_post_wb_st :
+    forall (s : state) (i : block_id) (v : nat) p,
+      well_formed s ->
+      length p = LOP ->
+      blk_in_stash i v s ->
+      kv_rel i v
+        (get_post_wb_st s p).
+  Proof.
+    intros.
+    unfold get_post_wb_st.
+    apply distribute_via_get_post_wb_st; auto.
+  Qed.
+  
+  Lemma blk_in_stash_neq : 
+    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
+      well_formed s ->
+      length p = LOP ->
+      length p_new = LOP ->
+      blk_in_stash i v' s -> 
+      i <> k -> 
+      kv_rel i v'
+        (get_post_wb_st
+           (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
+              (state_oram s) (calc_path k s) p_new) p).
+  Proof.
+    intros.
+    apply blk_in_stash_get_post_wb_st; auto.
+    apply get_pre_wb_st_wf; destruct s; auto.
+    apply blk_in_stash_get_pre_wb_st; auto.
+  Qed.
+    
+  Lemma blk_in_path_neq :
+    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
+      well_formed s ->
+      length p = LOP ->
+      length p_new = LOP ->
+      blk_in_path i v' s -> 
+      i <> k -> 
+      blk_in_path i v'
+        (get_post_wb_st
+           (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
+              (state_oram s) (calc_path k s) p_new) p).
+  Admitted.
+  
   Lemma zero_sum_stsh_tr_Wr_neq:
   forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
   well_formed s ->
@@ -1472,7 +1539,12 @@ Section PORAM_PROOF.
     (get_post_wb_st
        (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
           (state_oram s) (calc_path k s) p_new) p).
-  Admitted.
+  Proof.
+    intros.
+    destruct H2.
+    - apply blk_in_stash_neq; auto.
+    - right. apply blk_in_path_neq; auto.
+  Qed.
   
   Lemma write_access_neq : forall i k v v',
       i <> k -> 
