@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - non_dep
+  pull_request:
+    branches:
+    - non_dep
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ocaml-compiler:
+          - 4.13.0
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Use OCaml ${{ matrix.ocaml-compiler }}
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          dune-cache: true
+          opam-repositories: |
+            default: https://opam.ocaml.org
+            coq-released: https://coq.inria.fr/opam/released
+      - run: opam install . --deps-only
+      - run: opam exec -- dune build
