@@ -1597,33 +1597,28 @@ End PORAM_PROOF.
 
 Require Import Lia RAM.
 
+Module Type ConfigParams.
+  Parameter LOP : nat.
+
+End ConfigParams.
+  
 Module Dist_State <: StateMonad.
+
   Definition state S X := dist (X * S).
   Definition State S X := S -> state S X.
 
   Definition ret {S X} := @StateT_ret S dist _ X.
   Definition bind {S X} := @StateT_bind S dist _ X.
 
-  Definition get : forall {S}, State S S. 
-    refine(
-        fun S => _
-                
-      ).
-    apply get.
-    Defined.
-    
-  Definition put : forall {S}, S -> State S unit.
-    refine(
-        fun S => _
-                
-      ).
-    apply put.
-    Defined.
+  Definition get : forall {S}, State S S := fun S => get.
+  Definition put : forall {S}, S -> State S unit := fun S => put.
     
 End Dist_State.
 
 (* Path ORAM is a RAM (functional correctness specification, WIP) *)
-Module PathORAM <: RAM (Dist_State).
+Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
+
+  #[export] Instance PoramConfig : Config := {LOP := C.LOP}.
 
   Definition K := block_id.
   Definition V := nat.
@@ -1637,21 +1632,13 @@ Module PathORAM <: RAM (Dist_State).
   Definition put := @M.put S.
 
   Definition well_formed s := 
-    let o := state_oram s in
-    let len_m := get_height o in
-    @well_formed (Build_Config (pred len_m)) s.
+    @well_formed (Build_Config LOP) s.
 
   Definition write k v := 
-      PST <- get ;;
-      let o := state_oram PST in
-      let len_m := get_height o in
-      @write_access (Build_Config (pred len_m)) k v.
+    @write_access (Build_Config LOP) k v.
 
   Definition read k :=
-    PST <- get ;;
-    let o := state_oram PST in
-    let len_m := get_height o in
-    @read_access (Build_Config (pred len_m)) k.
+    @read_access (Build_Config LOP) k.
 
   Definition wrap v : Vw V := ([], v). (* path doesn't matter for this *)
 
@@ -1711,14 +1698,21 @@ Module PathORAM <: RAM (Dist_State).
       rewrite Nat.max_id; auto.
   Qed.
   
-  (* Lemma get_height_wf : forall LOP s, *)
-  (*     well_formed s ->  *)
-  (*     get_height (state_oram s) = Datatypes.S PathORAMDef.LOP. *)
-  (* Proof. *)
-  (*   intros LOP s Hs. *)
-  (*   apply is_pb_tr in Hs. *)
-  (*   apply is_p_b_tr_height; auto. *)
-  (* Qed. *)
+  Lemma get_height_wf : forall s,
+      well_formed s ->
+      get_height (state_oram s) = Datatypes.S LOP.
+  Proof.
+    intros s Hs.
+    apply is_pb_tr in Hs.
+    apply is_p_b_tr_height; auto.
+  Qed.
+
+  Definition opt_lift {X} (P : X -> Prop) : option X -> Prop :=
+    fun o =>
+      match o with
+      | None => False
+      | Some x => P x
+      end.
   
   Lemma read_and_write_compat_lemma_1_aux `{C : Config}:
     forall k v s,
@@ -1726,34 +1720,35 @@ Module PathORAM <: RAM (Dist_State).
       get_payload ((bind (write k v) (fun _ => read k)) s) =
       get_payload (write_and_read_access k v s).
   Proof.
-    intros k v s wf_s.
+        intros k v s wf_s.
     erewrite PathORAM_simulates_RAM_idx_eq; eauto.
-    assert (opt_lift (eq v) (get_payload (bind (write k v) (fun _ => read k) s))).
+    assert (opt_lift (eq v) (Some(get_payload (bind (write k v) (fun _ => read k) s)))).
     { eapply lift_payload; eauto.
-      eapply state_prob_bind.
+      eapply state_plift_bind.
       + unfold write.
-        eapply state_prob_bind.
-        * apply get_State_wf.
-        * intros s' wf_s'.
-          rewrite get_height_wf with (LOP := LOP); auto.
-          apply write_access_wf.
+        eapply state_plift_bind.
+        * apply state_plift_get.
+        * intros s' wf_s'. admit.
+          (* rewrite get_height_wf; auto. *)
+          (* apply write_access_wf. *)
       + intros _ _.
         unfold read.
-        eapply state_prob_bind.
-        * apply get_State_wf.
-        * simpl; intros s' [wf_s' Hkv].
-          rewrite get_height_wf with (LOP := LOP); auto.
-          apply read_access_wf.
+        eapply state_plift_bind.
+        * apply state_plift_get.
+        * simpl. intros s' ps. eapply state_plift_bind.
+          -- admit.
+          -- admit.
     }
     unfold opt_lift in H.
-    destruct get_payload; auto. contradiction.
-  Qed.
-
+    destruct get_payload; auto. 
+    auto.
+Admitted.
+  
   Lemma read_and_write_compat_lemma_1 :
     forall k v s,
       well_formed s ->
       get_payload ((bind (write k v) (fun _ => read k)) s) =
-      get_payload (write_and_read_access (pred (get_height (state_oram s))) k v s).
+      get_payload (write_and_read_access k v s).
   Proof.
     intros k v s wf_s.
     apply read_and_write_compat_lemma_1_aux.
@@ -1762,21 +1757,21 @@ Module PathORAM <: RAM (Dist_State).
 
   Lemma read_and_write_compat_lemma_2 :
     forall k v s,
-      get_payload ((bind (write k v) (fun _ => ret (wrap v))) s) = Some v.
+      get_payload ((bind (write k v) (fun _ => ret (wrap v))) s) = v.
     Proof.
-      intros. unfold get_payload. unfold PathORAM_typeclass.get_payload.
+      intros. unfold get_payload. unfold get_payload.
       destruct (bind (write k v) (fun _ : path * nat => ret (wrap v)) s) eqn:?.
-      simpl. destruct dist_pmf0.
+      simpl. destruct dist_pmf.
       - discriminate.
       - destruct p. destruct p. destruct v0. f_equal.
         unfold bind in Heqd. unfold M.bind in Heqd. 
-        unfold bindT in Heqd. destruct (write k v s) eqn:?.
+        unfold StateT_bind in Heqd. destruct (write k v s) eqn:?.
         simpl in Heqd. inversion Heqd. unfold mbind_dist_pmf in H0.
-        simpl in H0. destruct dist_pmf1.
-        + discriminate.
+        simpl in H0. destruct dist_pmf.
+        + admit.
         + simpl in H0. destruct p0. simpl in H0. destruct p0. simpl in H0.
-         unfold wrap in H0. inversion H0. reflexivity.
-    Qed.
+         unfold wrap in H0. inversion H0. admit.
+Admitted.
 
   (* --- RAM laws --- *)
 
@@ -1797,8 +1792,8 @@ Module PathORAM <: RAM (Dist_State).
   Proof.
     intros. rewrite read_and_write_compat_lemma_1; auto.
     rewrite read_and_write_compat_lemma_2.
-    apply PathORAM_simulates_RAM. apply H.
-  Qed.
+    admit.
+  Admitted.
 
   Theorem read_write_commute :
     forall (k1 k2 : K) (v : V) f (s : S),
@@ -1816,3 +1811,5 @@ Module PathORAM <: RAM (Dist_State).
       get_payload (bind (read k2) (fun v2 => bind (read k1) (fun v1 => f v1 v2)) s).
   Proof.
   Admitted. 
+
+End PathORAM.
