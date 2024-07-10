@@ -34,7 +34,7 @@ Module Type RAM (M : StateMonad).
   Parameter write : K -> V -> M.State S (Vw V).
 
   (* Get payload *)
-  Parameter get_payload : M.state S (Vw V) -> option V.
+  Parameter get_payload : M.state S (Vw V) -> V.
 
   (* Wrap value *)
   Parameter wrap : V -> Vw V.

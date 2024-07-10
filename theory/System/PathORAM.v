@@ -1632,18 +1632,18 @@ Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
   Definition put := @M.put S.
 
   Definition well_formed s := 
-    @well_formed (Build_Config LOP) s.
+    well_formed s. 
 
   Definition write k v := 
-    @write_access (Build_Config LOP) k v.
+    write_access k v.
 
   Definition read k :=
-    @read_access (Build_Config LOP) k.
+    read_access k.
 
   Definition wrap v : Vw V := ([], v). (* path doesn't matter for this *)
 
   Definition get_payload (s : M.state S (Vw V)) :=
-   @get_payload s.
+   get_payload s.
 
   Lemma read_and_read_lemma (k : K) (s : S):
     @state_plift state dist Monad_dist Monad_dist Pred_Dist_Lift (Vw V) 
@@ -1657,14 +1657,19 @@ Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
 
   Lemma extract_payload_read_read k (s : state) : 
     plift
-      (fun '(x, s') => get_payload (bind (read k) ret s) = snd x /\ well_formed s')
+      (fun '(x, s') =>
+         get_payload (bind (read k) ret s) = snd x /\ well_formed s')
       (bind (read k) (fun _ => read k) s) -> 
-    get_payload (bind (read k) (fun _ => read k) s) = get_payload ((bind (read k) ret) s).
+    get_payload
+      (bind (read k) (fun _ => read k) s) = get_payload ((bind (read k) ret) s).
   Proof.
-    intros. destruct (bind (read k) (fun _ => read k) s). destruct (bind (read k) ret s).
+    intros.
+    destruct (bind (read k) (fun _ => read k) s).
+    destruct (bind (read k) ret s).
     unfold get_payload.
     destruct dist_pmf0, dist_pmf; try discriminate.
-    simpl in *. destruct p. destruct p. destruct p. destruct p0. destruct p0. destruct p0.
+    simpl in *. destruct p. destruct p. destruct p.
+    destruct p0. destruct p0. destruct p0.
     simpl in H. inversion H. destruct H2. simpl in *.
     rewrite <- H2. reflexivity.
   Qed.
@@ -1714,35 +1719,27 @@ Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
       | Some x => P x
       end.
   
-  Lemma read_and_write_compat_lemma_1_aux `{C : Config}:
+  Lemma read_and_write_compat_lemma_1_aux:
     forall k v s,
       well_formed s ->
       get_payload ((bind (write k v) (fun _ => read k)) s) =
       get_payload (write_and_read_access k v s).
   Proof.
-        intros k v s wf_s.
+    intros k v s wf_s.
     erewrite PathORAM_simulates_RAM_idx_eq; eauto.
-    assert (opt_lift (eq v) (Some(get_payload (bind (write k v) (fun _ => read k) s)))).
+    assert (opt_lift (eq v)
+              (Some (get_payload (bind (write k v) (fun _ => read k) s)))).
     { eapply lift_payload; eauto.
       eapply state_plift_bind.
       + unfold write.
-        eapply state_plift_bind.
-        * apply state_plift_get.
-        * intros s' wf_s'. admit.
-          (* rewrite get_height_wf; auto. *)
-          (* apply write_access_wf. *)
-      + intros _ _.
+        apply write_access_wf.
+      + intros x px.
         unfold read.
-        eapply state_plift_bind.
-        * apply state_plift_get.
-        * simpl. intros s' ps. eapply state_plift_bind.
-          -- admit.
-          -- admit.
+        apply read_access_wf.
     }
-    unfold opt_lift in H.
-    destruct get_payload; auto. 
-    auto.
-Admitted.
+    simpl in H. symmetry.
+    exact H.
+  Qed.
   
   Lemma read_and_write_compat_lemma_1 :
     forall k v s,
@@ -1758,20 +1755,21 @@ Admitted.
   Lemma read_and_write_compat_lemma_2 :
     forall k v s,
       get_payload ((bind (write k v) (fun _ => ret (wrap v))) s) = v.
-    Proof.
-      intros. unfold get_payload. unfold get_payload.
-      destruct (bind (write k v) (fun _ : path * nat => ret (wrap v)) s) eqn:?.
-      simpl. destruct dist_pmf.
-      - discriminate.
-      - destruct p. destruct p. destruct v0. f_equal.
-        unfold bind in Heqd. unfold M.bind in Heqd. 
-        unfold StateT_bind in Heqd. destruct (write k v s) eqn:?.
-        simpl in Heqd. inversion Heqd. unfold mbind_dist_pmf in H0.
-        simpl in H0. destruct dist_pmf.
-        + admit.
-        + simpl in H0. destruct p0. simpl in H0. destruct p0. simpl in H0.
-         unfold wrap in H0. inversion H0. admit.
-Admitted.
+  Proof.
+    intros. unfold get_payload. unfold get_payload.
+    destruct (bind (write k v) (fun _ : path * nat => ret (wrap v)) s) eqn:?.
+    simpl. destruct dist_pmf.
+    - discriminate.
+    - destruct p. destruct p. destruct v0. f_equal.
+      unfold bind in Heqd. unfold M.bind in Heqd. 
+      unfold StateT_bind in Heqd. destruct (write k v s) eqn:?.
+      simpl in Heqd. inversion Heqd. unfold mbind_dist_pmf in H0.
+      simpl in H0. destruct dist_pmf0.
+      + discriminate.
+      + simpl in H0. destruct p0. simpl in H0. destruct p0. simpl in H0.
+        unfold wrap in H0. inversion H0.
+        reflexivity.
+  Qed.
 
   (* --- RAM laws --- *)
 
@@ -1792,8 +1790,9 @@ Admitted.
   Proof.
     intros. rewrite read_and_write_compat_lemma_1; auto.
     rewrite read_and_write_compat_lemma_2.
-    admit.
-  Admitted.
+    eapply PathORAM_simulates_RAM_idx_eq. auto.
+    reflexivity.
+  Qed.
 
   Theorem read_write_commute :
     forall (k1 k2 : K) (v : V) f (s : S),

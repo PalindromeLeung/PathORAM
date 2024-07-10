@@ -1,3 +1,4 @@
+(*
 Require Import List RAM.
 Import ListNotations.
 
@@ -213,7 +214,7 @@ Module KV_RAM <: RAM (KV_State).
   Definition get := @get S.
   Definition put := @put S.
 
-  Definition read (k : K) : State S (Vw V) :=
+  Definition read (k : K) : State S V :=
     bind 
       get
       (fun s => ret (lookup k s)).
@@ -228,7 +229,7 @@ Module KV_RAM <: RAM (KV_State).
 
   Definition wrap (v : V) := Some v.
 
-  Definition get_payload (s : state S (Vw V)) := fst s.
+  Definition get_payload (s : state S V) := fst s.
 
   Definition write_and_read (k : K) (v : V) : State S (Vw V):=
     bind (write k v) (fun _ => read k).
@@ -327,3 +328,4 @@ Module KV_RAM <: RAM (KV_State).
   Admitted.
 
 End KV_RAM.
+*)
