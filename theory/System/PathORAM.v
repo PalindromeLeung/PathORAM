@@ -1332,7 +1332,7 @@ Section PORAM_PROOF.
   
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
     NoDup (List.map block_blockid l) ->
-    In (Block id v) l -> lookup_ret_data id l = v.
+    In (Block id v) l -> lookup_ret_data id l = Some v.
   Proof.
     intro ND.
     intros.
@@ -1355,7 +1355,7 @@ Section PORAM_PROOF.
   Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
     well_formed (State m h o) ->
     kv_rel id v (State m h o) ->
-    get_ret_data id h (calc_path id (State m h o)) o = v.
+    get_ret_data id h (calc_path id (State m h o)) o = Some v.
   Proof.
     simpl.
     intros.
@@ -1442,7 +1442,7 @@ Section PORAM_PROOF.
 
   Lemma extract_payload (id : block_id) (v: nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
-    get_payload (write_and_read_access id v s) = v.
+    get_payload (write_and_read_access id v s) = Some v.
   Proof.
     intros ops_on_s.
     unfold get_payload.
@@ -1454,7 +1454,7 @@ Section PORAM_PROOF.
 
   Theorem PathORAM_simulates_RAM_idx_eq (i k : block_id) (v : nat) (s : state) :
     well_formed s -> i = k -> 
-    get_payload(write_and_read_access i v s) = v.
+    get_payload(write_and_read_access i v s) = Some v.
   Proof.
     intros wf_s idxeq.
     apply extract_payload.
@@ -1514,6 +1514,30 @@ Section PORAM_PROOF.
     apply get_pre_wb_st_wf; destruct s; auto.
     apply blk_in_stash_get_pre_wb_st; auto.
   Qed.
+  
+  Lemma blk_in_path_get_pre_wb_st :
+    forall (s : state) (i k: block_id) (v v' : nat) (p_new : path),
+      well_formed s ->
+      length p_new = LOP ->
+      blk_in_path i v' s -> 
+      i <> k -> 
+      blk_in_path i v'
+        (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
+           (state_oram s) (calc_path k s) p_new).
+  Proof.
+  Admitted.
+    
+  Lemma blk_in_path_get_post_wb_st :
+    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
+      well_formed s ->
+      length p = LOP ->
+      length p_new = LOP ->
+      blk_in_path i v' s -> 
+      i <> k -> 
+      blk_in_path i v'
+        (get_post_wb_st s p).
+  Proof.
+  Admitted.
     
   Lemma blk_in_path_neq :
     forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
@@ -1526,7 +1550,13 @@ Section PORAM_PROOF.
         (get_post_wb_st
            (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
               (state_oram s) (calc_path k s) p_new) p).
-  Admitted.
+  Proof.
+    intros.
+    eapply blk_in_path_get_post_wb_st; eauto.
+    - apply get_pre_wb_st_wf; auto.
+      destruct s. simpl. auto. 
+    - apply blk_in_path_get_pre_wb_st; auto.
+  Qed.    
   
   Lemma zero_sum_stsh_tr_Wr_neq:
   forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
