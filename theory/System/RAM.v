@@ -30,11 +30,11 @@ Module Type RAM (M : StateMonad).
   Parameter well_formed : S -> Prop.
 
   (* Read and write operations *)
-  Parameter read : K -> M.State S (Vw V).
-  Parameter write : K -> V -> M.State S (Vw V).
+  Parameter read : K -> M.State S (Vw (option V)).
+  Parameter write : K -> V -> M.State S (Vw (option V)).
 
   (* Get payload *)
-  Parameter get_payload : M.state S (Vw V) -> V.
+  Parameter get_payload : forall {X},  M.state S (Vw X) -> X.
 
   (* Wrap value *)
   Parameter wrap : V -> Vw V.
@@ -50,17 +50,17 @@ Module Type RAM (M : StateMonad).
     forall (k : K) (v : V) (s : S),
       well_formed s ->
       get_payload ((M.bind (write k v) (fun _ => read k)) s) =
-      get_payload ((M.bind (write k v) (fun _ => M.ret (wrap v))) s).
+      Some (get_payload ((M.bind (write k v) (fun _ => M.ret (wrap v))) s)).
 
   Axiom read_write_commute :
-    forall (k1 k2 : K) (v : V) f (s : S),
+    forall {X} (k1 k2 : K) (v : V) (f : Vw (option V) -> M.State S (Vw X)) (s : S),
       well_formed s ->
       k1 <> k2 ->
       get_payload (M.bind (read k1) (fun v' => M.bind (write k2 v) (fun _ => f v')) s) =
       get_payload (M.bind (write k2 v) (fun _ => M.bind (read k1) f) s).
 
   Axiom read_commute :
-    forall (k1 k2 : K) f (s : S),
+    forall {X}(k1 k2 : K) (f : Vw (option V) ->  Vw (option V) -> M.State S (Vw X))  (s : S),
       well_formed s ->
       get_payload (M.bind (read k1) (fun v1 => M.bind (read k2) (fun v2 => f v1 v2)) s) =
       get_payload (M.bind (read k2) (fun v2 => M.bind (read k1) (fun v1 => f v1 v2)) s).

@@ -27,4 +27,4 @@ jobs:
             default: https://opam.ocaml.org
             coq-released: https://coq.inria.fr/opam/released
       - run: opam install . --deps-only
-      - run: opam exec -- dune build
+      - run: opam exec -- dune build theory

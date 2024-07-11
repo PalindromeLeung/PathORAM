@@ -179,11 +179,11 @@ Section PORAM.
 
   Scheme Equality for nat.
   
-  Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
+  Fixpoint lookup_ret_data (id : block_id) (lb : list block): option nat :=
     match lb with
-    | [] => 0
+    | [] => None 
     | h :: t =>
-        if Nat.eqb (block_blockid h) id then block_payload (h%nat)
+        if Nat.eqb (block_blockid h) id then Some (block_payload (h%nat))
         else lookup_ret_data id t
     end.
 
@@ -258,7 +258,7 @@ Section PORAM.
     ret_data. 
 
   Definition access (id : block_id) (op : operation) :
-    Poram (path * nat) :=
+    Poram (path * option nat) :=
     PST <- get ;;
     (* unpack the state *)
     let m := state_position_map PST in
@@ -299,20 +299,20 @@ Section PORAM.
       forall id, length(lookup_dict (makeBoolList false len_m) id m) = LOP;
     }.
 
-  Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
+  Definition read_access (id : block_id) : Poram (path * option nat) := access id Read.
 
-  Definition write_access (id : block_id) (v : nat) : Poram (path * nat) :=
+  Definition write_access (id : block_id) (v : nat) : Poram (path * option nat) :=
     access id (Write v).
 
-  Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) :=
+  Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * option nat) :=
     _ <- write_access id  v;;
     read_access id.
 
-  Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
+  Definition has_value (v : nat) : path * (option nat) -> Prop := fun '(_, val) => Some v = val.
 
-  Definition get_payload (dist_a : dist (path * nat * state)): nat :=
+  Definition get_payload {X} (dist_a : dist (path * X * state)) : X :=
     match peek dist_a with
-    | (_,v,_) => v
+    | (_, x,_) => x
     end.
 
   Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
