@@ -1595,8 +1595,6 @@ Section PORAM_PROOF.
     - intros [p x] _. apply read_access_wf. 
   Qed.
 
-  Check @state_plift.
-
   Lemma value_pred_weaken :
     forall {X} (S : Type) (M : Type -> Type) `{PredLift M}
       (Pre Post: S -> Prop) (P Q : X -> Prop),
