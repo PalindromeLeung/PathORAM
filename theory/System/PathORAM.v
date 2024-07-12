@@ -1332,7 +1332,7 @@ Section PORAM_PROOF.
   
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
     NoDup (List.map block_blockid l) ->
-    In (Block id v) l -> lookup_ret_data id l = Some v.
+    In (Block id v) l -> lookup_ret_data id l = v.
   Proof.
     intro ND.
     intros.
@@ -1355,7 +1355,7 @@ Section PORAM_PROOF.
   Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
     well_formed (State m h o) ->
     kv_rel id v (State m h o) ->
-    get_ret_data id h (calc_path id (State m h o)) o = Some v.
+    get_ret_data id h (calc_path id (State m h o)) o = v.
   Proof.
     simpl.
     intros.
@@ -1442,7 +1442,7 @@ Section PORAM_PROOF.
 
   Lemma extract_payload (id : block_id) (v : nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
-    get_payload (write_and_read_access id v s) = Some v.
+    get_payload (write_and_read_access id v s) = v.
   Proof.
     intros ops_on_s.
     unfold get_payload.
@@ -1451,12 +1451,12 @@ Section PORAM_PROOF.
     destruct p.
     destruct ops_on_s.
     unfold has_value in H.
-    destruct o; congruence.
+    symmetry. auto.
   Qed.
 
   Theorem PathORAM_simulates_RAM_idx_eq (i k : block_id) (v : nat) (s : state) :
     well_formed s -> i = k -> 
-    get_payload(write_and_read_access i v s) = Some v.
+    get_payload(write_and_read_access i v s) = v.
   Proof.
     intros wf_s idxeq.
     apply extract_payload.
@@ -1697,8 +1697,8 @@ Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
     (* reflexivity. *)
 Admitted. 
 
-  Lemma lift_payload {Pre Post : state -> Prop} {P : option nat -> Prop} 
-    (m : Poram (path * option nat)) s :
+  Lemma lift_payload {Pre Post : state -> Prop} {P : nat -> Prop} 
+    (m : Poram (path * nat)) s :
     Pre s ->
     state_plift Pre Post (fun '(_,x) => P x) m ->
     P (get_payload (m s)).
@@ -1753,8 +1753,7 @@ Admitted.
   Proof.
     intros k v s wf_s.
     erewrite PathORAM_simulates_RAM_idx_eq; eauto.
-    assert (opt_lift (eq v)
-              (get_payload (bind (write k v) (fun _ => read k) s))).
+    assert (opt_lift (eq v) (Some (get_payload (bind (write k v) (fun _ => read k) s)))).
     { eapply lift_payload; eauto.
       eapply state_plift_bind.
       + unfold write.
@@ -1766,10 +1765,8 @@ Admitted.
         * apply dist_has_weakening.
         * apply read_access_wf.
     }
-    simpl in H. symmetry.
-    unfold opt_lift in H.
-    destruct get_payload. congruence. exfalso; auto.
-  Qed. 
+    simpl in H. symmetry. auto.
+  Qed.
   
   Lemma read_and_write_compat_lemma_1 :
     forall k v s,
@@ -1787,7 +1784,7 @@ Admitted.
       get_payload ((bind (write k v) (fun _ => ret (wrap v))) s) = v.
   Proof.
     intros. unfold get_payload. unfold get_payload.
-    destruct (bind (write k v) (fun _ : path * option nat => ret (wrap v)) s) eqn:?.
+    destruct (bind (write k v) (fun _ : path * nat => ret (wrap v)) s) eqn:?.
     simpl. destruct dist_pmf.
     - discriminate.
     - destruct p. destruct p. destruct v0. f_equal.
@@ -1815,7 +1812,7 @@ Admitted.
     forall (k : K) (v : nat) (s : S),
       well_formed s ->
       get_payload ((bind (write k v) (fun _ => read k)) s) =
-      Some (get_payload ((bind (write k v) (fun _ => ret (wrap v))) s)).
+      get_payload ((bind (write k v) (fun _ => ret (wrap v))) s).
   Proof.
     intros. rewrite read_and_write_compat_lemma_1; auto.
     rewrite read_and_write_compat_lemma_2.
@@ -1824,7 +1821,7 @@ Admitted.
   Qed.
 
   Theorem read_write_commute :
-    forall {X}(k1 k2 : K) (v : nat) (f : Vw (option V) -> M.State S (Vw X)) (s : S),
+    forall {X}(k1 k2 : K) (v : nat) (f : Vw V -> M.State S (Vw X)) (s : S),
       well_formed s ->
       k1 <> k2 ->
       get_payload (bind (read k1) (fun v' => bind (write k2 v) (fun _ => f v')) s) =
@@ -1833,7 +1830,7 @@ Admitted.
   Admitted.
 
   Theorem read_commute :
-    forall {X}(k1 k2 : K) (f : Vw (option V) -> Vw (option V) -> M.State S (Vw X)) (s : S),
+    forall {X}(k1 k2 : K) (f : Vw V -> Vw V -> M.State S (Vw X)) (s : S),
       well_formed s ->
       get_payload (bind (read k1) (fun v1 => bind (read k2) (fun v2 => f v1 v2)) s) =
       get_payload (bind (read k2) (fun v2 => bind (read k1) (fun v1 => f v1 v2)) s).
