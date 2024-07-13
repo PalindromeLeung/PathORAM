@@ -1329,6 +1329,8 @@ Section PORAM_PROOF.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply stash_path_combined_rel_Rd. auto.
   Qed.
+
+(*
   
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
     NoDup (List.map block_blockid l) ->
@@ -1841,4 +1843,6 @@ Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
   Proof.
   Admitted. 
 
-End PathORAM.
+*)
+
+End PORAM_PROOF.
