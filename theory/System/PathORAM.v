@@ -1332,7 +1332,7 @@ Section PORAM_PROOF.
   
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
     NoDup (List.map block_blockid l) ->
-    In (Block id v) l -> lookup_ret_data id l = Some v.
+    In (Block id v) l -> lookup_ret_data id l = v.
   Proof.
     intro ND.
     intros.
@@ -1355,7 +1355,7 @@ Section PORAM_PROOF.
   Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
     well_formed (State m h o) ->
     kv_rel id v (State m h o) ->
-    get_ret_data id h (calc_path id (State m h o)) o = Some v.
+    get_ret_data id h (calc_path id (State m h o)) o = v.
   Proof.
     simpl.
     intros.
@@ -1442,7 +1442,7 @@ Section PORAM_PROOF.
 
   Lemma extract_payload (id : block_id) (v : nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
-    get_payload (write_and_read_access id v s) = Some v.
+    get_payload (write_and_read_access id v s) = v.
   Proof.
     intros ops_on_s.
     unfold get_payload.
@@ -1456,7 +1456,7 @@ Section PORAM_PROOF.
 
   Theorem PathORAM_simulates_RAM_idx_eq (i k : block_id) (v : nat) (s : state) :
     well_formed s -> i = k -> 
-    get_payload(write_and_read_access i v s) = Some v.
+    get_payload(write_and_read_access i v s) = v.
   Proof.
     intros wf_s idxeq.
     apply extract_payload.
