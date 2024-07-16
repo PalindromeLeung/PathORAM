@@ -183,7 +183,7 @@ Section PORAM.
     match lb with
     | [] => 0
     | h :: t =>
-        if Nat.eqb (block_blockid h) id then block_payload (h%nat)
+        if Nat.eqb (block_blockid h) id then (block_payload (h%nat))
         else lookup_ret_data id t
     end.
 
@@ -308,11 +308,11 @@ Section PORAM.
     _ <- write_access id  v;;
     read_access id.
 
-  Definition has_value (v : nat) : path * nat -> Prop := fun '(_, val) => v = val.
+  Definition has_value (v : nat) : (path * nat) -> Prop := fun '(_, val) => v = val.
 
-  Definition get_payload (dist_a : dist (path * nat * state)): nat :=
+  Definition get_payload {X} (dist_a : dist (path * X * state)) : X :=
     match peek dist_a with
-    | (_,v,_) => v
+    | (_, x,_) => x
     end.
 
   Definition blk_in_stash (id : block_id) (v : nat )(st : state) : Prop :=
