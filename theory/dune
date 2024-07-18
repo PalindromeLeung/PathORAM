@@ -2,5 +2,4 @@
 
 (coq.theory
 	(name POram)
-	(theories ExtLib)
 	)
