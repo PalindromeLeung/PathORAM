@@ -6,7 +6,7 @@ Import MonadNotation.
 Require Import POram.Utils.Tree.
 Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Distributions.
-Require Import POram.System.PathORAM.
+Require Import POram.System.PathORAMFunCorrect.
 Require Import POram.System.PathORAMDef.
 
 Definition empty_dict {K V} : dict K V := Dict [].
