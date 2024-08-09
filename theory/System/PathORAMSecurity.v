@@ -149,7 +149,7 @@ Definition coin_flip_path : dist (list path) :=
 (* top level security theorem says that when we have a list of accesses, the distribution of the final list of paths as output observes the same distribution of the source of the randomness *)
 Theorem access_dist_preservation :
   forall {C : Config} (arg_list : list (block_id * operation)) (s : state),
-    distr_eqv coin_flip (acc_list_dist arg_list s).
+    distr_eqv coin_flip_path (acc_dist_list arg_list s).
 Admitted.
 
 
