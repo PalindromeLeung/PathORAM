@@ -44,8 +44,8 @@ Definition state_val_equiv {X} (p p' : path * X * state) : Prop :=
 Definition reflexive {X} (P : X -> X -> Prop) :=
   forall x, P x x.
 
-Definition prod_rel {X Y} (P : X -> X -> Prop) (Q : Y -> Y -> Prop) :
-  X * Y -> X * Y -> Prop :=
+Definition prod_rel {X X' Y Y'} (P : X -> X' -> Prop) (Q : Y -> Y' -> Prop) :
+  X * Y -> X' * Y' -> Prop :=
   fun p1 p2 =>
     P (fst p1) (fst p2) /\
     Q (snd p1) (snd p2).
@@ -54,6 +54,8 @@ Definition poram_equiv {X} (eqv : X -> X -> Prop)
   (m m' : Poram X) : Prop :=
   forall s s' : state,
     state_equiv s s' ->
+    well_formed s ->
+    well_formed s' ->
     dist_equiv (prod_rel eqv state_equiv) (m s) (m' s').
 
 (* a lawful action should yield extensionally equivalent
@@ -63,7 +65,7 @@ Definition lawful {X} (eqv : X -> X -> Prop) (m : Poram X) : Prop :=
 
 Lemma lawful_ret {X} P (x : X) : reflexive P -> lawful P (mreturn x).
 Proof.
-  intros P_ref s s' Hss'.
+  intros P_ref s s' Hss' wf_s wf_s'.
   apply dist_equiv_ret.
   split; auto.
 Qed.

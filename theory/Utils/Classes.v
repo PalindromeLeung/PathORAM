@@ -66,3 +66,14 @@ Definition mmap {M} `{Monad M} X Y (f : X -> Y) (m : M X) : M Y :=
 Global Instance Monad_Functor {M} `{Monad M} : Functor M := {|
   map := mmap
   |}.
+
+Class PredLift2 M `{Monad M} := {
+  plift2 {X Y} : (X -> Y -> Prop) -> M X -> M Y -> Prop;
+  plift2_ret {X Y} : forall x y (P : X -> Y -> Prop),
+    P x y -> plift2 P (mreturn x) (mreturn y);
+  plift2_bind {X Y X' Y'} : forall (P : X -> Y -> Prop) (Q : X' -> Y' -> Prop)
+    (m1 : M X) (m2 : M Y) (f1 : X -> M X') (f2 : Y -> M Y'),
+    plift2 P m1 m2 ->
+    (forall x y, P x y -> plift2 Q (f1 x) (f2 y)) ->
+    plift2 Q (mbind m1 f1) (mbind m2 f2)
+  }.
