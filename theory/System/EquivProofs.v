@@ -484,7 +484,35 @@ Lemma kv_rel_get_val : forall k v s,
   well_formed s ->
   kv_rel k v s -> get_val k s = Some v.
 Proof.
-Admitted.
+  intros k v s wf_s Hkv.
+  unfold get_val.
+  destruct (def_or_undef k s) as [[v' Hkv']|Hk].
+  - simpl.
+    rewrite kv_rel_functional with (s := s) (k := k) (v := v) (v' := v'); auto.
+  - elim Hk.
+    exists v; auto.
+Qed.
+
+Lemma get_val_kv_rel : forall k v s,
+  well_formed s ->
+  get_val k s = Some v -> kv_rel k v s.
+Proof.
+  intros k v s wf_s gv_k.
+  unfold get_val in gv_k.
+  destruct (def_or_undef k s) as [[v' Hv']|]; [|discriminate].
+  inversion gv_k; congruence.
+Qed.
+
+Lemma undef_get_val : forall k s,
+  well_formed s ->
+  undef k s -> get_val k s = None.
+Proof.
+  intros k s wf_s Hks.
+  unfold get_val.
+  destruct (def_or_undef k s) as [[v Hkv]|Hk]; auto.
+  elim Hks.
+  exists v; auto.
+Qed.
 
 Definition get_val_equiv s s' : Prop :=
   forall k, get_val k s = get_val k s'.
@@ -510,7 +538,15 @@ Lemma get_val_equiv_state_equiv : forall s s',
   get_val_equiv s s' ->
   state_equiv s s'.
 Proof.
-Admitted.
+  intros s s' wf_s wf_s' Hss' k v.
+  specialize (Hss' k).
+  split; intro pf.
+  - rewrite kv_rel_get_val with (v := v) in Hss'; auto.
+    symmetry in Hss'.
+    apply get_val_kv_rel; auto.
+  - rewrite kv_rel_get_val with (v := v) (s := s') in Hss'; auto.
+    apply get_val_kv_rel; auto.
+Qed.
 
 Lemma read_wf k :
   poram_lift
@@ -557,10 +593,20 @@ Lemma write_wf k v :
 Proof.
 Admitted.
 
+Lemma write_undef k k' v :
+  k <> k' ->
+  poram_lift
+    (undef k')
+    (undef k')
+    triv
+    (write k v).
+Proof.
+Admitted.
+
 Lemma write_val_eq k v :
   poram_lift
     triv
-    (fun s => kv_rel k v s)
+    (kv_rel k v)
     triv
     (write k v).
 Proof.
@@ -569,8 +615,8 @@ Admitted.
 Lemma write_val_neq k v k' v' :
   k <> k' ->
   poram_lift
-    (fun s => kv_rel k' v' s)
-    (fun s => kv_rel k' v' s)
+    (kv_rel k' v')
+    (kv_rel k' v')
     triv
     (write k v).
 Proof.
@@ -741,7 +787,21 @@ Lemma plift2_and {X Y} {P Q : X -> Y -> Prop}
   plift2 Q m m' ->
   plift2 (fun x y => P x y /\ Q x y) m m'.
 Proof.
-Admitted.
+  unfold plift2; simpl.
+  unfold dist_lift2; simpl.
+  unfold dist_lift; simpl.
+  destruct m as [l q]; simpl; clear q.
+  destruct m' as [l' q']; simpl; clear q'.
+  repeat rewrite Forall_forall.
+  intros H1 H2 x Hx.
+  specialize (H1 x Hx).
+  specialize (H2 x Hx).
+  rewrite Forall_forall in *.
+  intros y Hy.
+  specialize (H1 y Hy).
+  specialize (H2 y Hy).
+  split; auto.
+Qed.
 
 Lemma plift2_implication {X Y}
   {P : X -> Prop} {Q : Y -> Prop}
@@ -800,6 +860,61 @@ Proof.
   exists x; split; auto.
 Qed.
 
+Lemma plift_to_plift2_l {X Y} (P : X -> Prop) (m : dist X) (m' : dist Y) :
+  plift P m ->
+  plift2 (fun x _ => P x) m m'.
+Proof.
+  unfold plift2; simpl.
+  unfold dist_lift2; simpl.
+  unfold dist_lift.
+  destruct m as [l q]; simpl; clear q.
+  destruct m' as [l' q']; simpl; clear q'.
+  intro pf.
+  rewrite Forall_forall in *.
+  intros x Hx.
+  specialize (pf x Hx).
+  rewrite Forall_forall; auto.
+Qed.
+
+Lemma plift_to_plift2_r {X Y} (Q : Y -> Prop) (m : dist X) (m' : dist Y) :
+  plift Q m' ->
+  plift2 (fun _ y => Q y) m m'.
+Proof.
+  unfold plift2; simpl.
+  unfold dist_lift2; simpl.
+  unfold dist_lift.
+  destruct m as [l q]; simpl; clear q.
+  destruct m' as [l' q']; simpl; clear q'.
+  intro pf.
+  rewrite Forall_forall.
+  intros; exact pf.
+Qed.
+
+Lemma plift2_split_eq {X Y Z} (f : X -> Z) (g : Y -> Z) (z : Z)
+  (m : dist X) (m' : dist Y) :
+  plift (fun x => f x = z) m ->
+  plift (fun y => g y = z) m' ->
+  plift2 (fun x y => f x = g y) m m'.
+Proof.
+  intros Hm Hm'.
+  eapply dist_has_weakening; [|exact Hm].
+  intros x Hx.
+  eapply dist_has_weakening; [|exact Hm'].
+  intros y Hy.
+  congruence.
+Qed.
+
+Lemma state_equiv_undef s s' k :
+  state_equiv s s' ->
+  undef k s ->
+  undef k s'.
+Proof.
+  intros eq_ss' Hks [v Hkv].
+  elim Hks.
+  exists v.
+  apply eq_ss'; auto.
+Qed.
+
 Theorem write_read : forall k v,
   poram_equiv
   eq
@@ -834,10 +949,16 @@ Proof.
       * apply get_val_equiv_state_equiv.
       * apply poram_lift2_forall; [exact 0|].
         intros k' s s' [wf_s [wf_s' eq_ss']].
-        repeat apply plift2_and.
+        apply plift2_and; [|apply plift2_and]; [ | | apply plift2_and] .
         -- unfold triv2; apply plift2_triv; auto.
-        -- admit.
-        -- admit.
+        -- apply plift_to_plift2_l.
+           pose proof (write_wf k v s (conj wf_s I)) as pf.
+           eapply dist_has_weakening; [|exact pf].
+           intros []; unfold pand; tauto.
+        -- apply plift_to_plift2_r.
+           pose proof (write_wf k v s' (conj wf_s' I)) as pf.
+           eapply dist_has_weakening; [|exact pf].
+           intros []; unfold pand; tauto.
         -- destruct (nat_eq_dec k k').
            ++ subst.
               pose proof (write_val_eq k' v s (conj wf_s I)) as pf.
@@ -847,16 +968,33 @@ Proof.
               eapply dist_has_weakening; [|exact pf'].
               intros [y t'] [_ [wf_t' Ht']].
               simpl. repeat rewrite kv_rel_get_val with (v := v); auto.
-           ++ admit.
-
+           ++ destruct (def_or_undef k' s) as [[v' Hk'v']|Hk'].
+              ** apply plift2_split_eq with (z := Some v').
+                 --- pose proof (write_val_neq k v k' v' n s (conj wf_s Hk'v')) as pf.
+                     eapply dist_has_weakening; [|exact pf].
+                     intros [x t] [_ [wf_t Ht]]; simpl.
+                     apply kv_rel_get_val; auto.
+                 --- apply eq_ss' in Hk'v'.
+                     pose proof (write_val_neq k v k' v' n s' (conj wf_s' Hk'v')) as pf.
+                     eapply dist_has_weakening; [|exact pf].
+                     intros [x t] [_ [wf_t Ht]]; simpl.
+                     apply kv_rel_get_val; auto.
+              ** apply plift2_split_eq with (z := None).
+                 --- pose proof (write_undef k k' v n s (conj wf_s Hk')) as pf.
+                     eapply dist_has_weakening; [|exact pf].
+                     intros [x t] [_ [wf_t Ht]]; simpl.
+                     apply undef_get_val; auto.
+                 --- apply state_equiv_undef with (s' := s') in Hk'; auto.
+                     pose proof (write_undef k k' v n s' (conj wf_s' Hk')) as pf.
+                     eapply dist_has_weakening; [|exact pf].
+                     intros [x t] [_ [wf_t Ht]]; simpl.
+                     apply undef_get_val; auto.
     + intros _ _ _.
       apply poram_lift2_ret_l.
       intro s''.
       exact (read_pres_equiv k s'').
-
-Admitted.
+Qed.
 
 Print Assumptions write_read.
 
 End EquivProofs.
-
