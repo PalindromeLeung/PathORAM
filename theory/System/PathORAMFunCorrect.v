@@ -1454,11 +1454,11 @@ Section PORAM_PROOF.
     symmetry. auto.
   Qed.
 
-  Theorem PathORAM_simulates_RAM_idx_eq (i k : block_id) (v : nat) (s : state) :
-    well_formed s -> i = k -> 
+  Theorem PathORAM_simulates_RAM_idx_eq (i : block_id) (v : nat) (s : state) :
+    well_formed s -> 
     get_payload(write_and_read_access i v s) = v.
   Proof.
-    intros wf_s idxeq.
+    intros wf_s.
     apply extract_payload.
     apply write_and_read_access_lift. auto.
   Qed.
