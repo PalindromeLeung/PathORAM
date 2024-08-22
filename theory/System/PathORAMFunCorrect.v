@@ -265,47 +265,51 @@ Section PORAM_PROOF.
     auto.
   Qed.
 
-  Lemma In_path_in_tree : forall o p id,
-      In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
-      In id (List.map block_blockid (get_all_blks_tree o)). 
+  Lemma In_path_in_tree_block : forall o p b,
+      In b (concat (lookup_path_oram o p)) ->
+      In b (get_all_blks_tree o). 
   Proof.
     induction o; simpl; intros; auto.
-    destruct p. 
+    destruct p as [|hd tl]. 
     - destruct data; simpl in *; auto.
       + rewrite app_nil_r in H.
-        rewrite map_app.
         apply in_or_app.
         left; auto.
       + contradiction.
-    - destruct b.
+    - destruct hd.
       + destruct data.
         * simpl in H.
-          rewrite map_app in H.
           apply in_app_or in H.
-          repeat rewrite map_app.
           apply in_or_app.
           destruct H.
           -- left; auto.
           -- right. apply in_or_app.
              left. eapply IHo1; eauto.
-        * rewrite map_app. 
-          apply in_or_app.
+        * apply in_or_app.
           left.
           eapply IHo1; eauto.
       + destruct data.
         * simpl in H.
-          rewrite map_app in H.
           apply in_app_or in H.
-          repeat rewrite map_app.
           apply in_or_app.
           destruct H.
           -- left; auto.
           -- right. apply in_or_app.
              right. eapply IHo2; eauto.
-        * rewrite map_app. 
-          apply in_or_app.
+        * apply in_or_app.
           right.
           eapply IHo2; eauto.
+  Qed.
+
+  Lemma In_path_in_tree : forall o p id,
+      In id (List.map block_blockid (concat (lookup_path_oram o p))) ->
+      In id (List.map block_blockid (get_all_blks_tree o)).
+  Proof.
+    intros o p id pf.
+    rewrite in_map_iff in *.
+    destruct pf as [b [Hb1 Hb2]].
+    exists b; split; auto.
+    eapply In_path_in_tree_block; eauto.
   Qed.
 
   Lemma in_up_oram_tr : forall o id lvl dlt p p',
