@@ -582,7 +582,14 @@ Lemma read_val k v :
     (eq v)
     (read k).
 Proof.
-Admitted.
+  eapply state_plift_bind.
+  - exact (read_access_wf k v).
+  - intros [] pf s [wf_s kv_s].
+    apply plift_ret; split.
+    + exact pf.
+    + split; auto.
+      exact I.
+Qed.
 
 Lemma write_wf k v :
   poram_lift
@@ -603,6 +610,17 @@ Lemma write_undef k k' v :
 Proof.
 Admitted.
 
+Lemma state_plift_pre {S X}
+  (Pre Pre' Post : S -> Prop) (P : X -> Prop) (m : StateT S dist X) :
+  (forall s, Pre' s -> Pre s) ->
+  state_plift Pre Post P m ->
+  state_plift Pre' Post P m.
+Proof.
+  intros HPre'Pre Hm s Hs.
+  apply Hm.
+  apply HPre'Pre; exact Hs.
+Qed.
+
 Lemma write_val_eq k v :
   poram_lift
     triv
@@ -610,7 +628,13 @@ Lemma write_val_eq k v :
     triv
     (write k v).
 Proof.
-Admitted.
+  unfold poram_lift, write; eapply state_plift_bind.
+  - apply state_plift_pre with (Pre := well_formed).
+    + unfold pand; tauto.
+    + apply write_access_wf.
+  - intros [] _.
+    apply state_plift_ret; exact I.
+Qed.
 
 Lemma write_val_neq k v k' v' :
   k <> k' ->
