@@ -274,7 +274,33 @@ Lemma kv_rel_functional : forall s,
     kv_rel k v' s ->
     v = v'.
 Proof.
-Admitted.
+  intros s wf_s k v v' [Hv|Hv] [Hv'|Hv'].
+  - apply no_dup_stash in wf_s.
+    unfold blk_in_stash in *.
+    apply NoDup.NoDup_map_inj in wf_s.
+    unfold NoDup.inj_on_list in wf_s.
+    specialize (wf_s _ _ Hv Hv' eq_refl).
+    congruence.
+  - apply tree_stash_disj in wf_s.
+    elim (wf_s k); split.
+    + apply In_path_in_tree_block in Hv'.
+      apply in_map with (f := block_blockid) in Hv'; auto.
+    + apply in_map with (f := block_blockid) in Hv; auto.
+  - apply tree_stash_disj in wf_s.
+    elim (wf_s k); split.
+    + apply In_path_in_tree_block in Hv.
+      apply in_map with (f := block_blockid) in Hv; auto.
+    + apply in_map with (f := block_blockid) in Hv'; auto.
+  - apply no_dup_tree in wf_s.
+    unfold blk_in_path in *.
+    apply NoDup.NoDup_map_inj in wf_s.
+    unfold NoDup.inj_on_list in wf_s.
+    unfold blk_in_p in *.
+    apply In_path_in_tree_block in Hv.
+    apply In_path_in_tree_block in Hv'.
+    specialize (wf_s _ _ Hv Hv' eq_refl).
+    congruence.
+Qed.
 
 Lemma impl_dist {X} (m : dist X)
   (P : Prop) (Q : X -> Prop) :
