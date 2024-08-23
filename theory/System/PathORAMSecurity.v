@@ -4,6 +4,7 @@ Require Import Coq.Lists.List.
 Import ListNotations.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Classes.EquivDec.
+Require Import Coq.Program.Equality.
 Require Import Lia.
 Require Import POram.Utils.Classes.
 Import MonadNotation.
@@ -14,6 +15,7 @@ Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Distributions.
 Require Import POram.System.PathORAMDef.
 Require Import POram.System.PathORAMFunCorrect.
+
 (* assume that the tree has one node and 2 leaves, then the path is 1 bit long *)
 (**
                  / [ ID | PAYLOAD ] \
@@ -97,59 +99,34 @@ Definition monad_map {A B M} `{Monad M} (f : A -> B) (a : M A) : M B :=
 (* Defined. *)
 
 Definition acc_dist_list {C : Config}
-  (arg_list : list (block_id * operation)) (s : state) : dist (list path) :=
+  (arg_list : list (block_id * operation)) (s : state) : dist (list bool):=
   let l := List.map (fun '(bid, op) => access bid op) arg_list in
   let p := sequence l in
   let p_l := monad_map (List.map fst) p in
-  monad_map fst (p_l s).
-
-
-Definition acc_list_dist {C : Config}
-  (arg_list : list (block_id * operation)) (s : state)  : list (dist path) := 
-  let l := List.map (fun '(bid, op) => access bid op) arg_list in
-  let d_tuple := List.map (fun prm => monad_map fst (monad_map fst (prm s))) l in
-  d_tuple.
-
-Theorem acc_list_len_preservation :
-  forall {C : Config} (arg_list : list (block_id * operation)) (s : state),
-    List.length arg_list =
-       List.length (acc_list_dist arg_list s).
-Proof.
-  intros.
-  induction arg_list; simpl; auto.
-Qed. 
-
-Definition path_pred {C : Config} (l : list (dist path)) : Prop :=
-  Forall (plift (fun p => (List.length p = LOP))%nat) l. 
+  monad_map (@List.concat bool) (monad_map fst (p_l s)).
 
 Lemma plift_monad_map : forall {X Y} (f : X -> Y) (d : dist X) (P : Y -> Prop), 
     plift (fun x => P (f x)) d -> 
     plift P (monad_map f d).
-Admitted. 
-
-Theorem acc_list_len_inner_preservation :
-  forall {C : Config} (arg_list : list (block_id * operation)) (s : state),
-    path_pred (acc_list_dist arg_list s).
-Proof.
-  intros.
-  unfold path_pred, acc_list_dist.
-  do 2 apply Forall_map.
-  rewrite Forall_forall.
-  intros [id op].
-  intro Inp.
-  do 2 apply plift_monad_map.
 Admitted.
 
-(* Dubious, extremely dubious *)
-Definition coin_flip_path : dist (list path) := 
-  {| dist_pmf := [([[true]], 1/2); ([[false]], 1/2)];
-    dist_law := eq_refl                   
-  |}.
+Theorem arg_list_len_rel :
+  forall {C : Config} (arg_list : list (block_id * operation)) (s : state),
+    plift (fun l => List.length l = List.length arg_list * LOP)%nat
+      (acc_dist_list arg_list s).
+Admitted.
+
+(* TODO: fix the probability *)
+Definition uniform (n : nat) (d : dist (list bool)) :=
+  forall l, (List.length l = n)%nat ->
+      Qeq (eval_dist d (list_beq bool eqb l)) (1 / 2).
+    
 
 (* top level security theorem says that when we have a list of accesses, the distribution of the final list of paths as output observes the same distribution of the source of the randomness *)
 Theorem access_dist_preservation :
   forall {C : Config} (arg_list : list (block_id * operation)) (s : state),
-    distr_eqv coin_flip_path (acc_dist_list arg_list s).
+    uniform ((List.length arg_list) * LOP)
+      (acc_dist_list arg_list s).
 Admitted.
 
 
