@@ -274,7 +274,33 @@ Lemma kv_rel_functional : forall s,
     kv_rel k v' s ->
     v = v'.
 Proof.
-Admitted.
+  intros s wf_s k v v' [Hv|Hv] [Hv'|Hv'].
+  - apply no_dup_stash in wf_s.
+    unfold blk_in_stash in *.
+    apply NoDup.NoDup_map_inj in wf_s.
+    unfold NoDup.inj_on_list in wf_s.
+    specialize (wf_s _ _ Hv Hv' eq_refl).
+    congruence.
+  - apply tree_stash_disj in wf_s.
+    elim (wf_s k); split.
+    + apply In_path_in_tree_block in Hv'.
+      apply in_map with (f := block_blockid) in Hv'; auto.
+    + apply in_map with (f := block_blockid) in Hv; auto.
+  - apply tree_stash_disj in wf_s.
+    elim (wf_s k); split.
+    + apply In_path_in_tree_block in Hv.
+      apply in_map with (f := block_blockid) in Hv; auto.
+    + apply in_map with (f := block_blockid) in Hv'; auto.
+  - apply no_dup_tree in wf_s.
+    unfold blk_in_path in *.
+    apply NoDup.NoDup_map_inj in wf_s.
+    unfold NoDup.inj_on_list in wf_s.
+    unfold blk_in_p in *.
+    apply In_path_in_tree_block in Hv.
+    apply In_path_in_tree_block in Hv'.
+    specialize (wf_s _ _ Hv Hv' eq_refl).
+    congruence.
+Qed.
 
 Lemma impl_dist {X} (m : dist X)
   (P : Prop) (Q : X -> Prop) :
@@ -468,11 +494,85 @@ Qed.
 Definition undef k s :=
   ~ exists v, kv_rel k v s.
 
+Fixpoint lookup_block (bs : list block) (id : block_id) : option nat :=
+  match bs with
+  | [] => None
+  | b :: bs' =>
+    if Nat.eqb (block_blockid b) id
+      then Some (block_payload b)
+      else lookup_block bs' id
+  end.
+
+Lemma lookup_block_Some bs id v :
+  lookup_block bs id = Some v ->
+  In {| block_blockid := id; block_payload := v |} bs.
+Proof.
+  induction bs; intro pf.
+  - discriminate pf.
+  - simpl in pf.
+    destruct Nat.eqb eqn:Hk.
+    + left.
+      destruct a; simpl in *.
+      inversion pf.
+      rewrite PeanoNat.Nat.eqb_eq in Hk.
+      rewrite Hk; auto.
+    + right.
+      apply IHbs; auto.
+Qed.
+
+Lemma lookup_block_None bs id :
+  lookup_block bs id = None ->
+  ~ exists v, In {| block_blockid := id; block_payload := v |} bs.
+Proof.
+  induction bs; intro pf.
+  - intros [v []].
+  - intros [v [Hv|Hv]].
+    + rewrite Hv in pf.
+      simpl in pf.
+      rewrite PeanoNat.Nat.eqb_refl in pf; discriminate.
+    + apply IHbs.
+      * simpl in pf.
+        destruct Nat.eqb; auto.
+        discriminate.
+      * exists v; auto.
+Qed.
+
+Definition key_in_stash_dec k s :
+  { v : nat & blk_in_stash k v s } +
+  { ~ exists v, blk_in_stash k v s }.
+Proof.
+  destruct (lookup_block (state_stash s) k) as [v|] eqn:Hk.
+  - left; exists v.
+    apply lookup_block_Some; auto.
+  - right.
+    apply lookup_block_None; auto.
+Defined.
+
+Definition key_in_path_dec k s :
+  { v : nat & blk_in_path k v s } +
+  { ~ exists v, blk_in_path k v s }.
+Proof.
+  destruct (lookup_block (concat (lookup_path_oram (state_oram s) (calc_path k s))) k) 
+    as [v|] eqn:Hk.
+  - left; exists v.
+    apply lookup_block_Some; auto.
+  - right.
+    apply lookup_block_None; auto.
+Defined.
+
 Definition def_or_undef k s :
   { v : nat & kv_rel k v s } +
   { undef k s }.
 Proof.
-Admitted.
+  destruct (key_in_stash_dec k s) as [[v Hkv]|Hk1].
+  - left; exists v; left; auto.
+  - destruct (key_in_path_dec k s) as [[v Hkv]|Hk2].
+    + left; exists v; right; auto.
+    + right; intros [v Hkv].
+      destruct Hkv.
+      * apply Hk1; exists v; auto.
+      * apply Hk2; exists v; auto.
+Defined.
 
 Definition get_val k s : option nat :=
   match def_or_undef k s with
