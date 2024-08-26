@@ -749,6 +749,27 @@ Lemma read_undef k k' :
 Proof.
 Admitted.
 
+Lemma read_undef_0 k :
+  poram_lift
+    (undef k)
+    triv
+    (eq 0)
+    (read k).
+Proof.
+Admitted.
+
+Lemma read_undef_val k :
+  poram_lift
+    (undef k)
+    (undef k)
+    (eq 0)
+    (read k).
+Proof.
+  apply poram_split_post_and_pred.
+  - apply read_undef_0.
+  - apply read_undef.
+Qed.
+
 Lemma read_val k v :
   poram_lift
     (kv_rel k v)
@@ -1211,7 +1232,23 @@ Proof.
       exact (read_pres_equiv k s'').
 Qed.
 
-(** WIP *)
+Lemma state_equiv_sym : forall s s',
+  state_equiv s s' -> state_equiv s' s.
+Proof.
+Admitted.
+
+Lemma state_equiv_refl : forall s,
+  state_equiv s s.
+Proof.
+Admitted.
+
+Lemma state_equiv_trans : forall s1 s2 s3,
+  state_equiv s1 s2 ->
+  state_equiv s2 s3 ->
+  state_equiv s1 s3.
+Proof.
+Admitted.
+
 Theorem read_read : forall k,
   poram_equiv
   eq
@@ -1224,12 +1261,15 @@ Proof.
   apply poram2_split_post_and_pred.
   - apply poram_lift2_val_to_poram_lift2.
     apply poram_lift2_val_bind with
-      (Mid := fun s s' v v' => kv_rel k v s /\ kv_rel k v' s').
+      (Mid := fun s s' v v' =>
+        (kv_rel k v s /\ kv_rel k v s') \/
+        (undef k s /\ undef k s' /\ v = 0 /\ v' = 0)).
     + clear eq_ss' wf_s wf_s' s s'.
       intros s s' [wf_s [wf_s' eq_ss']].
       destruct (def_or_undef k s).
       * destruct s0 as [v Hv].
         pose proof (read_val_kv k v s (conj wf_s Hv)).
+(*         pose proof (read_pres_equiv k s). *)
         eapply dist_has_weakening; [|exact H].
         intros [] pfs.
         apply eq_ss' in Hv.
@@ -1240,15 +1280,65 @@ Proof.
         split; try tauto.
         split; try tauto.
         destruct pfs.
-        rewrite <- H1.
-        split; try tauto.
-        destruct pfs'.
-        rewrite <- H3. tauto.
-      * admit.
-
-    + admit.
-  - admit.
-Admitted.
+        rewrite <- H1. tauto.
+      * pose proof (read_undef_val k s (conj wf_s u)).
+        eapply dist_has_weakening; [|exact H].
+        intros [] pfs.
+        apply state_equiv_undef with (s' := s') in u; [|auto].
+        pose proof (read_undef_val k s' (conj wf_s' u)).
+        eapply dist_has_weakening; [|exact H0].
+        intros [] pfs'.
+        unfold pand in *.
+        do 2 (split; try tauto).
+        right.
+        do 2 (split; try tauto).
+        destruct pfs, pfs'; split; congruence.
+    + intros v v'.
+      clear wf_s eq_ss' wf_s' s s'.
+      intros s s' [wf_s [wf_s' Hk]].
+      destruct Hk.
+      * destruct H.
+        apply plift_ret.
+        pose proof (read_val_kv k v s' (conj wf_s' H0)).
+        eapply dist_has_weakening; [|exact H1].
+        intros []. unfold triv, triv2, pand in *; tauto.
+      * destruct H as [us [us' [v_0 v'_0]]].
+        apply plift_ret.
+        pose proof (read_undef_val k s' (conj wf_s' us')).
+        eapply dist_has_weakening; [|exact H].
+        rewrite v_0.
+        intros []; unfold triv2, pand; tauto.
+  - apply poram_lift2_bind with
+      (Mid := state_equiv) (P := triv2).
+    + clear eq_ss' wf_s wf_s' s s'.
+      intros s s' [wf_s [wf_s' eq_ss']].
+      apply state_equiv_sym in eq_ss'.
+      pose proof (read_pres_equiv k s' s (conj wf_s eq_ss')).
+      eapply dist_has_weakening; [|exact H].
+      intros [] pfs.
+      unfold prod_rel.
+      unfold triv2.
+      simpl snd.
+      pose proof (read_pres_equiv k s' s' (conj wf_s' (state_equiv_refl s'))).
+      eapply dist_has_weakening; [|exact H0].
+      intros [].
+      unfold pand in *; simpl; intros.
+      split; auto.
+      split; [tauto|].
+      split; [tauto|].
+      apply state_equiv_trans with (s2 := s').
+      * apply state_equiv_sym; tauto.
+      * tauto.
+    + intros x _ _.
+      clear eq_ss' wf_s wf_s' s s'.
+      intros s s' [wf_s [wf_s' eq_ss']].
+      apply plift_ret.
+      unfold prod_rel, triv2.
+      pose proof (read_pres_equiv k s s' (conj wf_s' eq_ss')).
+      eapply dist_has_weakening; [|exact H].
+      intros [].
+      unfold pand; tauto.
+Qed.
 
 Theorem read_commute : forall k1 k2,
   poram_equiv
@@ -1276,7 +1366,5 @@ Theorem write_commute : forall k1 k2 v1 v2,
   (write k2 v2;; write k1 v1).
 Proof.
 Admitted.
-
-Print Assumptions write_read.
 
 End EquivProofs.
