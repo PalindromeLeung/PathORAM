@@ -154,20 +154,31 @@ Lemma Forall_replicate :
     Forall (fun x => f x = y) l ->
     List.map f l = replicate (List.length l) y.
 Proof.
-Admitted.
+  induction l; simpl; auto.
+  intros.
+  pose proof (Forall_inv H). simpl in H0. rewrite H0.
+  pose proof (Forall_inv_tail H). 
+  specialize (IHl f y H1).
+  rewrite IHl.
+  auto.
+Qed.
 
 Lemma concat_list_sum : 
   forall {X} (l : list (list X)),
   List.length (concat l) = List.list_sum (List.map (@List.length X) l).
 Proof.
-Admitted.
+  induction l; simpl; auto.
+  rewrite app_length.
+  rewrite IHl. auto.
+Qed.
 
 Lemma list_sum_rep :
   forall (n m : nat),
     List.list_sum (replicate n m) = (n * m)%nat.
 Proof.
-Admitted.
-    
+  induction n; simpl; auto.
+Qed.
+  
 Theorem arg_list_len_rel :
   forall {C : Config} (arg_list : list (block_id * operation))(s : state),
     plift (fun l => List.length l = List.length arg_list * LOP)%nat
