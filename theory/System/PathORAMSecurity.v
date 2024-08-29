@@ -143,6 +143,31 @@ Lemma acc_dist_list_length :
 Admitted.
 
 
+Fixpoint replicate {X} (n : nat) (m : X) : list X :=
+  match n with
+  | O => []
+  | S n' => cons m (replicate n' m)
+  end.
+
+Lemma Forall_replicate :
+  forall {X Y} (l : list X) (f : X -> Y) (y : Y),
+    Forall (fun x => f x = y) l ->
+    List.map f l = replicate (List.length l) y.
+Proof.
+Admitted.
+
+Lemma concat_list_sum : 
+  forall {X} (l : list (list X)),
+  List.length (concat l) = List.list_sum (List.map (@List.length X) l).
+Proof.
+Admitted.
+
+Lemma list_sum_rep :
+  forall (n m : nat),
+    List.list_sum (replicate n m) = (n * m)%nat.
+Proof.
+Admitted.
+    
 Theorem arg_list_len_rel :
   forall {C : Config} (arg_list : list (block_id * operation))(s : state),
     plift (fun l => List.length l = List.length arg_list * LOP)%nat
@@ -155,8 +180,13 @@ Proof.
   intros.
   simpl in H0. destruct x. destruct H0. simpl.
   destruct H0.
-Admitted. 
-  
+  apply Forall_replicate in H2.
+  rewrite concat_list_sum.
+  rewrite H2.
+  rewrite list_sum_rep.
+  rewrite H0.
+  auto.
+Qed.
   
 (* TODO: fix the probability *)
 Definition uniform (n : nat) (d : dist (list bool)) :=
