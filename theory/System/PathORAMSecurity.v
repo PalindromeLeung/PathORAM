@@ -139,10 +139,24 @@ Qed.
 Lemma acc_dist_list_length :
   forall {C : Config} (arg_list : list (block_id * operation)),
     state_plift (fun _ => True) (fun _ => True)
-      (fun l => List.length l = List.length arg_list /\ (Forall (fun l' => List.length l' = LOP) l)) (acc_dist_list arg_list).
-Admitted.
-
-
+      (fun l => List.length l = List.length arg_list /\
+               (Forall (fun l' => List.length l' = LOP) l))
+      (acc_dist_list arg_list).
+Proof. 
+  intros.
+  unfold acc_dist_list.
+  apply state_plift_monad_map.
+  induction arg_list; simpl; auto.
+  - apply state_plift_ret. simpl.
+    split; auto.
+  - destruct a; simpl.
+    eapply state_plift_bind with
+      (Mid := (fun _ => True)) (P := fun y => True).
+    + admit.
+    + intros.
+      admit.
+Admitted. 
+    
 Fixpoint replicate {X} (n : nat) (m : X) : list X :=
   match n with
   | O => []
