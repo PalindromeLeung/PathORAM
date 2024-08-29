@@ -199,10 +199,9 @@ Proof.
   auto.
 Qed.
   
-(* TODO: fix the probability *)
 Definition uniform (n : nat) (d : dist (list bool)) :=
   forall l, (List.length l = n)%nat ->
-      Qeq (eval_dist d (list_beq bool eqb l)) (1 / 2).
+      Qeq (eval_dist d (list_beq bool eqb l)) ((1 / 2) ^ (Z.of_nat n)).
     
 
 (* top level security theorem says that when we have a list of accesses, the distribution of the final list of paths as output observes the same distribution of the source of the randomness *)
