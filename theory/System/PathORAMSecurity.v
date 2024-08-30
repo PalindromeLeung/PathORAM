@@ -136,6 +136,29 @@ Proof.
     apply H0; auto.
 Qed.
 
+Lemma sequence_length :
+  forall {S A M} `{PredLift M} (Pre : S -> Prop)(l : list (StateT S M A)) ,
+    let n := List.length l in 
+    state_plift Pre Pre (fun l' => List.length l' = n) (sequence l).
+Admitted.
+
+
+Lemma state_plift_Forall :
+  forall {S A M} `{PredLift M} (Pre : S -> Prop)
+    (P : A -> Prop) (l : list (StateT S M A)),
+    Forall (state_plift Pre Pre P) l ->
+    state_plift Pre Pre (Forall P) (sequence l).
+Admitted.
+
+Lemma state_plift_P_split :
+  forall {C : Config} {S M X} `{PredLift M}
+    (P Q : X -> Prop) (Pre Post: S -> Prop)
+    (s : StateT S M X),
+    state_plift Pre Post P s /\  
+      state_plift Pre Post Q s ->
+    state_plift Pre Post (fun x => (P x /\ Q x)) s.
+Admitted. 
+    
 Lemma acc_dist_list_length :
   forall {C : Config} (arg_list : list (block_id * operation)),
     state_plift (fun _ => True) (fun _ => True)
@@ -146,15 +169,9 @@ Proof.
   intros.
   unfold acc_dist_list.
   apply state_plift_monad_map.
-  induction arg_list; simpl; auto.
-  - apply state_plift_ret. simpl.
-    split; auto.
-  - destruct a; simpl.
-    eapply state_plift_bind with
-      (Mid := (fun _ => True)) (P := fun y => True).
-    + admit.
-    + intros.
-      admit.
+  apply state_plift_P_split; split.
+  - admit.
+  - admit.
 Admitted. 
     
 Fixpoint replicate {X} (n : nat) (m : X) : list X :=
