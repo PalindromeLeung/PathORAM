@@ -21,13 +21,8 @@ Import ListNotations.
  * Oblivious Computation" paper (Fig 10). 
  *)
 
-Fixpoint fold_l {X Y: Type} (f : X -> Y -> Y) (b : Y) (l : list X) : Y :=
-  match l with
-  | [] => b
-  | h ::t => f h (fold_l f b t)
-  end.
-
-Definition sum_dist {A} (l : list (A * Q)) : Q := fold_l Qplus 0 (List.map snd l).
+Definition sum_dist {A} (l : list (A * Q)) : Q :=
+  List.fold_right Qplus 0 (List.map snd l).
 
 Record dist (A : Type) : Type :=
   Dist
@@ -207,6 +202,18 @@ Global Instance Pred_Dist_Lift : PredLift dist :=
     plift_ret := dist_lift_ret;
     plift_bind := dist_lift_bind;
   |}.
+
+Lemma plift_map : forall {X Y} (f : X -> Y) (d : dist X) (P : Y -> Prop), 
+    plift (fun x => P (f x)) d -> 
+    plift P (Classes.map f d).
+Proof.
+  intros.
+  eapply plift_bind.
+  - exact H.
+  - intros. 
+    eapply plift_ret.
+    apply H0; auto.
+Qed.
 
 Lemma coin_flip_triv :
   plift (fun _ => True) coin_flip.

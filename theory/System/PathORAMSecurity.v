@@ -84,19 +84,14 @@ Fixpoint sequence {A M} `{Monad M} (l : list (M A)) : M (list A) :=
       mreturn (x :: xs)
   end.
 
-Definition monad_map {A B M} `{Monad M} (f : A -> B) (a : M A) : M B := 
-  x <- a ;;
-  mreturn (f x).
-
-
 (* Definition acc_list_1 {C : Config} (arg_list : list (block_id * operation)) (s : state) : *)
 (*   list (dist path). *)
 (*   pose (List.map (fun '(bid, op) => access bid op) arg_list). *)
 (*   refine (List.map _ l). *)
 (*   intros prm. *)
 (*   specialize (prm s). *)
-(*   pose (monad_map fst prm). *)
-(*   pose (monad_map fst d). *)
+(*   pose (map fst prm). *)
+(*   pose (map fst d). *)
 (*   exact d0. *)
 (* Defined. *)
 
@@ -104,29 +99,17 @@ Definition acc_dist_list {C : Config}
   (arg_list : list (block_id * operation)) : Poram (list path) :=
   let l := List.map (fun '(bid, op) => access bid op) arg_list in
   let p := sequence l in
-  monad_map (List.map fst) p.
+  map (List.map fst) p.
 
 Definition get_dist_list_bool {C : Config}
   (arg_list : list (block_id * operation))(s : state) : dist (list bool) :=
-  monad_map (@List.concat bool) (monad_map fst ((acc_dist_list arg_list) s)).
+  map (@List.concat bool) (map fst ((acc_dist_list arg_list) s)).
 
-Lemma plift_monad_map : forall {X Y} (f : X -> Y) (d : dist X) (P : Y -> Prop), 
-    plift (fun x => P (f x)) d -> 
-    plift P (monad_map f d).
-Proof.
-  intros.
-  eapply plift_bind.
-  - exact H.
-  - intros. 
-    eapply plift_ret.
-    apply H0; auto.
-Qed.
-
-Lemma state_plift_monad_map :
+Lemma state_plift_map :
   forall {X Y} (Pre Post: state -> Prop) (P : Y -> Prop)
     (f : X -> Y) (m : Poram X),
     state_plift Pre Post (fun x => P (f x)) m ->
-    state_plift Pre Post P (monad_map f m).
+    state_plift Pre Post P (map f m).
 Proof.
   intros.
   eapply state_plift_bind.
@@ -175,7 +158,7 @@ Lemma acc_dist_list_length :
 Proof. 
   intros.
   unfold acc_dist_list.
-  apply state_plift_monad_map.
+  apply state_plift_map.
   apply state_plift_P_split; split.
   - apply state_plift_P_weakening with
       (P := fun l => length l = length (List.map (fun '(bid, op) => access bid op) arg_list)).
@@ -235,7 +218,7 @@ Theorem arg_list_len_rel :
       (get_dist_list_bool arg_list s).
 Proof.
   intros c ag s Hwf.
-  do 2 apply plift_monad_map.
+  do 2 apply plift_map.
   pose proof (acc_dist_list_length ag s Hwf).
   eapply dist_has_weakening; [ | exact H].
   intros.
