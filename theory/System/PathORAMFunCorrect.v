@@ -1385,6 +1385,30 @@ Section PORAM_PROOF.
         apply in_or_app. left. auto.
   Qed.
 
+  Lemma read_access_just_wf (id : block_id) :
+    state_plift well_formed well_formed (fun _ => True) (read_access id).
+  Proof.
+    apply state_plift_bind with
+      (Mid := well_formed)
+      (P := well_formed).
+    - apply state_plift_get.
+    - intros.
+      apply state_plift_bind with
+        (Mid := well_formed) (P := fun p => length p = LOP).
+      + apply state_plift_liftT.
+        apply coin_flips_length.
+      + intros; simpl.
+        apply state_plift_bind with
+          (Mid := well_formed) (P := fun _ => True).
+        * apply state_plift_put.
+          apply get_post_wb_st_wf.
+          -- apply get_pre_wb_st_wf; auto.
+             destruct x; exact H.
+          -- apply H.
+        * intros _ _.
+          apply state_plift_ret; auto.
+  Qed.
+
   Lemma read_access_wf (id : block_id)(v : nat) :
     state_plift (fun st => well_formed st /\ kv_rel id v st) (fun st => well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
   Proof.

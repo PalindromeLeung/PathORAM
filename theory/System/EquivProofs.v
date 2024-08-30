@@ -744,6 +744,19 @@ Proof.
     + reflexivity.
 Qed.
 
+Lemma poram_lift_map {X Y} (f : X -> Y) (P : Y -> Prop) Pre Post (m : Poram X) :
+  poram_lift Pre Post (fun x => P (f x)) m ->
+  poram_lift Pre Post P (map f m).
+Proof.
+  intros Hm s pfs.
+  specialize (Hm s pfs).
+  eapply plift_bind.
+  - exact Hm.
+  - intros [x s'] pfs'.
+    apply plift_ret.
+    exact pfs'.
+Qed.
+
 Lemma read_wf k :
   poram_lift
     triv
@@ -751,7 +764,17 @@ Lemma read_wf k :
     triv
     (read k).
 Proof.
-Admitted.
+  eapply state_plift_bind.
+  - intros s [wf_s _].
+    eapply dist_has_weakening; [|apply read_access_just_wf]; auto.
+    intros [p s'] [_ wf_s'].
+    split.
+    + exact I.
+    + exact wf_s'.
+  - intros [] _ s wf_s.
+    apply plift_ret.
+    unfold triv, pand; tauto.
+Qed.
 
 Lemma read_pres_kv k v k' :
   poram_lift
