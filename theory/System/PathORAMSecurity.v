@@ -150,6 +150,13 @@ Lemma state_plift_Forall :
     state_plift Pre Pre (Forall P) (sequence l).
 Admitted.
 
+Lemma state_plift_P_weakening :
+  forall {S A M} `{PredLift M} (Pre : S -> Prop)(P Q: A -> Prop) s,
+    (forall x, P x -> Q x) -> 
+    state_plift Pre Pre P s -> 
+    state_plift Pre Pre Q s.
+Admitted.
+
 Lemma state_plift_P_split :
   forall {C : Config} {S M X} `{PredLift M}
     (P Q : X -> Prop) (Pre Post: S -> Prop)
@@ -161,7 +168,7 @@ Admitted.
     
 Lemma acc_dist_list_length :
   forall {C : Config} (arg_list : list (block_id * operation)),
-    state_plift (fun _ => True) (fun _ => True)
+    state_plift well_formed well_formed 
       (fun l => List.length l = List.length arg_list /\
                (Forall (fun l' => List.length l' = LOP) l))
       (acc_dist_list arg_list).
@@ -170,8 +177,19 @@ Proof.
   unfold acc_dist_list.
   apply state_plift_monad_map.
   apply state_plift_P_split; split.
-  - admit.
-  - admit.
+  - apply state_plift_P_weakening with
+      (P := fun l => length l = length (List.map (fun '(bid, op) => access bid op) arg_list)).
+    + intros.
+      rewrite map_length in *; auto.
+    + apply sequence_length.
+  - apply state_plift_P_weakening with
+      (P := Forall (fun pn : (path * nat) => length (fst pn) = LOP)).
+    + intros. rewrite Forall_map; auto.
+    + apply state_plift_Forall.
+      rewrite Forall_map.
+      rewrite Forall_forall.
+      intros; simpl.
+      admit.
 Admitted. 
     
 Fixpoint replicate {X} (n : nat) (m : X) : list X :=
