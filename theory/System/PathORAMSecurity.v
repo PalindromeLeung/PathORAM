@@ -230,24 +230,24 @@ Qed.
   
 Theorem arg_list_len_rel :
   forall {C : Config} (arg_list : list (block_id * operation))(s : state),
+    well_formed s -> 
     plift (fun l => List.length l = List.length arg_list * LOP)%nat
       (get_dist_list_bool arg_list s).
 Proof.
-(*   intros. *)
-(*   do 2 apply plift_monad_map. *)
-(*   pose proof (acc_dist_list_length arg_list s I). *)
-(*   eapply dist_has_weakening; [ | exact H]. *)
-(*   intros. *)
-(*   simpl in H0. destruct x. destruct H0. simpl. *)
-(*   destruct H0. *)
-(*   apply Forall_replicate in H2. *)
-(*   rewrite concat_list_sum. *)
-(*   rewrite H2. *)
-(*   rewrite list_sum_rep. *)
-(*   rewrite H0. *)
-(*   auto. *)
-(* Qed. *)
-Admitted.
+  intros c ag s Hwf.
+  do 2 apply plift_monad_map.
+  pose proof (acc_dist_list_length ag s Hwf).
+  eapply dist_has_weakening; [ | exact H].
+  intros.
+  simpl in H0. destruct x. destruct H0. simpl.
+  destruct H0.
+  apply Forall_replicate in H2.
+  rewrite concat_list_sum.
+  rewrite H2.
+  rewrite list_sum_rep.
+  rewrite H0.
+  auto.
+Qed.
   
 Definition uniform (n : nat) (d : dist (list bool)) :=
   forall l, (List.length l = n)%nat ->
