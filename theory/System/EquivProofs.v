@@ -566,9 +566,6 @@ Proof.
     exact I.
 Qed.
 
-Definition undef k s :=
-  ~ exists v, kv_rel k v s.
-
 Fixpoint lookup_block (bs : list block) (id : block_id) : option nat :=
   match bs with
   | [] => None
@@ -801,7 +798,14 @@ Lemma read_undef_0 k :
     (eq 0)
     (read k).
 Proof.
-Admitted.
+  apply state_plift_bind with (Mid := well_formed)
+    (P := has_value 0).
+  - unfold pand.
+    apply read_access_undef_0.
+  - intros [] H s wf_s.
+    apply state_plift_ret; auto.
+    unfold pand, triv; tauto.
+Qed.
 
 Lemma read_undef_val k :
   poram_lift
@@ -850,7 +854,18 @@ Lemma write_wf k v :
     triv
     (write k v).
 Proof.
-Admitted.
+  eapply state_plift_bind.
+  - intros s [wf_s _].
+    eapply dist_has_weakening;
+      [|apply write_access_just_wf]; auto.
+    intros [p s'] [_ wf_s'].
+    split.
+    + exact I.
+    + exact wf_s'.
+  - intros [] _ s wf_s.
+    apply plift_ret.
+    unfold triv, pand; tauto.
+Qed.
 
 Lemma write_undef k k' v :
   k <> k' ->

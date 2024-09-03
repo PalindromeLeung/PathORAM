@@ -1409,6 +1409,71 @@ Section PORAM_PROOF.
           apply state_plift_ret; auto.
   Qed.
 
+  Definition undef k s :=
+    ~ exists v, kv_rel k v s.
+
+  Lemma lookup_ret_data_0 k l :
+    (forall v, ~ In {| block_blockid := k; block_payload := v |} l) ->
+    lookup_ret_data k l = 0%nat.
+  Proof.
+    induction l; intro Hk.
+    - reflexivity.
+    - destruct a as [k' v]; simpl.
+      destruct (k' =? k) eqn:Hk'.
+      + rewrite Nat.eqb_eq in Hk'; subst.
+        elim (Hk v); left; auto.
+      + apply IHl; intro v'.
+        simpl in *; firstorder.
+  Qed.
+
+  Lemma get_ret_data_0 k s :
+    well_formed s ->
+    undef k s ->
+    get_ret_data k (state_stash s)
+      (lookup_dict (makeBoolList false LOP) k (state_position_map s)) 
+      (state_oram s) = 0%nat.
+  Proof.
+    intros wf_s Hks.
+    unfold get_ret_data.
+    apply lookup_ret_data_0.
+    intros v Hv.
+    apply in_app_or in Hv.
+    destruct Hv as [Hv|Hv].
+    - apply Hks; exists v.
+      right.
+      exact Hv.
+    - apply Hks; exists v.
+      left.
+      exact Hv.
+  Qed.
+
+  Lemma read_access_undef_0 k :
+    state_plift
+      (fun st => well_formed st /\ undef k st)
+      well_formed
+      (has_value 0)
+      (read_access k).
+  Proof.
+    eapply state_plift_bind.
+    - apply state_plift_get.
+    - intros s [wf_s Hks].
+      eapply state_plift_bind.
+      + apply state_plift_liftT.
+        apply coin_flips_length.
+      + intros p Hp. simpl in Hp.
+        apply state_plift_bind with
+          (Mid := well_formed)
+          (P := fun _ => True).
+        * apply state_plift_put.
+          apply get_post_wb_st_wf; [|apply wf_s].
+          apply get_pre_wb_st_wf; auto.
+          destruct s; auto.
+        * intros _ _.
+          apply state_plift_ret.
+          simpl; symmetry.
+          apply get_ret_data_0; auto.
+  Qed.
+
   Lemma read_access_wf (id : block_id)(v : nat) :
     state_plift (fun st => well_formed st /\ kv_rel id v st) (fun st => well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
   Proof.
@@ -1429,6 +1494,25 @@ Section PORAM_PROOF.
         * intros. rewrite HeqInv. apply state_plift_ret.
           rewrite HeqInv in H. destruct H. simpl.
           symmetry. apply zero_sum_stsh_tr_Rd; destruct x; auto.
+  Qed.
+
+  Lemma write_access_just_wf (id : block_id) (v : nat) :
+    state_plift well_formed well_formed (fun _ => True)  
+    (write_access id v).
+  Proof.
+    apply (state_plift_bind well_formed well_formed).
+    - apply state_plift_get.
+    - intros.
+      apply (state_plift_bind well_formed (fun p => length p = LOP)).
+      + apply state_plift_liftT.
+        apply coin_flips_length.
+      + intros. simpl.
+        apply (state_plift_bind well_formed (fun _ => True)).
+        * apply state_plift_put; simpl.
+          apply get_post_wb_st_wf; auto.
+          -- apply get_pre_wb_st_wf; auto. destruct x; exact H.
+          -- apply H.
+        * intros. eapply state_plift_ret. auto.
   Qed.
 
   Lemma write_access_wf (id : block_id) (v : nat) :
