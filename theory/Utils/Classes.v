@@ -59,12 +59,12 @@ Definition has_weakening M `{PredLift M} : Prop :=
     (forall x, P x -> Q x) ->
   forall m, plift P m -> plift Q m.
 
-Definition mmap {M} `{Monad M} X Y (f : X -> Y) (m : M X) : M Y :=
+Definition monad_map {M} `{Monad M} X Y (f : X -> Y) (m : M X) : M Y :=
   x <- m;;
   mreturn (f x).
 
 Global Instance Monad_Functor {M} `{Monad M} : Functor M := {|
-  map := mmap
+  map := monad_map
   |}.
 
 Class PredLift2 M `{Monad M} := {
