@@ -79,16 +79,45 @@ Section PORAM_PROOF.
     - unfold blk_in_path in H. auto.
   Qed.
 
-  Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
-      blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
-                            (state_stash s)
-                            (state_oram s)
-                            (calc_path id s) p_new)).
+  Definition on_path b o p :=
+    In b (concat (lookup_path_oram o p)).
+
+  Lemma block_dec (b : block) bs :
+    In b bs \/ ~ In b bs.
   Proof.
-    intros.
-    unfold get_pre_wb_st;
-      unfold blk_in_stash; simpl.
-    left; auto.
+    induction bs.
+    - right; simpl; tauto.
+    - destruct (block_eqb b a) eqn:?.
+      + apply block_eqb_correct in Heqb0; subst.
+        left; left; reflexivity.
+      + destruct IHbs.
+        * left; right; auto.
+        * right; intros [Heq|HIn].
+          -- subst.
+             rewrite eqb_correct_refl in Heqb0;
+               [discriminate|].
+             exact block_eqb_correct.
+          -- contradiction.
+  Qed.
+
+  Lemma on_path_dec b o : forall p,
+    on_path b o p \/ ~ on_path b o p.
+  Proof.
+    unfold on_path.
+    induction o; intro p.
+    - right; intro; auto.
+    - destruct p; simpl.
+      + destruct data; simpl; [|tauto].
+        apply block_dec.
+      + destruct b0.
+        * destruct data; auto.
+          simpl; rewrite in_app_iff.
+          specialize (IHo1 p).
+          pose (block_dec b b0); tauto.
+        * destruct data; auto.
+          simpl; rewrite in_app_iff.
+          specialize (IHo2 p).
+          pose (block_dec b b0); tauto.
   Qed.
 
   Lemma pos_map_stable_across_wb : forall n p s start,
@@ -105,6 +134,146 @@ Section PORAM_PROOF.
     intros.
     unfold calc_path.
     congruence.
+  Qed.
+
+  Lemma lookup_update_diffid : forall id id' m p_new,
+      id <> id' ->
+      lookup_dict
+        (makeBoolList false LOP)
+        id (update_dict id' p_new m) =
+        lookup_dict (makeBoolList false LOP) id m.
+  Proof.
+    intros.
+    unfold lookup_dict.
+    unfold update_dict.
+    destruct m; simpl.
+    induction dict_elems as [|[k v] tl]; simpl.
+    - destruct (id ?= id')%nat eqn:id_cond; auto.
+      rewrite Nat.compare_eq_iff in id_cond; contradiction.
+    - destruct (id' ?= k)%nat eqn:id_cond1; simpl.
+      + rewrite Nat.compare_eq_iff in id_cond1; subst.
+        destruct (id ?= k)%nat eqn:id_cond2; auto.
+        rewrite Nat.compare_eq_iff in id_cond2; contradiction.
+      + destruct (id ?= id')%nat eqn:id_cond2; auto.
+        * rewrite Nat.compare_eq_iff in id_cond2; contradiction.
+        * rewrite <- nat_compare_lt in *.
+          assert (id < k)%nat by lia.
+          rewrite nat_compare_lt in H0.
+          rewrite H0; auto.
+      + rewrite IHtl; auto.
+  Qed.
+
+  Lemma in_clear_path b o : forall p p',
+    In b (concat (lookup_path_oram o p)) ->
+    ~ In b (concat (lookup_path_oram o p')) ->
+    In b (concat (lookup_path_oram (clear_path o p') p)).
+  Proof.
+    induction o; intros.
+    - destruct H.
+    - destruct p.
+      (* p empty *)
+      + simpl in H.
+        destruct data.
+        * elim H0; simpl.
+          simpl in *.
+          rewrite app_nil_r in H.
+          destruct p'; auto.
+          -- simpl.
+             rewrite app_nil_r; auto.
+          -- destruct b1; simpl; apply in_or_app; tauto.
+        * destruct H.
+      (* p non-empty *)
+      + destruct b0.
+        (* p left *)
+        * destruct p'.
+          (* p' empty *)
+          -- simpl in *.
+             destruct data; auto.
+             simpl in *.
+             apply in_app_or in H.
+             destruct H; auto.
+             rewrite app_nil_r in H0; tauto.
+          (* p' non-empty *)
+          -- destruct b0.
+             (* p' left *)
+             ++ simpl in *. apply IHo1.
+                ** destruct data; auto.
+                   simpl in *.
+                   rewrite in_app_iff in *; tauto.
+                ** destruct data; auto.
+                   simpl in *.
+                   rewrite in_app_iff in *; tauto.
+             (* p' right *)
+             ++ destruct data; auto.
+                simpl in *.
+                rewrite in_app_iff in *; tauto.
+        (* p right *)
+        * destruct p'.
+          (* p' empty *)
+          -- simpl in *.
+             destruct data; auto.
+             simpl in *.
+             apply in_app_or in H.
+             destruct H; auto.
+             rewrite app_nil_r in H0; tauto.
+          (* p' non-empty *)
+          -- destruct b0.
+             (* p' left *)
+             ++ destruct data; auto.
+                simpl in *.
+                rewrite in_app_iff in *; tauto.
+             (* p' right *)
+             ++ simpl in *. apply IHo2.
+                ** destruct data; auto.
+                   simpl in *.
+                   rewrite in_app_iff in *; tauto.
+                ** destruct data; auto.
+                   simpl in *.
+                   rewrite in_app_iff in *; tauto.
+  Qed.
+
+  Lemma stash_path_combined_rel_Rd2 : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
+      kv_rel id v s ->
+      kv_rel id v ((get_pre_wb_st id' Read (state_position_map s)
+                            (state_stash s)
+                            (state_oram s)
+                            (calc_path id' s) p_new)).
+  Proof.
+    intros.
+    destruct H.
+    - left.
+      unfold blk_in_stash. simpl.
+      apply in_or_app; right.
+      exact H.
+    - destruct (on_path_dec (Block id v)  (state_oram s) (calc_path id' s)).
+      + left.
+        unfold blk_in_stash; simpl.
+        apply in_or_app; left.
+        unfold on_path in H0.
+        exact H0.
+      + right.
+        unfold blk_in_path in *.
+        unfold blk_in_p in *.
+        unfold on_path in *.
+        simpl.
+        assert (id <> id') by congruence.
+        unfold get_pre_wb_st; simpl.
+        unfold calc_path at 2; simpl.
+        rewrite lookup_update_diffid; auto.
+        unfold calc_path in H.
+        apply in_clear_path; auto.
+  Qed.
+
+  Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
+      blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
+                            (state_stash s)
+                            (state_oram s)
+                            (calc_path id s) p_new)).
+  Proof.
+    intros.
+    unfold get_pre_wb_st;
+      unfold blk_in_stash; simpl.
+    left; auto.
   Qed.
 
   Lemma calc_path_write_bk_r_stable : forall start id s n p ,
@@ -651,6 +820,33 @@ Section PORAM_PROOF.
     apply write_back_in_stash_kv_rel; simpl; auto. 
   Qed.
 
+  Definition empty_on_path o p :=
+    forall lvl, locate_node_in_tr o lvl p = None.
+
+  Lemma empty_path_write_back id v s p p' n lvl :
+    blk_in_p id v (state_oram s) p' ->
+    empty_on_path (state_oram s) p ->
+    blk_in_p id v (state_oram (write_back_r lvl p n s)) p'.
+  Proof.
+  Admitted.
+
+  Lemma distribute_via_get_post_wb_st2 : forall (id : block_id) (v : nat) (s : state) (p : path),
+      well_formed s ->
+      length p = LOP ->
+      empty_on_path (state_oram s) p ->
+      kv_rel id v s -> 
+      kv_rel id v (get_post_wb_st s p).
+  Proof.
+    intros.
+    destruct H2.
+    - apply distribute_via_get_post_wb_st; auto.
+    - right.
+      unfold blk_in_path in *.
+      unfold get_post_wb_st; simpl.
+      rewrite calc_path_write_bk_r_stable.
+      apply empty_path_write_back; auto.
+  Qed.
+
   Lemma NoDup_path_oram : forall o p,
       NoDup (List.map block_blockid (get_all_blks_tree o)) ->
       NoDup (List.map block_blockid (concat (lookup_path_oram o p))).
@@ -971,33 +1167,6 @@ Section PORAM_PROOF.
       + rewrite Nat.compare_refl; auto.
       + rewrite id_cond.
         exact IHtl.
-  Qed.
-
-  Lemma lookup_update_diffid : forall id id' m p_new,
-      id <> id' ->
-      lookup_dict
-        (makeBoolList false LOP)
-        id (update_dict id' p_new m) =
-        lookup_dict (makeBoolList false LOP) id m.
-  Proof.
-    intros.
-    unfold lookup_dict.
-    unfold update_dict.
-    destruct m; simpl.
-    induction dict_elems as [|[k v] tl]; simpl.
-    - destruct (id ?= id')%nat eqn:id_cond; auto.
-      rewrite Nat.compare_eq_iff in id_cond; contradiction.
-    - destruct (id' ?= k)%nat eqn:id_cond1; simpl.
-      + rewrite Nat.compare_eq_iff in id_cond1; subst.
-        destruct (id ?= k)%nat eqn:id_cond2; auto.
-        rewrite Nat.compare_eq_iff in id_cond2; contradiction.
-      + destruct (id ?= id')%nat eqn:id_cond2; auto.
-        * rewrite Nat.compare_eq_iff in id_cond2; contradiction.
-        * rewrite <- nat_compare_lt in *.
-          assert (id < k)%nat by lia.
-          rewrite nat_compare_lt in H0.
-          rewrite H0; auto.
-      + rewrite IHtl; auto.
   Qed.
 
   Lemma lookup_off_path : forall o id p p',
@@ -1333,7 +1502,39 @@ Section PORAM_PROOF.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply stash_path_combined_rel_Rd. auto.
   Qed.
-  
+
+  Lemma locate_node_in_tr_clear_path o : forall p lvl,
+    locate_node_in_tr (clear_path o p) lvl p = None.
+  Proof.
+    unfold locate_node_in_tr.
+    induction o; intros.
+    - reflexivity.
+    - destruct p; simpl.
+      + destruct lvl; reflexivity.
+      + destruct b, lvl; simpl; auto.
+  Qed.
+
+  Lemma zero_sum_stsh_tr_Rd_rev2 :
+    forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
+      well_formed s ->
+      length p_new = LOP -> 
+      kv_rel id v s  -> 
+      kv_rel id v (get_post_wb_st
+                     (get_pre_wb_st id' Read (state_position_map s)
+                        (state_stash s)
+                        (state_oram s)
+                        (calc_path id' s) p_new) (calc_path id' s)). 
+  Proof.
+    intros.
+    apply distribute_via_get_post_wb_st2; auto.
+    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply H.
+    - unfold get_pre_wb_st; simpl.
+      intro lvl.
+      apply locate_node_in_tr_clear_path.
+    - apply stash_path_combined_rel_Rd2. auto.
+  Qed.
+
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
     NoDup (List.map block_blockid l) ->
     In (Block id v) l -> lookup_ret_data id l = v.
@@ -1551,6 +1752,33 @@ Section PORAM_PROOF.
       + tauto.
       + apply read_access_wf.
   Qed.
+
+  Lemma read_access_kv id v id' :
+    state_plift
+      (fun st => well_formed st /\ kv_rel id v st)
+      (fun st => well_formed st /\ kv_rel id v st)
+      (fun _ => True)
+      (read_access id').
+  Proof.
+    remember (fun st : state => well_formed st /\ kv_rel id v st) as Inv. 
+    apply (state_plift_bind Inv Inv).
+    - apply state_plift_get.
+    - intros.
+      apply (state_plift_bind Inv (fun p => length p = LOP)).
+      + apply state_plift_liftT.
+        apply coin_flips_length.
+      + intros. simpl.
+        apply (state_plift_bind Inv (fun _ => True)).
+        * apply state_plift_put. rewrite HeqInv in H; destruct H.
+          rewrite HeqInv. split.
+          -- apply get_post_wb_st_wf; [|apply H].
+             apply get_pre_wb_st_wf; auto. destruct x. exact H.
+          -- apply zero_sum_stsh_tr_Rd_rev2; auto.
+        * intros. rewrite HeqInv. apply state_plift_ret; auto.
+  Qed.
+
+  (* !!! *)
+  Print Assumptions read_access_kv.
 
   Lemma extract_payload (id : block_id) (v : nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
