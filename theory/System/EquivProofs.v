@@ -780,7 +780,14 @@ Lemma read_pres_kv k v k' :
     triv
     (read k').
 Proof.
-Admitted.
+  apply state_plift_bind with
+    (Mid := fun s => well_formed s /\ kv_rel k v s)
+    (P := triv).
+  - apply read_access_kv.
+  - intros [] _ s wf_s.
+    apply plift_ret.
+    unfold triv, pand; tauto.
+Qed.
 
 Lemma read_undef k k' :
   poram_lift
