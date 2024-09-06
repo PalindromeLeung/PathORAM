@@ -1227,6 +1227,90 @@ Section PORAM_PROOF.
         apply off_path_blocks_selection.
   Qed.
 
+  Lemma up_oram_tr_inversion id v o : forall lvl delta p p',
+    blk_in_p id v
+      (up_oram_tr o lvl delta p) p' ->
+    blk_in_p id v o p' \/
+    In (Block id v) delta.
+  Proof.
+    unfold up_oram_tr.
+    induction o; intros.
+    - inversion H.
+    - simpl update_tree in H.
+      destruct lvl.
+      + destruct p' as [|[]].
+        * right.
+          apply blk_in_p_nil_Some in H; auto.
+        * apply blk_in_p_true_Some in H.
+          destruct H.
+          -- right; auto.
+          -- left; apply blk_in_p_cons_true; auto.
+        * apply blk_in_p_false_Some in H.
+          destruct H.
+          -- right; auto.
+          -- left; apply blk_in_p_cons_false; auto.
+      + destruct p as [|[]].
+        * left; auto.
+        * destruct p' as [|[]].
+          -- destruct data.
+             ++ apply blk_in_p_nil_Some in H.
+                left.
+                unfold blk_in_p; simpl.
+                rewrite app_nil_r; auto.
+             ++ apply blk_in_p_nil_None in H; tauto.
+          -- destruct data.
+             ++ apply blk_in_p_true_Some in H.
+                destruct H.
+                ** left.
+                   unfold blk_in_p; simpl.
+                   apply in_or_app; left; auto.
+                ** apply IHo1 in H.
+                   destruct H; [|tauto].
+                   left; apply blk_in_p_cons_true; auto.
+             ++ apply blk_in_p_true_None in H.
+                apply IHo1 in H.
+                destruct H; [|tauto].
+                left; apply blk_in_p_cons_true; auto.
+          -- destruct data.
+             ++ apply blk_in_p_false_Some in H.
+                destruct H.
+                ** left.
+                   unfold blk_in_p; simpl.
+                   apply in_or_app; left; auto.
+                ** left; apply blk_in_p_cons_false; auto.
+             ++ apply blk_in_p_false_None in H.
+                left. apply blk_in_p_cons_false; auto.
+        * destruct p' as [|[]].
+          -- destruct data.
+             ++ apply blk_in_p_nil_Some in H.
+                left.
+                unfold blk_in_p; simpl.
+                rewrite app_nil_r; auto.
+             ++ apply blk_in_p_nil_None in H; tauto.
+          -- destruct data.
+             ++ apply blk_in_p_true_Some in H.
+                destruct H.
+                ** left.
+                   unfold blk_in_p; simpl.
+                   apply in_or_app; left; auto.
+                ** left; apply blk_in_p_cons_true; auto.
+             ++ apply blk_in_p_true_None in H.
+                left. apply blk_in_p_cons_true; auto.
+          -- destruct data.
+             ++ apply blk_in_p_false_Some in H.
+                destruct H.
+                ** left.
+                   unfold blk_in_p; simpl.
+                   apply in_or_app; left; auto.
+                ** apply IHo2 in H.
+                   destruct H; [|tauto].
+                   left; apply blk_in_p_cons_false; auto.
+             ++ apply blk_in_p_false_None in H.
+                apply IHo2 in H.
+                destruct H; [|tauto].
+                left; apply blk_in_p_cons_false; auto.
+  Qed.
+
   Lemma distribute_via_get_post_wb_st_undef : forall (id : block_id) (s : state) (p : path),
       well_formed s ->
       length p = LOP ->
@@ -1259,7 +1343,12 @@ Section PORAM_PROOF.
         unfold blk_in_path in Hid.
         unfold calc_path in Hid.
         simpl in Hid.
-  Admitted.
+        apply up_oram_tr_inversion in Hid.
+        destruct Hid as [Hid|Hid].
+        * right; auto.
+        * left.
+          apply get_write_back_blocks_subset in Hid; auto.
+  Qed.
 
   Lemma NoDup_path_oram : forall o p,
       NoDup (List.map block_blockid (get_all_blks_tree o)) ->
