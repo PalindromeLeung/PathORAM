@@ -327,13 +327,104 @@ Section PORAM_PROOF.
       + rewrite id_cond.
         exact IHtl.
   Qed.
+  
+  Lemma blk_in_p_nil_Some id v o1 o2 data :
+    blk_in_p id v (node (Some data) o1 o2) [] ->
+    In (Block id v) data.
+  Proof.
+    unfold blk_in_p; simpl.
+    rewrite app_nil_r; auto.
+  Qed.
+
+  Lemma blk_in_p_nil_None id v o1 o2 :
+    ~ blk_in_p id v (node None o1 o2) [].
+  Proof.
+    auto.
+  Qed.
+
+  Lemma blk_in_p_cons_true id v o1 o2 p data :
+    blk_in_p id v o1 p ->
+    blk_in_p id v (node data o1 o2) (true :: p).
+  Proof.
+    unfold blk_in_p.
+    intro pf; simpl.
+    destruct data; auto.
+    apply in_or_app; right; auto.
+  Qed.
+
+  Lemma blk_in_p_cons_false id v o1 o2 p data :
+    blk_in_p id v o2 p ->
+    blk_in_p id v (node data o1 o2) (false :: p).
+  Proof.
+    unfold blk_in_p.
+    intro pf; simpl.
+    destruct data; auto.
+    apply in_or_app; right; auto.
+  Qed.
+
+  Lemma blk_in_p_true_Some id v o1 o2 p data :
+    blk_in_p id v (node (Some data) o1 o2) (true :: p) ->
+    In (Block id v) data \/ blk_in_p id v o1 p.
+  Proof.
+    unfold blk_in_p; simpl in *.
+    intro pf.
+    apply in_app_or; auto.
+  Qed.
+
+  Lemma blk_in_p_true_None id v o1 o2 p :
+    blk_in_p id v (node None o1 o2) (true :: p) ->
+    blk_in_p id v o1 p.
+  Proof.
+    auto.
+  Qed.
+
+  Lemma blk_in_p_false_Some id v o1 o2 p data :
+    blk_in_p id v (node (Some data) o1 o2) (false :: p) ->
+    In (Block id v) data \/ blk_in_p id v o2 p.
+  Proof.
+    unfold blk_in_p; simpl in *.
+    intro pf.
+    apply in_app_or; auto.
+  Qed.
+
+  Lemma blk_in_p_false_None id v o1 o2 p :
+    blk_in_p id v (node None o1 o2) (false :: p) ->
+    blk_in_p id v o2 p.
+  Proof.
+    auto.
+  Qed.
 
   Lemma blk_in_p_clear_path:
     forall o p p_new id v,
       blk_in_p id v (clear_path o p) p_new ->
       blk_in_p id v o p_new.
-  Admitted.
-
+  Proof.
+    induction o; simpl in *; auto.
+    intros.
+    destruct p; simpl in *; auto.
+    - destruct p_new as [|[]].
+      + destruct H.
+      + apply blk_in_p_true_None in H.
+        apply blk_in_p_cons_true; auto.
+      + apply blk_in_p_false_None in H.
+        apply blk_in_p_cons_false; auto.
+    - destruct b.
+      + destruct p_new as [|[]].
+        * destruct H.
+        * apply blk_in_p_true_None in H.
+          apply blk_in_p_cons_true.
+          apply IHo1 with (p := p); auto.
+        * apply blk_in_p_false_None in H.
+          apply blk_in_p_cons_false; auto.
+      + destruct p_new as [|[]].
+        * destruct H.
+        * apply blk_in_p_true_None in H.
+          apply blk_in_p_cons_true; auto.            
+        * apply blk_in_p_false_None in H.
+          apply blk_in_p_cons_false.
+          apply IHo2 with (p := p); auto.
+  Qed.
+          
   Lemma stash_path_combined_rel_Rd_undef : forall (id id' : block_id) (s : state) (p_new : path),
       well_formed s ->
       undef id s ->
@@ -939,72 +1030,6 @@ Section PORAM_PROOF.
     intros pf lvl.
     specialize (pf (S lvl)).
     exact pf.
-  Qed.
-
-  Lemma blk_in_p_nil_Some id v o1 o2 data :
-    blk_in_p id v (node (Some data) o1 o2) [] ->
-    In (Block id v) data.
-  Proof.
-    unfold blk_in_p; simpl.
-    rewrite app_nil_r; auto.
-  Qed.
-
-  Lemma blk_in_p_nil_None id v o1 o2 :
-    ~ blk_in_p id v (node None o1 o2) [].
-  Proof.
-    auto.
-  Qed.
-
-  Lemma blk_in_p_cons_true id v o1 o2 p data :
-    blk_in_p id v o1 p ->
-    blk_in_p id v (node data o1 o2) (true :: p).
-  Proof.
-    unfold blk_in_p.
-    intro pf; simpl.
-    destruct data; auto.
-    apply in_or_app; right; auto.
-  Qed.
-
-  Lemma blk_in_p_cons_false id v o1 o2 p data :
-    blk_in_p id v o2 p ->
-    blk_in_p id v (node data o1 o2) (false :: p).
-  Proof.
-    unfold blk_in_p.
-    intro pf; simpl.
-    destruct data; auto.
-    apply in_or_app; right; auto.
-  Qed.
-
-  Lemma blk_in_p_true_Some id v o1 o2 p data :
-    blk_in_p id v (node (Some data) o1 o2) (true :: p) ->
-    In (Block id v) data \/ blk_in_p id v o1 p.
-  Proof.
-    unfold blk_in_p; simpl in *.
-    intro pf.
-    apply in_app_or; auto.
-  Qed.
-
-  Lemma blk_in_p_true_None id v o1 o2 p :
-    blk_in_p id v (node None o1 o2) (true :: p) ->
-    blk_in_p id v o1 p.
-  Proof.
-    auto.
-  Qed.
-
-  Lemma blk_in_p_false_Some id v o1 o2 p data :
-    blk_in_p id v (node (Some data) o1 o2) (false :: p) ->
-    In (Block id v) data \/ blk_in_p id v o2 p.
-  Proof.
-    unfold blk_in_p; simpl in *.
-    intro pf.
-    apply in_app_or; auto.
-  Qed.
-
-  Lemma blk_in_p_false_None id v o1 o2 p :
-    blk_in_p id v (node None o1 o2) (false :: p) ->
-    blk_in_p id v o2 p.
-  Proof.
-    auto.
   Qed.
 
   Lemma lookup_tree_lookup_path_oram_invert o : forall bkt p,
