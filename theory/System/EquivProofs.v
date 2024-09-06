@@ -796,7 +796,14 @@ Lemma read_undef k k' :
     triv
     (read k').
 Proof.
-Admitted.
+  apply state_plift_bind with
+    (Mid := fun s => well_formed s /\ undef k s)
+    (P := triv).
+  - apply read_access_undef.
+  - intros [] _ s wf_s.
+    apply plift_ret.
+    unfold triv, pand; tauto.
+Qed.
 
 Lemma read_undef_0 k :
   poram_lift
