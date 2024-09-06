@@ -303,13 +303,41 @@ Section PORAM_PROOF.
           eapply IHo2; eauto.
   Qed.
 
+  Lemma NoDup_tree_id_same_v:
+    forall id v v' l,
+      NoDup (List.map block_blockid l) -> 
+      In (Block id v) l ->
+      In (Block id v') l ->
+      v = v'. 
+  Proof.
+    intros.
+    apply NoDup_map_inj in H.
+    unfold inj_on_list in H.
+    assert (id = id) by reflexivity.
+    specialize (H _ _ H0 H1 H2).
+    inversion H; auto.    
+  Qed.
+  
   Lemma In_tree_in_path :
-    forall s b,  
+    forall s id v,  
       well_formed s -> 
-      In b (get_all_blks_tree (state_oram s)) ->
-      blk_in_path (block_blockid b) (block_payload b) s.
-  Admitted.    
-
+      In (Block id v) (get_all_blks_tree (state_oram s)) ->
+      blk_in_path id v s.
+  Proof.
+    intros.
+    destruct H.
+    unfold blk_in_path, blk_in_p.
+    pose proof H0.
+    apply in_map with (f := block_blockid) in H0.
+    specialize (blk_in_path_in_tree id H0).
+    rewrite in_map_iff in blk_in_path_in_tree.
+    destruct blk_in_path_in_tree as [[id' v'] [Hb'1 Hb'2]]; simpl in *.
+    subst.
+    pose proof Hb'2.
+    apply In_path_in_tree_block in Hb'2.
+    rewrite (NoDup_tree_id_same_v id v v' _ no_dup_tree H Hb'2); auto.
+  Qed.
+  
   Lemma lookup_update_sameid : forall id m p_new, 
       lookup_dict
         (makeBoolList false LOP) id
@@ -2378,9 +2406,6 @@ Section PORAM_PROOF.
           -- apply zero_sum_stsh_tr_Rd_rev_undef; auto.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
-
-  Print Assumptions read_access_undef.
-
 
   Lemma extract_payload (id : block_id) (v : nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
