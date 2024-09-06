@@ -232,7 +232,7 @@ Section PORAM_PROOF.
                    rewrite in_app_iff in *; tauto.
   Qed.
 
-  Lemma stash_path_combined_rel_Rd2 : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
+  Lemma get_pre_wb_st_Read_kvr_kvr : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
       kv_rel id v s ->
       kv_rel id v ((get_pre_wb_st id' Read (state_position_map s)
                             (state_stash s)
@@ -264,11 +264,14 @@ Section PORAM_PROOF.
         apply in_clear_path; auto.
   Qed.
 
-  Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
-      blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
-                            (state_stash s)
-                            (state_oram s)
-                            (calc_path id s) p_new)).
+  Lemma get_pre_wb_st_Write_stsh : forall (id : block_id) (v : nat) (s : state) (p_new : path),
+      blk_in_stash id v
+        ((get_pre_wb_st id (Write v)
+          (state_position_map s)
+          (state_stash s)
+          (state_oram s)
+          (calc_path id s)
+          p_new)).
   Proof.
     intros.
     unfold get_pre_wb_st;
@@ -809,7 +812,7 @@ Section PORAM_PROOF.
       eauto.
   Qed.
 
-  Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
+  Lemma get_post_wb_st_stsh_kvr : forall (id : block_id) (v : nat) (s : state) (p : path),
       well_formed s ->
       length p = LOP ->
       blk_in_stash id v s -> 
@@ -1166,7 +1169,7 @@ Section PORAM_PROOF.
     apply lookup_tree_lookup_path_oram in Heqo0; auto.
   Qed.
 
-  Lemma distribute_via_get_post_wb_st2 : forall (id : block_id) (v : nat) (s : state) (p : path),
+  Lemma get_post_wb_st_kvr_kvr : forall (id : block_id) (v : nat) (s : state) (p : path),
       well_formed s ->
       length p = LOP ->
       empty_on_path (state_oram s) p ->
@@ -1175,7 +1178,7 @@ Section PORAM_PROOF.
   Proof.
     intros.
     destruct H2.
-    - apply distribute_via_get_post_wb_st; auto.
+    - apply get_post_wb_st_stsh_kvr; auto.
     - right.
       unfold blk_in_path in *.
       unfold get_post_wb_st; simpl.
@@ -1821,10 +1824,10 @@ Section PORAM_PROOF.
             (calc_path id s) p_new) p).
   Proof.
     intros.
-    apply distribute_via_get_post_wb_st; auto.
+    apply get_post_wb_st_stsh_kvr; auto.
     - apply get_pre_wb_st_wf; auto.
       destruct s; auto.
-    - apply stash_path_combined_rel_Wr.
+    - apply get_pre_wb_st_Write_stsh.
   Qed.
   
   Lemma zero_sum_stsh_tr_Rd_rev :
@@ -1840,7 +1843,7 @@ Section PORAM_PROOF.
                         (calc_path id s) p_new) p). 
   Proof.
     intros.
-    apply distribute_via_get_post_wb_st; auto.
+    apply get_post_wb_st_stsh_kvr; auto.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply stash_path_combined_rel_Rd. auto.
   Qed.
@@ -1856,7 +1859,7 @@ Section PORAM_PROOF.
       + destruct b, lvl; simpl; auto.
   Qed.
 
-  Lemma zero_sum_stsh_tr_Rd_rev2 :
+  Lemma read_access_kvr_kvr :
     forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
       well_formed s ->
       length p_new = LOP -> 
@@ -1868,13 +1871,13 @@ Section PORAM_PROOF.
                         (calc_path id' s) p_new) (calc_path id' s)). 
   Proof.
     intros.
-    apply distribute_via_get_post_wb_st2; auto.
+    apply get_post_wb_st_kvr_kvr; auto.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply H.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
       apply locate_node_in_tr_clear_path.
-    - apply stash_path_combined_rel_Rd2. auto.
+    - apply get_pre_wb_st_Read_kvr_kvr; auto.
   Qed.
 
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
@@ -2115,7 +2118,7 @@ Section PORAM_PROOF.
           rewrite HeqInv. split.
           -- apply get_post_wb_st_wf; [|apply H].
              apply get_pre_wb_st_wf; auto. destruct x. exact H.
-          -- apply zero_sum_stsh_tr_Rd_rev2; auto.
+          -- apply read_access_kvr_kvr; auto.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
 
@@ -2175,7 +2178,7 @@ Section PORAM_PROOF.
   Proof.
     intros.
     unfold get_post_wb_st.
-    apply distribute_via_get_post_wb_st; auto.
+    apply get_post_wb_st_stsh_kvr; auto.
   Qed.
   
   Lemma blk_in_stash_neq : 
