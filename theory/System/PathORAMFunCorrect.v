@@ -20,6 +20,9 @@ Require Export POram.System.PathORAMDef.
 Section PORAM_PROOF.
 
   Context `{C : Config}.
+
+  Definition undef k s :=
+    ~ exists v, kv_rel k v s.
     
   Lemma iterate_right_split {X} n : forall (start k : nat) (f : path -> nat -> X -> X) (p : path) (x : X),
       iterate_right start p f (n+k) x =
@@ -263,6 +266,28 @@ Section PORAM_PROOF.
         unfold calc_path in H.
         apply in_clear_path; auto.
   Qed.
+
+  Lemma stash_path_combined_rel_Rd_undef : forall (id id' : block_id) (s : state) (p_new : path),
+      undef id s ->
+      undef id ((get_pre_wb_st id' Read (state_position_map s)
+                            (state_stash s)
+                            (state_oram s)
+                            (calc_path id' s) p_new)).
+  Proof.
+    intros.
+    intros [v Hv].
+    apply H; exists v.
+    destruct Hv as [Hv|Hv].
+    - unfold blk_in_stash, get_pre_wb_st in Hv; simpl in Hv.
+      apply in_app_or in Hv.
+      destruct Hv as [Hv|Hv].
+      + right. admit.
+      + left; exact Hv.
+    - unfold blk_in_path, get_pre_wb_st in Hv; simpl in Hv.
+      right.
+      unfold calc_path at 2 in Hv; simpl in Hv.
+      admit.
+  Admitted.
 
   Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
       blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
@@ -1136,6 +1161,18 @@ Section PORAM_PROOF.
       apply IHsteps.
   Qed.
 
+  Lemma iterate_right_inversion {X} (P : X -> Prop) (x : X) f p :
+    (forall x n, P (f p n x) -> P x) ->
+    forall steps start, P (iterate_right start p f steps x) ->
+    P x.
+  Proof.
+    intros Pf_inv steps.
+    induction steps; intros start pf.
+    - exact pf.
+    - simpl in pf; apply Pf_inv in pf.
+      apply (IHsteps (S start)); auto.
+  Qed.
+
   Lemma lookup_tree_lookup_path_oram o : forall bkt lvl p,
     lookup_tree o lvl p = Some (Some bkt) ->
     In bkt (lookup_path_oram o p).
@@ -1188,6 +1225,30 @@ Section PORAM_PROOF.
       + intros x n.
         apply off_path_blocks_selection.
   Qed.
+
+  Lemma distribute_via_get_post_wb_st_undef : forall (id : block_id) (s : state) (p : path),
+      well_formed s ->
+      length p = LOP ->
+      empty_on_path (state_oram s) p ->
+      undef id s -> 
+      undef id (get_post_wb_st s p).
+  Proof.
+    intros.
+    intros [v Hv].
+    apply H2.
+    exists v.
+    destruct Hv as [Hv|Hv].
+    - left.
+      unfold get_post_wb_st in Hv.
+      unfold write_back_r in Hv.
+      apply iterate_right_inversion in Hv; auto.
+      clear Hv.
+      unfold blk_in_stash, blocks_selection; simpl.
+      intros x n pf.
+      apply remove_list_sub_weaken in pf; auto.
+    - admit.
+  Admitted.
+
 
   Lemma NoDup_path_oram : forall o p,
       NoDup (List.map block_blockid (get_all_blks_tree o)) ->
@@ -1877,6 +1938,27 @@ Section PORAM_PROOF.
     - apply stash_path_combined_rel_Rd2. auto.
   Qed.
 
+  Lemma zero_sum_stsh_tr_Rd_rev_undef :
+    forall (id id' : block_id) (s : state) (p_new : path),
+      well_formed s ->
+      length p_new = LOP -> 
+      undef id s  -> 
+      undef id (get_post_wb_st
+                     (get_pre_wb_st id' Read (state_position_map s)
+                        (state_stash s)
+                        (state_oram s)
+                        (calc_path id' s) p_new) (calc_path id' s)). 
+  Proof.
+    intros.
+    apply distribute_via_get_post_wb_st_undef; auto.
+    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply H.
+    - unfold get_pre_wb_st; simpl.
+      intro lvl.
+      apply locate_node_in_tr_clear_path.
+    - apply stash_path_combined_rel_Rd_undef; auto.
+  Qed.
+
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
     NoDup (List.map block_blockid l) ->
     In (Block id v) l -> lookup_ret_data id l = v.
@@ -1951,9 +2033,6 @@ Section PORAM_PROOF.
         * intros _ _.
           apply state_plift_ret; auto.
   Qed.
-
-  Definition undef k s :=
-    ~ exists v, kv_rel k v s.
 
   Lemma lookup_ret_data_0 k l :
     (forall v, ~ In {| block_blockid := k; block_payload := v |} l) ->
@@ -2118,6 +2197,33 @@ Section PORAM_PROOF.
           -- apply zero_sum_stsh_tr_Rd_rev2; auto.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
+
+  Lemma read_access_undef id id' :
+    state_plift
+      (fun s => well_formed s /\ undef id s)
+      (fun s : state => well_formed s /\ undef id s)
+      (fun _ => True)
+      (read_access id').
+  Proof.
+    remember (fun st : state => well_formed st /\ undef id st) as Inv. 
+    apply (state_plift_bind Inv Inv).
+    - apply state_plift_get.
+    - intros.
+      apply (state_plift_bind Inv (fun p => length p = LOP)).
+      + apply state_plift_liftT.
+        apply coin_flips_length.
+      + intros. simpl.
+        apply (state_plift_bind Inv (fun _ => True)).
+        * apply state_plift_put. rewrite HeqInv in H; destruct H.
+          rewrite HeqInv. split.
+          -- apply get_post_wb_st_wf; [|apply H].
+             apply get_pre_wb_st_wf; auto. destruct x. exact H.
+          -- apply zero_sum_stsh_tr_Rd_rev_undef; auto.
+        * intros. rewrite HeqInv. apply state_plift_ret; auto.
+  Qed.
+
+  Print Assumptions read_access_undef.
+
 
   Lemma extract_payload (id : block_id) (v : nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
