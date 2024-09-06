@@ -238,9 +238,9 @@ Section PORAM_PROOF.
   Lemma get_pre_wb_st_Read_kvr_kvr : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
       kv_rel id v s ->
       kv_rel id v ((get_pre_wb_st id' Read (state_position_map s)
-                            (state_stash s)
-                            (state_oram s)
-                            (calc_path id' s) p_new)).
+                      (state_stash s)
+                      (state_oram s)
+                      (calc_path id' s) p_new)).
   Proof.
     intros.
     destruct H.
@@ -267,28 +267,111 @@ Section PORAM_PROOF.
         apply in_clear_path; auto.
   Qed.
 
+  Lemma In_path_in_tree_block : forall o p b,
+      In b (concat (lookup_path_oram o p)) ->
+      In b (get_all_blks_tree o). 
+  Proof.
+    induction o; simpl; intros; auto.
+    destruct p as [|hd tl]. 
+    - destruct data; simpl in *; auto.
+      + rewrite app_nil_r in H.
+        apply in_or_app.
+        left; auto.
+      + contradiction.
+    - destruct hd.
+      + destruct data.
+        * simpl in H.
+          apply in_app_or in H.
+          apply in_or_app.
+          destruct H.
+          -- left; auto.
+          -- right. apply in_or_app.
+             left. eapply IHo1; eauto.
+        * apply in_or_app.
+          left.
+          eapply IHo1; eauto.
+      + destruct data.
+        * simpl in H.
+          apply in_app_or in H.
+          apply in_or_app.
+          destruct H.
+          -- left; auto.
+          -- right. apply in_or_app.
+             right. eapply IHo2; eauto.
+        * apply in_or_app.
+          right.
+          eapply IHo2; eauto.
+  Qed.
+
+  Lemma In_tree_in_path :
+    forall s b,  
+      well_formed s -> 
+      In b (get_all_blks_tree (state_oram s)) ->
+      blk_in_path (block_blockid b) (block_payload b) s.
+  Admitted.    
+
+  Lemma lookup_update_sameid : forall id m p_new, 
+      lookup_dict
+        (makeBoolList false LOP) id
+        (update_dict id p_new m) = p_new.
+  Proof.
+    intros.
+    unfold lookup_dict.
+    unfold update_dict.
+    destruct m; simpl.
+    induction dict_elems as [|[k v] tl]; simpl.
+    - rewrite Nat.compare_refl; auto.
+    - destruct (id ?= k)%nat eqn:id_cond; simpl.
+      + rewrite Nat.compare_refl; auto.
+      + rewrite Nat.compare_refl; auto.
+      + rewrite id_cond.
+        exact IHtl.
+  Qed.
+
+  Lemma blk_in_p_clear_path:
+    forall o p p_new id v,
+      blk_in_p id v (clear_path o p) p_new ->
+      blk_in_p id v o p_new.
+  Admitted.
+
   Lemma stash_path_combined_rel_Rd_undef : forall (id id' : block_id) (s : state) (p_new : path),
       well_formed s ->
       undef id s ->
       undef id ((get_pre_wb_st id' Read (state_position_map s)
-                            (state_stash s)
-                            (state_oram s)
-                            (calc_path id' s) p_new)).
+                   (state_stash s)
+                   (state_oram s)
+                   (calc_path id' s) p_new)).
   Proof.
     intros id id' s p_new wf_s Hids [v Hv].
     apply Hids; exists v.
     destruct Hv as [Hv|Hv].
+    (* in stash as assumption *)
     - unfold blk_in_stash, get_pre_wb_st in Hv; simpl in Hv.
       apply in_app_or in Hv.
       destruct Hv as [Hv|Hv].
-      + right.
+      (* kv in selected path *)
+      + right.   
         unfold blk_in_path.
-        admit.
+        unfold blk_in_p.
+        apply In_path_in_tree_block in Hv.
+        apply In_tree_in_path in Hv; auto.
       + left; exact Hv.
-    - unfold blk_in_path, get_pre_wb_st in Hv; simpl in Hv.
-      right.
-      admit.
-  Admitted.
+    - (* in tree as assumption *)
+      unfold blk_in_path, get_pre_wb_st in Hv; simpl in Hv.
+      right. 
+      destruct (nat_eq_dec id id').
+      + subst.
+        unfold calc_path at 2 in Hv; simpl in Hv.
+        rewrite lookup_update_sameid in Hv.
+        apply blk_in_p_clear_path in Hv.
+        unfold blk_in_path.
+        pose proof (Hv2 := Hv).
+        apply In_path_in_tree_block in Hv.
+        apply In_tree_in_path in Hv; auto.
+      + unfold calc_path at 2 in Hv; simpl in Hv.
+        rewrite lookup_update_diffid in Hv; auto.
+        apply blk_in_p_clear_path in Hv; auto.
+  Qed. 
 
   Lemma get_pre_wb_st_Write_stsh : forall (id : block_id) (v : nat) (s : state) (p_new : path),
       blk_in_stash id v
@@ -461,42 +544,6 @@ Section PORAM_PROOF.
     apply takeL_in in H.
     apply subset_rel_get_cand_bs in H.
     auto.
-  Qed.
-
-  Lemma In_path_in_tree_block : forall o p b,
-      In b (concat (lookup_path_oram o p)) ->
-      In b (get_all_blks_tree o). 
-  Proof.
-    induction o; simpl; intros; auto.
-    destruct p as [|hd tl]. 
-    - destruct data; simpl in *; auto.
-      + rewrite app_nil_r in H.
-        apply in_or_app.
-        left; auto.
-      + contradiction.
-    - destruct hd.
-      + destruct data.
-        * simpl in H.
-          apply in_app_or in H.
-          apply in_or_app.
-          destruct H.
-          -- left; auto.
-          -- right. apply in_or_app.
-             left. eapply IHo1; eauto.
-        * apply in_or_app.
-          left.
-          eapply IHo1; eauto.
-      + destruct data.
-        * simpl in H.
-          apply in_app_or in H.
-          apply in_or_app.
-          destruct H.
-          -- left; auto.
-          -- right. apply in_or_app.
-             right. eapply IHo2; eauto.
-        * apply in_or_app.
-          right.
-          eapply IHo2; eauto.
   Qed.
 
   Lemma In_path_in_tree : forall o p id,
@@ -1655,24 +1702,6 @@ Section PORAM_PROOF.
     unfold disjoint_list in *.
     intros. unfold not in *.
     firstorder.
-  Qed.
-
-  Lemma lookup_update_sameid : forall id m p_new, 
-      lookup_dict
-        (makeBoolList false LOP) id
-        (update_dict id p_new m) = p_new.
-  Proof.
-    intros.
-    unfold lookup_dict.
-    unfold update_dict.
-    destruct m; simpl.
-    induction dict_elems as [|[k v] tl]; simpl.
-    - rewrite Nat.compare_refl; auto.
-    - destruct (id ?= k)%nat eqn:id_cond; simpl.
-      + rewrite Nat.compare_refl; auto.
-      + rewrite Nat.compare_refl; auto.
-      + rewrite id_cond.
-        exact IHtl.
   Qed.
 
   Lemma lookup_off_path : forall o id p p',
