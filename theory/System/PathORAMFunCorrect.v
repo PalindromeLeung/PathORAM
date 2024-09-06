@@ -232,7 +232,7 @@ Section PORAM_PROOF.
                    rewrite in_app_iff in *; tauto.
   Qed.
 
-  Lemma stash_path_combined_rel_Rd2 : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
+  Lemma get_pre_wb_st_Read_kvr_kvr : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
       kv_rel id v s ->
       kv_rel id v ((get_pre_wb_st id' Read (state_position_map s)
                             (state_stash s)
@@ -264,11 +264,14 @@ Section PORAM_PROOF.
         apply in_clear_path; auto.
   Qed.
 
-  Lemma stash_path_combined_rel_Wr : forall (id : block_id) (v : nat) (s : state) (p_new : path),
-      blk_in_stash id v ((get_pre_wb_st id (Write v) (state_position_map s)
-                            (state_stash s)
-                            (state_oram s)
-                            (calc_path id s) p_new)).
+  Lemma get_pre_wb_st_Write_stsh : forall (id : block_id) (v : nat) (s : state) (p_new : path),
+      blk_in_stash id v
+        ((get_pre_wb_st id (Write v)
+          (state_position_map s)
+          (state_stash s)
+          (state_oram s)
+          (calc_path id s)
+          p_new)).
   Proof.
     intros.
     unfold get_pre_wb_st;
@@ -809,7 +812,7 @@ Section PORAM_PROOF.
       eauto.
   Qed.
 
-  Lemma distribute_via_get_post_wb_st : forall (id : block_id) (v : nat) (s : state) (p : path),
+  Lemma get_post_wb_st_stsh_kvr : forall (id : block_id) (v : nat) (s : state) (p : path),
       well_formed s ->
       length p = LOP ->
       blk_in_stash id v s -> 
@@ -823,14 +826,350 @@ Section PORAM_PROOF.
   Definition empty_on_path o p :=
     forall lvl, locate_node_in_tr o lvl p = None.
 
-  Lemma empty_path_write_back id v s p p' n lvl :
-    blk_in_p id v (state_oram s) p' ->
-    empty_on_path (state_oram s) p ->
-    blk_in_p id v (state_oram (write_back_r lvl p n s)) p'.
-  Proof.
-  Admitted.
+  Fixpoint diverge_at_level (p p' : path) (lvl : nat) :=
+    match lvl with
+    | 0%nat => False
+    | S lvl' =>
+      match p, p' with
+      | [], [] => False
+      | (true :: p_tail), (true :: p'_tail) =>
+        diverge_at_level p_tail p'_tail lvl'
+      | (false :: p_tail), (false :: p'_tail) =>
+        diverge_at_level p_tail p'_tail lvl'
+      | _, _ => True
+      end
+    end.
 
-  Lemma distribute_via_get_post_wb_st2 : forall (id : block_id) (v : nat) (s : state) (p : path),
+  (* off_path id v o p p' means that (id, v) lies on
+      p' and not on p *)
+  Definition off_path id v o p p' :=
+    exists lvl,
+      diverge_at_level p p' lvl /\
+      match lookup_tree o lvl p' with
+      | Some (Some bucket) => In (Block id v) bucket
+      | _ => False
+      end.
+
+  Lemma empty_on_path_true ob o1 o2 p :
+    empty_on_path (node ob o1 o2) (true :: p) ->
+    empty_on_path o1 p.
+  Proof.
+    intros pf lvl.
+    specialize (pf (S lvl)).
+    exact pf.
+  Qed.
+
+  Lemma empty_on_path_false ob o1 o2 p :
+    empty_on_path (node ob o1 o2) (false :: p) ->
+    empty_on_path o2 p.
+  Proof.
+    intros pf lvl.
+    specialize (pf (S lvl)).
+    exact pf.
+  Qed.
+
+  Lemma blk_in_p_nil_Some id v o1 o2 data :
+    blk_in_p id v (node (Some data) o1 o2) [] ->
+    In (Block id v) data.
+  Proof.
+    unfold blk_in_p; simpl.
+    rewrite app_nil_r; auto.
+  Qed.
+
+  Lemma blk_in_p_nil_None id v o1 o2 :
+    ~ blk_in_p id v (node None o1 o2) [].
+  Proof.
+    auto.
+  Qed.
+
+  Lemma blk_in_p_cons_true id v o1 o2 p data :
+    blk_in_p id v o1 p ->
+    blk_in_p id v (node data o1 o2) (true :: p).
+  Proof.
+    unfold blk_in_p.
+    intro pf; simpl.
+    destruct data; auto.
+    apply in_or_app; right; auto.
+  Qed.
+
+  Lemma blk_in_p_cons_false id v o1 o2 p data :
+    blk_in_p id v o2 p ->
+    blk_in_p id v (node data o1 o2) (false :: p).
+  Proof.
+    unfold blk_in_p.
+    intro pf; simpl.
+    destruct data; auto.
+    apply in_or_app; right; auto.
+  Qed.
+
+  Lemma blk_in_p_true_Some id v o1 o2 p data :
+    blk_in_p id v (node (Some data) o1 o2) (true :: p) ->
+    In (Block id v) data \/ blk_in_p id v o1 p.
+  Proof.
+    unfold blk_in_p; simpl in *.
+    intro pf.
+    apply in_app_or; auto.
+  Qed.
+
+  Lemma blk_in_p_true_None id v o1 o2 p :
+    blk_in_p id v (node None o1 o2) (true :: p) ->
+    blk_in_p id v o1 p.
+  Proof.
+    auto.
+  Qed.
+
+  Lemma blk_in_p_false_Some id v o1 o2 p data :
+    blk_in_p id v (node (Some data) o1 o2) (false :: p) ->
+    In (Block id v) data \/ blk_in_p id v o2 p.
+  Proof.
+    unfold blk_in_p; simpl in *.
+    intro pf.
+    apply in_app_or; auto.
+  Qed.
+
+  Lemma blk_in_p_false_None id v o1 o2 p :
+    blk_in_p id v (node None o1 o2) (false :: p) ->
+    blk_in_p id v o2 p.
+  Proof.
+    auto.
+  Qed.
+
+  Lemma lookup_tree_lookup_path_oram_invert o : forall bkt p,
+    In bkt (lookup_path_oram o p) -> exists lvl,
+    lookup_tree o lvl p = Some (Some bkt).
+  Proof.
+    induction o; intros bkt p pf.
+    - destruct pf.
+    - destruct p as [|[]].
+      + exists 0%nat.
+        simpl in *.
+        destruct data; simpl in *; [|tauto].
+        destruct pf; [|tauto].
+        congruence.
+      + simpl in pf.
+        destruct data.
+        * destruct pf.
+          -- exists 0%nat. simpl; congruence.
+          -- apply IHo1 in H.
+             destruct H as [lvl Hlvl].
+             exists (S lvl); exact Hlvl.
+        * apply IHo1 in pf.
+          destruct pf as [lvl Hlvl].
+          exists (S lvl); exact Hlvl.
+      + simpl in pf.
+        destruct data.
+        * destruct pf.
+          -- exists 0%nat. simpl; congruence.
+          -- apply IHo2 in H.
+             destruct H as [lvl Hlvl].
+             exists (S lvl); exact Hlvl.
+        * apply IHo2 in pf.
+          destruct pf as [lvl Hlvl].
+          exists (S lvl); exact Hlvl.
+  Qed.
+
+  Lemma empty_true data o1 o2 p :
+    empty_on_path (node data o1 o2) (true :: p) ->
+    empty_on_path o1 p.
+  Proof.
+    intros pf lvl.
+    specialize (pf (S lvl)).
+    exact pf.
+  Qed.
+
+  Lemma empty_false data o1 o2 p :
+    empty_on_path (node data o1 o2) (false :: p) ->
+    empty_on_path o2 p.
+  Proof.
+    intros pf lvl.
+    specialize (pf (S lvl)).
+    exact pf.
+  Qed.
+
+  Lemma off_path_true id v data o1 o2 p p' :
+    off_path id v o1 p p' ->
+    off_path id v (node data o1 o2) (true :: p) (true :: p').
+  Proof.
+    intros [lvl [pf1 pf2]].
+    exists (S lvl); split; simpl; auto.
+  Qed.
+
+  Lemma off_path_false id v data o1 o2 p p' :
+    off_path id v o2 p p' ->
+    off_path id v (node data o1 o2) (false :: p) (false :: p').
+  Proof.
+    intros [lvl [pf1 pf2]].
+    exists (S lvl); split; simpl; auto.
+  Qed.
+
+  Lemma empty_off_path id v o : forall p p',
+    blk_in_p id v o p' ->
+    empty_on_path o p ->
+    off_path id v o p p'.
+  Proof.
+    induction o; intros.
+    - inversion H.
+    - destruct data.
+      + destruct p' as [|[]].
+        * apply blk_in_p_nil_Some in H.
+          specialize (H0 0%nat); discriminate.
+        * apply blk_in_p_true_Some in H.
+          destruct H.
+          -- specialize (H0 0%nat); discriminate.
+          -- destruct p as [|[]].
+             ++ specialize (H0 0%nat); discriminate.
+             ++ apply off_path_true.
+                apply IHo1; auto.
+                apply empty_true in H0; auto.
+             ++ unfold blk_in_p in H.
+                apply in_concat in H.
+                destruct H as [bkt [Hbkt1 Hbkt2]].
+                apply lookup_tree_lookup_path_oram_invert in Hbkt1.
+                destruct Hbkt1 as [lvl Hlvl].
+                exists (S lvl); simpl in *; split; auto.
+                unfold bucket in Hlvl; rewrite Hlvl; auto.
+        * apply blk_in_p_false_Some in H.
+          destruct H.
+          -- specialize (H0 0%nat); discriminate.
+          -- destruct p as [|[]].
+             ++ specialize (H0 0%nat); discriminate.
+             ++ unfold blk_in_p in H.
+                apply in_concat in H.
+                destruct H as [bkt [Hbkt1 Hbkt2]].
+                apply lookup_tree_lookup_path_oram_invert in Hbkt1.
+                destruct Hbkt1 as [lvl Hlvl].
+                exists (S lvl); simpl in *; split; auto.
+                unfold bucket in Hlvl; rewrite Hlvl; auto.
+             ++ apply off_path_false.
+                apply IHo2; auto.
+                apply empty_false in H0; auto.
+      + destruct p' as [|[]].
+        * apply blk_in_p_nil_None in H; tauto.
+        * apply blk_in_p_true_None in H.
+          destruct p as [|[]].
+          ++ unfold blk_in_p in H.
+             apply in_concat in H.
+             destruct H as [bkt [Hbkt1 Hbkt2]].
+             apply lookup_tree_lookup_path_oram_invert in Hbkt1.
+             destruct Hbkt1 as [lvl Hlvl].
+             exists (S lvl); simpl in *; split; auto.
+             unfold bucket in Hlvl; rewrite Hlvl; auto.
+          ++ apply off_path_true.
+             apply IHo1; auto.
+             apply empty_true in H0; auto.
+          ++ unfold blk_in_p in H.
+             apply in_concat in H.
+             destruct H as [bkt [Hbkt1 Hbkt2]].
+             apply lookup_tree_lookup_path_oram_invert in Hbkt1.
+             destruct Hbkt1 as [lvl Hlvl].
+             exists (S lvl); simpl in *; split; auto.
+             unfold bucket in Hlvl; rewrite Hlvl; auto.
+        * apply blk_in_p_false_None in H.
+          destruct p as [|[]].
+          ++ unfold blk_in_p in H.
+             apply in_concat in H.
+             destruct H as [bkt [Hbkt1 Hbkt2]].
+             apply lookup_tree_lookup_path_oram_invert in Hbkt1.
+             destruct Hbkt1 as [lvl Hlvl].
+             exists (S lvl); simpl in *; split; auto.
+             unfold bucket in Hlvl; rewrite Hlvl; auto.
+          ++ unfold blk_in_p in H.
+             apply in_concat in H.
+             destruct H as [bkt [Hbkt1 Hbkt2]].
+             apply lookup_tree_lookup_path_oram_invert in Hbkt1.
+             destruct Hbkt1 as [lvl Hlvl].
+             exists (S lvl); simpl in *; split; auto.
+             unfold bucket in Hlvl; rewrite Hlvl; auto.
+          ++ apply off_path_false.
+             apply IHo2; auto.
+             apply empty_false in H0; auto.
+  Qed.
+
+  Lemma lookup_tree_update_tree_diverge {X} (o : tree X) : forall
+    (lvl lvl' : nat) (p p' : path) (x : X),
+    diverge_at_level p' p lvl ->
+    lookup_tree (update_tree o lvl' x p') lvl p =
+    lookup_tree o lvl p.
+  Proof.
+    induction o; intros.
+    - reflexivity.
+    - destruct p'; simpl in *.
+      + destruct lvl; [tauto|].
+        destruct p; [tauto|].
+        destruct lvl'; auto.
+      + destruct lvl; [tauto|].
+        destruct b.
+        * destruct p.
+          -- destruct lvl'; auto.
+          -- destruct lvl'.
+             ++ reflexivity.
+             ++ destruct b; auto.
+                simpl; apply IHo1; auto.
+        * destruct p.
+          -- destruct lvl'; auto.
+          -- destruct lvl'.
+             ++ reflexivity.
+             ++ destruct b; auto.
+                simpl; apply IHo2; auto.
+  Qed.
+
+  Lemma off_path_blocks_selection id v s p p' lvl :
+    off_path id v (state_oram s) p p' ->
+    off_path id v (state_oram (blocks_selection p lvl s)) p p'.
+  Proof.
+    intros [lvl' [pf1 pf2]].
+    destruct lookup_tree eqn:?; [|tauto].
+    destruct o; [|tauto].
+    exists lvl'; split; auto.
+    unfold blocks_selection; simpl.
+    unfold up_oram_tr.
+    rewrite lookup_tree_update_tree_diverge; auto.
+    rewrite Heqo; auto.
+  Qed.
+
+  Lemma iterate_right_ind {X} (P : X -> Prop) (x : X) f p :
+    P x ->
+    (forall x n, P x -> P (f p n x)) ->
+    forall steps start, P (iterate_right start p f steps x).
+  Proof.
+    intros Px Pf steps.
+    induction steps; intro start.
+    - exact Px.
+    - apply Pf.
+      apply IHsteps.
+  Qed.
+
+  Lemma lookup_tree_lookup_path_oram o : forall bkt lvl p,
+    lookup_tree o lvl p = Some (Some bkt) ->
+    In bkt (lookup_path_oram o p).
+  Proof.
+    induction o; intros.
+    - discriminate.
+    - simpl in *.
+      destruct lvl.
+      + inversion H.
+        destruct p as [|[]]; simpl; tauto.
+      + destruct p as [|[]]; [discriminate| |].
+        * apply IHo1 in H.
+          destruct data; simpl; tauto.
+        * apply IHo2 in H.
+          destruct data; simpl; tauto.
+  Qed.
+
+  Lemma off_path_blk_in_p id v o p p' :
+    off_path id v o p p' ->
+    blk_in_p id v o p'.
+  Proof.
+    intros [lvl [pf1 pf2]].
+    destruct lookup_tree eqn:?; [|tauto].
+    destruct o0; [|tauto].
+    unfold blk_in_p.
+    apply in_concat; exists l.
+    split; auto.
+    apply lookup_tree_lookup_path_oram in Heqo0; auto.
+  Qed.
+
+  Lemma get_post_wb_st_kvr_kvr : forall (id : block_id) (v : nat) (s : state) (p : path),
       well_formed s ->
       length p = LOP ->
       empty_on_path (state_oram s) p ->
@@ -839,12 +1178,18 @@ Section PORAM_PROOF.
   Proof.
     intros.
     destruct H2.
-    - apply distribute_via_get_post_wb_st; auto.
+    - apply get_post_wb_st_stsh_kvr; auto.
     - right.
       unfold blk_in_path in *.
       unfold get_post_wb_st; simpl.
       rewrite calc_path_write_bk_r_stable.
-      apply empty_path_write_back; auto.
+      pose (p' := calc_path id s); fold p' in H2. fold p'.
+      apply off_path_blk_in_p with (p := p).
+      unfold write_back_r.
+      apply iterate_right_ind.
+      + eapply empty_off_path; eauto.
+      + intros x n.
+        apply off_path_blocks_selection.
   Qed.
 
   Lemma NoDup_path_oram : forall o p,
@@ -1479,10 +1824,10 @@ Section PORAM_PROOF.
             (calc_path id s) p_new) p).
   Proof.
     intros.
-    apply distribute_via_get_post_wb_st; auto.
+    apply get_post_wb_st_stsh_kvr; auto.
     - apply get_pre_wb_st_wf; auto.
       destruct s; auto.
-    - apply stash_path_combined_rel_Wr.
+    - apply get_pre_wb_st_Write_stsh.
   Qed.
   
   Lemma zero_sum_stsh_tr_Rd_rev :
@@ -1498,7 +1843,7 @@ Section PORAM_PROOF.
                         (calc_path id s) p_new) p). 
   Proof.
     intros.
-    apply distribute_via_get_post_wb_st; auto.
+    apply get_post_wb_st_stsh_kvr; auto.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply stash_path_combined_rel_Rd. auto.
   Qed.
@@ -1514,7 +1859,7 @@ Section PORAM_PROOF.
       + destruct b, lvl; simpl; auto.
   Qed.
 
-  Lemma zero_sum_stsh_tr_Rd_rev2 :
+  Lemma read_access_kvr_kvr :
     forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
       well_formed s ->
       length p_new = LOP -> 
@@ -1526,13 +1871,13 @@ Section PORAM_PROOF.
                         (calc_path id' s) p_new) (calc_path id' s)). 
   Proof.
     intros.
-    apply distribute_via_get_post_wb_st2; auto.
+    apply get_post_wb_st_kvr_kvr; auto.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply H.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
       apply locate_node_in_tr_clear_path.
-    - apply stash_path_combined_rel_Rd2. auto.
+    - apply get_pre_wb_st_Read_kvr_kvr; auto.
   Qed.
 
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
@@ -1773,12 +2118,9 @@ Section PORAM_PROOF.
           rewrite HeqInv. split.
           -- apply get_post_wb_st_wf; [|apply H].
              apply get_pre_wb_st_wf; auto. destruct x. exact H.
-          -- apply zero_sum_stsh_tr_Rd_rev2; auto.
+          -- apply read_access_kvr_kvr; auto.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
-
-  (* !!! *)
-  Print Assumptions read_access_kv.
 
   Lemma extract_payload (id : block_id) (v : nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
@@ -1836,7 +2178,7 @@ Section PORAM_PROOF.
   Proof.
     intros.
     unfold get_post_wb_st.
-    apply distribute_via_get_post_wb_st; auto.
+    apply get_post_wb_st_stsh_kvr; auto.
   Qed.
   
   Lemma blk_in_stash_neq : 
@@ -2192,6 +2534,6 @@ Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
       get_payload (bind (read k1) (fun v1 => bind (read k2) (fun v2 => f v1 v2)) s) =
       get_payload (bind (read k2) (fun v2 => bind (read k1) (fun v1 => f v1 v2)) s).
   Proof.
-  Admitted. 
+  Admitted.
 
 End PathORAM.
