@@ -268,24 +268,25 @@ Section PORAM_PROOF.
   Qed.
 
   Lemma stash_path_combined_rel_Rd_undef : forall (id id' : block_id) (s : state) (p_new : path),
+      well_formed s ->
       undef id s ->
       undef id ((get_pre_wb_st id' Read (state_position_map s)
                             (state_stash s)
                             (state_oram s)
                             (calc_path id' s) p_new)).
   Proof.
-    intros.
-    intros [v Hv].
-    apply H; exists v.
+    intros id id' s p_new wf_s Hids [v Hv].
+    apply Hids; exists v.
     destruct Hv as [Hv|Hv].
     - unfold blk_in_stash, get_pre_wb_st in Hv; simpl in Hv.
       apply in_app_or in Hv.
       destruct Hv as [Hv|Hv].
-      + right. admit.
+      + right.
+        unfold blk_in_path.
+        admit.
       + left; exact Hv.
     - unfold blk_in_path, get_pre_wb_st in Hv; simpl in Hv.
       right.
-      unfold calc_path at 2 in Hv; simpl in Hv.
       admit.
   Admitted.
 
@@ -1246,9 +1247,19 @@ Section PORAM_PROOF.
       unfold blk_in_stash, blocks_selection; simpl.
       intros x n pf.
       apply remove_list_sub_weaken in pf; auto.
-    - admit.
+    - apply or_intror with
+        (A := blk_in_stash id v (get_post_wb_st s p)) in Hv.
+      unfold get_post_wb_st in Hv.
+      unfold write_back_r in Hv.
+      apply iterate_right_inversion in Hv; auto.
+      clear Hv.
+      intros x n [Hid|Hid].
+      + left; apply remove_list_sub_weaken in Hid; auto.
+      + unfold blocks_selection in Hid.
+        unfold blk_in_path in Hid.
+        unfold calc_path in Hid.
+        simpl in Hid.
   Admitted.
-
 
   Lemma NoDup_path_oram : forall o p,
       NoDup (List.map block_blockid (get_all_blks_tree o)) ->
