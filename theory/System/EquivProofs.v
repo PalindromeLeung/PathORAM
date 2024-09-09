@@ -925,7 +925,16 @@ Lemma write_val_neq k v k' v' :
     triv
     (write k v).
 Proof.
-Admitted.
+  intro k_neq.
+  apply state_plift_bind with
+    (Mid := fun s => well_formed s /\ kv_rel k' v' s)
+    (P := triv).
+  - apply write_access_neq; auto.
+  - intros [] _ s pfs.
+    apply plift_ret.
+    unfold triv, pand; tauto.
+Qed.
+  
 
 Definition get_val_equiv_single_exception k (s s' : state) : Prop :=
   forall k', k' <> k -> get_val k' s = get_val k' s'.
