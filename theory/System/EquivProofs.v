@@ -889,7 +889,15 @@ Lemma write_undef k k' v :
     triv
     (write k v).
 Proof.
-Admitted.
+  intros.
+  apply state_plift_bind with
+    (Mid := fun s => well_formed s /\ undef k' s)
+    (P := triv).
+  - apply write_access_undef; auto.
+  - intros [] _ s wf_s.
+    apply plift_ret.
+    unfold triv, pand; tauto.
+Qed.
 
 Lemma state_plift_pre {S X}
   (Pre Pre' Post : S -> Prop) (P : X -> Prop) (m : StateT S dist X) :

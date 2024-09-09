@@ -528,6 +528,39 @@ Qed.
         apply blk_in_p_clear_path in Hv; auto.
   Qed. 
 
+  Lemma stash_path_combined_rel_Wr_undef : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
+      id <> id' ->
+      well_formed s ->
+      undef id' s ->
+      undef id' ((get_pre_wb_st id (Write v) (state_position_map s)
+                   (state_stash s)
+                   (state_oram s)
+                   (calc_path id s) p_new)).
+  Proof. 
+    intros id id' v s p_new Hneq wf_s Hids [v' Hv'].
+    apply Hids; exists v'.
+    destruct Hv' as [Hv'|Hv'].
+    (* in stash as assumption *)
+    - unfold blk_in_stash, get_pre_wb_st in Hv'; simpl in Hv'.
+      destruct Hv'; [congruence|].
+      rewrite In_remove_list_iff in H; destruct H as [Hv' _].
+      apply in_app_or in Hv'.
+      destruct Hv' as [Hv'|Hv'].
+      (* kv in selected path *)
+      + right.   
+        unfold blk_in_path.
+        unfold blk_in_p.
+        apply In_path_in_tree_block in Hv'.
+        apply In_tree_in_path in Hv'; auto.
+      + left; exact Hv'.
+    - (* in tree as assumption *)
+      unfold blk_in_path, get_pre_wb_st in Hv'; simpl in Hv'.
+      right.
+      unfold calc_path at 2 in Hv'; simpl in Hv'.
+      rewrite lookup_update_diffid in Hv'; auto.
+      apply blk_in_p_clear_path in Hv'; auto.
+  Qed. 
+    
   Lemma get_pre_wb_st_Write_stsh : forall (id : block_id) (v : nat) (s : state) (p_new : path),
       blk_in_stash id v
         ((get_pre_wb_st id (Write v)
@@ -2203,6 +2236,30 @@ Qed.
     - apply stash_path_combined_rel_Rd_undef; auto.
   Qed.
 
+  Lemma zero_sum_stsh_tr_Wr_rev_undef :
+    forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
+      well_formed s ->
+      id <> id' -> 
+      length p_new = LOP -> 
+      undef id' s -> 
+      undef id' (get_post_wb_st
+                  (get_pre_wb_st id (Write v) (state_position_map s)
+                     (state_stash s)
+                     (state_oram s)
+                     (calc_path id s) p_new) (calc_path id s)). 
+  Proof.
+    intros.
+    apply distribute_via_get_post_wb_st_undef; auto.
+    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply H.
+    - unfold get_pre_wb_st; simpl.
+      intro lvl.
+      apply locate_node_in_tr_clear_path.
+    - 
+      apply stash_path_combined_rel_Wr_undef; auto.
+  Qed.
+    
+  
   Lemma lookup_ret_data_block_in_list (id : block_id) (v : nat) (l : list block) :
     NoDup (List.map block_blockid l) ->
     In (Block id v) l -> lookup_ret_data id l = v.
@@ -2466,6 +2523,34 @@ Qed.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
 
+  Lemma write_access_undef id id' v :
+    id <> id' ->
+    state_plift
+      (fun s : state => well_formed s /\ undef id' s)
+      (fun s : state => well_formed s /\ undef id' s)
+      (fun _ => True) (write_access id v).
+  Proof.
+    intros Hneq.
+    remember (fun st : state => well_formed st /\ undef id' st) as Inv. 
+    apply (state_plift_bind Inv Inv).
+    - apply state_plift_get.
+    - intros.
+      apply (state_plift_bind Inv (fun p => length p = LOP)).
+      + apply state_plift_liftT.
+        apply coin_flips_length.
+      + intros. simpl.
+        apply (state_plift_bind Inv (fun _ => True)).
+        * apply state_plift_put.
+          rewrite HeqInv in H; destruct H.
+          rewrite HeqInv. split.
+          -- apply get_post_wb_st_wf; [|apply H].
+             apply get_pre_wb_st_wf; auto.
+             destruct x. exact H.
+          -- apply zero_sum_stsh_tr_Wr_rev_undef; auto. 
+        * intros. rewrite HeqInv.
+          apply state_plift_ret; auto.
+  Qed.
+    
   Lemma extract_payload (id : block_id) (v : nat) (s : state) : 
     plift (fun '(x, s') => has_value v x /\ well_formed s') (write_and_read_access id v s) -> 
     get_payload (write_and_read_access id v s) = v.
@@ -2654,16 +2739,6 @@ Module PathORAM (C : ConfigParams)<: RAM (Dist_State).
 
   Definition get_payload (s : M.state S (Vw V)) : option V :=
    Some (get_payload s).
-
-  (* Lemma read_and_read_lemma (k : K) (s : S): *)
-  (*   @state_plift state dist Monad_dist Monad_dist Pred_Dist_Lift (Vw V)  *)
-  (*     well_formed  *)
-  (*     well_formed *)
-  (*     (fun v => eq (get_payload (bind (read k) ret s)) (snd v)) *)
-  (*     (bind (read k) (fun _ => read k)). *)
-  (* Proof. *)
-  (*   unfold state_plift. intros. admit. (* TODO *) *)
-  (* Admitted. *)
 
   Lemma extract_payload_read_read k (s : state) : 
     plift
