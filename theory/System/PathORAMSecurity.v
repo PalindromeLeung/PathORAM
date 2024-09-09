@@ -231,7 +231,7 @@ Proof.
   rewrite H0.
   auto.
 Qed.
-  
+
 Definition uniform (n : nat) (d : dist (list bool)) :=
   forall l, (List.length l = n)%nat ->
       Qeq (eval_dist d (list_beq bool eqb l)) ((1 / 2) ^ (Z.of_nat n)).
