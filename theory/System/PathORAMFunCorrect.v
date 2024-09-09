@@ -267,6 +267,42 @@ Section PORAM_PROOF.
         apply in_clear_path; auto.
   Qed.
 
+  Lemma get_pre_wb_st_Write_kvr_kvr : forall (id id' : block_id) (v v': nat) (s : state) (p_new : path),
+      id <> id' -> 
+      kv_rel id v s ->
+      kv_rel id v ((get_pre_wb_st id' (Write v') (state_position_map s)
+                      (state_stash s)
+                      (state_oram s)
+                      (calc_path id' s) p_new)).
+  Proof.
+    intros.
+    destruct H0.
+    - left.
+      unfold blk_in_stash. simpl.
+      right. apply In_remove_list.
+      + apply in_or_app; right; auto.
+      + simpl. rewrite Nat.eqb_neq; auto.
+    - destruct (on_path_dec (Block id v) (state_oram s) (calc_path id' s)).
+      + left.
+        unfold blk_in_stash; simpl.
+        right. apply In_remove_list.
+        * apply in_or_app; left.
+          unfold on_path in H1.
+          exact H1.
+        * simpl. rewrite Nat.eqb_neq; auto.
+      + right.
+        unfold blk_in_path in *.
+        unfold blk_in_p in *.
+        unfold on_path in *.
+        simpl.
+        assert (id <> id') by congruence.
+        unfold get_pre_wb_st; simpl.
+        unfold calc_path at 2; simpl.
+        rewrite lookup_update_diffid; auto.
+        unfold calc_path in H.
+        apply in_clear_path; auto.
+Qed.     
+  
   Lemma In_path_in_tree_block : forall o p b,
       In b (concat (lookup_path_oram o p)) ->
       In b (get_all_blks_tree o). 
@@ -2123,6 +2159,29 @@ Section PORAM_PROOF.
     - apply get_pre_wb_st_Read_kvr_kvr; auto.
   Qed.
 
+  
+  Lemma write_access_kvr_kvr :
+    forall (id id' : block_id) (v v': nat) (s : state) (p_new : path),
+      id <> id' -> 
+      well_formed s ->
+      length p_new = LOP -> 
+      kv_rel id v s  -> 
+      kv_rel id v (get_post_wb_st
+                     (get_pre_wb_st id' (Write v') (state_position_map s)
+                        (state_stash s)
+                        (state_oram s)
+                        (calc_path id' s) p_new) (calc_path id' s)). 
+  Proof.
+    intros.
+    apply get_post_wb_st_kvr_kvr; auto.
+    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply H0.
+    - unfold get_pre_wb_st; simpl.
+      intro lvl.
+      apply locate_node_in_tr_clear_path.
+    - apply get_pre_wb_st_Write_kvr_kvr; auto.
+  Qed.
+
   Lemma zero_sum_stsh_tr_Rd_rev_undef :
     forall (id id' : block_id) (s : state) (p_new : path),
       well_formed s ->
@@ -2484,67 +2543,6 @@ Section PORAM_PROOF.
     apply blk_in_stash_get_pre_wb_st; auto.
   Qed.
   
-  Lemma blk_in_path_get_pre_wb_st :
-    forall (s : state) (i k: block_id) (v v' : nat) (p_new : path),
-      well_formed s ->
-      length p_new = LOP ->
-      blk_in_path i v' s -> 
-      i <> k -> 
-      blk_in_path i v'
-        (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
-           (state_oram s) (calc_path k s) p_new).
-  Proof.
-  Admitted.
-    
-  Lemma blk_in_path_get_post_wb_st :
-    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
-      well_formed s ->
-      length p = LOP ->
-      length p_new = LOP ->
-      blk_in_path i v' s -> 
-      i <> k -> 
-      blk_in_path i v'
-        (get_post_wb_st s p).
-  Proof.
-  Admitted.
-    
-  Lemma blk_in_path_neq :
-    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
-      well_formed s ->
-      length p = LOP ->
-      length p_new = LOP ->
-      blk_in_path i v' s -> 
-      i <> k -> 
-      blk_in_path i v'
-        (get_post_wb_st
-           (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
-              (state_oram s) (calc_path k s) p_new) p).
-  Proof.
-    intros.
-    eapply blk_in_path_get_post_wb_st; eauto.
-    - apply get_pre_wb_st_wf; auto.
-      destruct s. simpl. auto. 
-    - apply blk_in_path_get_pre_wb_st; auto.
-  Qed.    
-  
-  Lemma zero_sum_stsh_tr_Wr_neq:
-  forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
-  well_formed s ->
-  length p = LOP ->
-  length p_new = LOP ->
-  kv_rel i v' s -> 
-  i <> k -> 
-  kv_rel i v'
-    (get_post_wb_st
-       (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
-          (state_oram s) (calc_path k s) p_new) p).
-  Proof.
-    intros.
-    destruct H2.
-    - apply blk_in_stash_neq; auto.
-    - right. apply blk_in_path_neq; auto.
-  Qed.
-  
   Lemma write_access_neq : forall i k v v',
       i <> k -> 
       state_plift (fun s : state => well_formed s /\ kv_rel i v' s)
@@ -2562,19 +2560,14 @@ Section PORAM_PROOF.
       + apply state_plift_liftT.
         apply coin_flips_length.
       + intros p p_len.
-        eapply state_plift_bind.
-        2:{ intros.
-            apply state_plift_ret; auto.
-        }
-        apply state_plift_put.
-        split.
-        * apply get_post_wb_st_wf.
-          -- apply get_pre_wb_st_wf; auto.
+        apply (state_plift_bind (fun st : state => well_formed st /\ kv_rel i v' st) (fun _ => True)).
+        * apply state_plift_put.
+          destruct H0; split.
+          -- apply get_post_wb_st_wf; [|apply H0].
+             apply get_pre_wb_st_wf; auto.
              destruct x; simpl in *; tauto.
-          -- apply path_length. apply H0.
-        * destruct H0.
-          apply zero_sum_stsh_tr_Wr_neq; auto.
-          apply path_length; auto.
+          -- apply write_access_kvr_kvr; auto.
+        * intros. apply state_plift_ret; auto.
   Qed.
   
   Theorem PathORAM_simulates_RAM_idx_neq :
