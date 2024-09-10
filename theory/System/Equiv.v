@@ -21,6 +21,10 @@ Definition state_equiv (s s' : state) : Prop :=
 
 Infix "==s" := state_equiv (at level 20).
 
+Definition state_equiv2 (s s' : state) : Prop :=
+  forall k v,
+    kv_rel2 k v s <-> kv_rel2 k v s'. 
+    
 Definition dist_equiv {X} (eqv : X -> X -> Prop)
   (d d' : dist X) : Prop :=
   All2 eqv
@@ -57,6 +61,14 @@ Definition poram_equiv {X} (eqv : X -> X -> Prop)
     well_formed s ->
     well_formed s' ->
     dist_equiv (prod_rel eqv state_equiv) (m s) (m' s').
+
+Definition poram_equiv2 {X} (eqv : X -> X -> Prop)
+  (m m' : Poram X) : Prop :=
+  forall s s' : state,
+    state_equiv2 s s' ->
+    well_formed s ->
+    well_formed s' ->
+    dist_equiv (prod_rel eqv state_equiv2) (m s) (m' s').
 
 (* a lawful action should yield extensionally equivalent
    output states on extensionally equivalent input states *)

@@ -172,6 +172,12 @@ Definition equiv {X} (m1 m2 : Poram X) : Prop :=
     state_equiv
     eq m1 m2.
 
+Definition equiv2 {X} (m1 m2 : Poram X) : Prop :=
+  poram_lift2
+    state_equiv2
+    state_equiv2
+    eq m1 m2.
+
 Lemma equiv_implies_poram_equiv {X}
   (m1 m2 : Poram X) :
   equiv m1 m2 ->
@@ -187,6 +193,13 @@ Proof.
   intros [x' s'] [H1 [H2 [H3 H4]]].
   split; auto.
 Qed.
+
+Lemma equiv_implies_poram_equiv2 {X}
+  (m1 m2 : Poram X) :
+  equiv2 m1 m2 ->
+  poram_equiv2 eq m1 m2.
+Proof.
+Admitted.
 
 Definition triv2 {X Y} : X -> Y -> Prop :=
   fun _ _ => True.
@@ -537,6 +550,16 @@ Proof.
   unfold pand, triv.
   intros []; tauto.
 Qed.
+
+Lemma poram2_split_post_and_pred2 {X Y}
+  (m : Poram X)
+  (m' : Poram Y) Pre Post P :
+  poram_lift2 Pre triv2 P m m' ->
+  poram_lift2 Pre Post triv2 m m' ->
+  poram_lift2 Pre Post P m m'.
+Proof.
+Admitted.
+
 
 Lemma poram2_split_post_and_pred {X Y}
   (m : Poram X)
@@ -1016,6 +1039,9 @@ Qed.
 Definition kv_stable {X} (m : Poram X) : Prop :=
   forall s, poram_lift (state_equiv s) (state_equiv s) triv m.
 
+Definition kv_stable2 {X} (m : Poram X) : Prop :=
+  forall s, poram_lift (state_equiv2 s) (state_equiv2 s) triv m.
+
 Lemma mreturn_stable {X} (x : X) : kv_stable (mreturn x).
 Proof.
   intros s s' [wf_s' eq_ss'].
@@ -1074,6 +1100,10 @@ Proof.
            elim H0.
            exists v; exact pf'.
 Qed.
+
+Lemma read_stable2 k' :
+  kv_stable2 (read k').
+Admitted.
 
 Definition dummy {X Y} (P : X -> Prop) (Q : Y -> Prop) : X -> Y -> Prop :=
   fun x y => P x /\ Q y.
@@ -1333,6 +1363,37 @@ Proof.
   intros.
   exact I.
 Qed.
+
+(* WIP *)
+Theorem read_write : forall k,
+    poram_equiv2
+      eq
+      (mreturn tt)
+      (v <- read k ;; write k v) .
+Proof.
+  intros.
+  apply equiv_implies_poram_equiv2; auto.
+  unfold equiv2.
+  apply poram2_split_post_and_pred2; auto.
+  - intros s s'.
+    intros [wf_s [wf_s' eq_ss]].
+    apply plift_ret.
+    eapply plift_bind.
+    + apply read_wf.
+      unfold pand, triv; tauto.
+    + intros [v t] [_ wf_t].
+      pose proof (write_wf k v t wf_t).
+      eapply dist_has_weakening; [|exact H].
+      intros [[] t'] [_ [wf_t' _]].
+      unfold prod_rel, triv2; simpl; tauto.
+  - intros s s' [wf_s [wf_s' eq_ss']].
+    apply plift_ret.
+    eapply plift_bind.
+    + apply read_stable2.
+      split; eauto.
+    + intros [v t] [_ [wf_t Hst]].
+     admit. 
+Admitted.
 
 Theorem write_read : forall k v,
   poram_equiv
@@ -1789,15 +1850,6 @@ Proof.
         -- rewrite <- Hst; auto.
            rewrite <- Hs't'; auto.
 Qed.
-
-(* write still returns old val *)
-Theorem read_write : forall k,
-  poram_equiv
-  eq
-  (v <- read k;; write k v)
-  (mreturn tt).
-Proof.
-Admitted.
 
 Theorem write_absorb : forall k v v',
   poram_equiv
