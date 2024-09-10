@@ -319,10 +319,13 @@ Section PORAM.
     let s := state_stash st in 
     In (Block id v) s.
 
-  (* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
   Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
     (blk_in_stash id v st) \/ (blk_in_path id v st).
-  
+
+  Definition kv_rel2 (id : block_id) (v : nat) (st : state) : Prop :=
+    ((blk_in_stash id v st) \/ (blk_in_path id v st)) \/
+      ((not ((blk_in_stash id v st) \/ (blk_in_path id v st))) /\ (v = O)).
+       
   Definition locate_node_in_tr (o : oram) (lvl : nat) (p : path) : option bucket :=
     match lookup_tree o lvl p with
     | None => None
