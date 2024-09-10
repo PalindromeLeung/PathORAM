@@ -1790,4 +1790,72 @@ Proof.
            rewrite <- Hs't'; auto.
 Qed.
 
+(* write still returns old val *)
+Theorem read_write : forall k,
+  poram_equiv
+  eq
+  (v <- read k;; write k v)
+  (mreturn tt).
+Proof.
+Admitted.
+
+Theorem write_absorb : forall k v v',
+  poram_equiv
+  eq
+  (write k v;; write k v')
+  (write k v').
+Proof.
+  intros k v v' s s' eq_ss' wf_s wf_s'.
+  apply equiv_implies_poram_equiv; auto.
+  unfold equiv.
+  clear eq_ss' wf_s wf_s' s s'.
+  apply poram2_split_post_and_pred.
+  - intros s s' [wf_s [wf_s' eq_ss']].
+    apply plift_bind with (P := fun p => well_formed (snd p)).
+    + pose proof (write_val_eq k v s (conj wf_s I)).
+      eapply dist_has_weakening; [|exact H].
+      intros [[] t].
+      unfold triv, pand; tauto.
+    + intros [[] t] wf_t.
+      simpl in wf_t.
+      pose proof (write_val_eq k v' t (conj wf_t I)).
+      eapply dist_has_weakening; [|exact H].
+      intros [[] t'].
+      intros [_ [wf_t' Hkv't']].
+      pose proof (write_val_eq k v' s' (conj wf_s' I)).
+      eapply dist_has_weakening; [|exact H0].
+      intros [[] t''].
+      unfold prod_rel, pand, triv2.
+      tauto.
+  - intros s s' [wf_s [wf_s' eq_ss']].
+    apply plift_bind with (P := fun p => well_formed (snd p) /\
+      get_val_equiv_single_exception k s (snd p)).
+    + pose proof (write_near_stable k v s wf_s s (conj wf_s (state_equiv_refl s))).
+      eapply dist_has_weakening; [|exact H].
+      intros [[] t].
+      unfold triv, pand; tauto.
+    + intros [[] t] [wf_t Hst].
+      simpl in wf_t, Hst.
+      pose proof (write_near_stable k v' t wf_t t (conj wf_t (state_equiv_refl t))).
+      pose proof (write_val_eq k v' t (conj wf_t I)).
+      pose proof (plift_conj _ _ _ H H0).
+      eapply dist_has_weakening; [|exact H1].
+      intros [[] t'] [[_ [wf_t' Htt']] [_ [_ Hkv't']]].
+      pose proof (write_near_stable k v' s wf_s s' (conj wf_s' eq_ss')).
+      pose proof (write_val_eq k v' s' (conj wf_s' I)).
+      pose proof (plift_conj _ _ _ H2 H3).
+      eapply dist_has_weakening; [|exact H4].
+      intros [[] t''] [[_ [wf_t'' Hst'']] [_ [_ Hkv't'']]].
+      unfold prod_rel, triv2; simpl.
+      do 3 (split; try tauto).
+      apply get_val_equiv_state_equiv; auto.
+      intro k''.
+      destruct (nat_eq_dec k'' k).
+      * subst.
+        repeat rewrite kv_rel_get_val with (v := v'); auto.
+      * rewrite <- Hst''; auto.
+        rewrite <- Htt'; auto.
+        rewrite <- Hst; auto.
+Qed.
+
 End EquivProofs.
