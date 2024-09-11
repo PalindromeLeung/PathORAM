@@ -2138,14 +2138,14 @@ Qed.
 (* write still returns old val *)
 Theorem write_commute : forall k1 k2 v1 v2,
   k1 <> k2 ->
-  poram_equiv
+  poram_equiv2
   eq
   (write k1 v1;; write k2 v2)
   (write k2 v2;; write k1 v1).
 Proof.
   intros k1 k2 v1 v2 k_neq s s' eq_ss' wf_s wf_s'.
   assert (k2 <> k1) as k_neq' by auto.
-  apply equiv_implies_poram_equiv; auto.
+  apply equiv_implies_poram_equiv2; auto.
   unfold equiv.
   clear eq_ss' wf_s wf_s' s s'.
   apply poram2_split_post_and_pred.
@@ -2169,19 +2169,19 @@ Proof.
       simpl; tauto.
   - apply poram_lift2_bind with
       (Mid := fun s s' =>
-        kv_rel k1 v1 s /\
-        kv_rel k2 v2 s' /\
-        get_val_equiv_double_exception k1 k2 s s'
+        kv_rel2 k1 v1 s /\
+        kv_rel2 k2 v2 s' /\
+        get_val_equiv2_double_exception k1 k2 s s'
       )
       (P := triv2).
     + intros s s' [wf_s [wf_s' eq_ss']].
-      pose proof (write_val_eq k1 v1 s (conj wf_s I)).
-      pose proof (write_near_stable k1 v1 s wf_s s (conj wf_s (state_equiv_refl s))).
+      pose proof (write_val_eq2 k1 v1 s (conj wf_s I)).
+      pose proof (write_near_stable2 k1 v1 s wf_s s (conj wf_s (state_equiv2_refl s))).
       pose proof (plift_conj _ _ _ H H0).
       eapply dist_has_weakening; [|exact H1].
       intros [[] t] [[_ [wf_t Hk1v1]] [_ [_ Hst]]].
-      pose proof (write_val_eq k2 v2 s' (conj wf_s' I)).
-      pose proof (write_near_stable k2 v2 s wf_s s' (conj wf_s' eq_ss')).
+      pose proof (write_val_eq2 k2 v2 s' (conj wf_s' I)).
+      pose proof (write_near_stable2 k2 v2 s wf_s s' (conj wf_s' eq_ss')).
       pose proof (plift_conj _ _ _ H2 H3).
       eapply dist_has_weakening; [|exact H4].
       intros [[] t'] [[_ [wf_t' Hk2v2]] [_ [_ Hs't']]].
@@ -2190,26 +2190,26 @@ Proof.
       intros k neq1 neq2.
       rewrite <- Hst; auto.
     + intros _ _ _ s s' [wf_s [wf_s' [Hk1v1 [Hk2v2 Hss']]]].
-      pose proof (write_near_stable k2 v2 s wf_s s (conj wf_s (state_equiv_refl s))).
-      pose proof (write_val_eq k2 v2 s (conj wf_s I)).
-      pose proof (write_val_neq k2 v2 k1 v1 k_neq' s (conj wf_s Hk1v1)).
+      pose proof (write_near_stable2 k2 v2 s wf_s s (conj wf_s (state_equiv2_refl s))).
+      pose proof (write_val_eq2 k2 v2 s (conj wf_s I)).
+      pose proof (write_val_neq2 k2 v2 k1 v1 k_neq' s (conj wf_s Hk1v1)).
       pose proof (plift_conj _ _ _ H (plift_conj _ _ _ H0 H1)).
       eapply dist_has_weakening; [|exact H2].
       intros [[] t] [[_ [wf_t Hst]] [[_ [_ Hk1v1t]] [_ [_ Hk2v2t]]]].
-      pose proof (write_near_stable k1 v1 s' wf_s' s' (conj wf_s' (state_equiv_refl s'))).
-      pose proof (write_val_eq k1 v1 s' (conj wf_s' I)).
-      pose proof (write_val_neq k1 v1 k2 v2 k_neq s' (conj wf_s' Hk2v2)).
+      pose proof (write_near_stable2 k1 v1 s' wf_s' s' (conj wf_s' (state_equiv2_refl s'))).
+      pose proof (write_val_eq2 k1 v1 s' (conj wf_s' I)).
+      pose proof (write_val_neq2 k1 v1 k2 v2 k_neq s' (conj wf_s' Hk2v2)).
       pose proof (plift_conj _ _ _ H3 (plift_conj _ _ _ H4 H5)).
       eapply dist_has_weakening; [|exact H6].
       intros [[] t'] [[_ [wf_t' Hs't']] [[_ [_ Hk1v1t']] [_ [_ Hk2v2t']]]].
       split; [exact I|].
       simpl; do 2 (split; auto).
-      apply get_val_equiv_state_equiv; auto.
+      apply get_val_equiv2_state_equiv2; auto.
       intro k.
       destruct (nat_eq_dec k k1); subst.
-      * repeat rewrite kv_rel_get_val with (v := v1); auto.
+      * repeat rewrite kv_rel2_get_val2 with (v := v1); auto.
       * destruct (nat_eq_dec k k2); subst.
-        -- repeat rewrite kv_rel_get_val with (v := v2); auto.
+        -- repeat rewrite kv_rel2_get_val2 with (v := v2); auto.
         -- rewrite <- Hst; auto.
            rewrite <- Hs't'; auto.
 Qed.
