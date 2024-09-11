@@ -1906,73 +1906,77 @@ Proof.
 Qed.
 
 Theorem read_commute : forall k1 k2,
-  poram_equiv
+  poram_equiv2
   eq
   (v1 <- read k1;; v2 <- read k2;; mreturn (v1, v2))
   (v2 <- read k2;; v1 <- read k1;; mreturn (v1, v2)).
 Proof.
   intros k1 k2 s s' eq_ss' wf_s wf_s'.
-  apply equiv_implies_poram_equiv; auto.
+  apply equiv_implies_poram_equiv2; auto.
   clear eq_ss' wf_s wf_s' s s'.
   unfold equiv.
   apply poram2_split_post_and_pred.
   - apply poram_lift2_val_to_poram_lift2.
     apply poram_lift2_val_bind with
       (Mid := fun s s' v v' =>
-        ((kv_rel k1 v s /\ kv_rel k1 v s') \/
-         (undef k1 s /\ undef k1 s' /\ v=0)) /\
-        ((kv_rel k2 v' s /\ kv_rel k2 v' s') \/
-         (undef k2 s /\ undef k2 s' /\ v'=0))).
+        (kv_rel2 k1 v s /\ kv_rel2 k1 v s') /\
+        (kv_rel2 k2 v' s /\ kv_rel2 k2 v' s')).
     + intros s s' [wf_s [wf_s' eq_ss']].
-      destruct (def_or_undef k1 s) as [[v1 Hk1v1]|Hk1].
-      * destruct (def_or_undef k2 s) as [[v2 Hk2v2]|Hk2].
-        -- pose proof (read_val_kv k1 v1 s (conj wf_s Hk1v1)).
-           pose proof (read_pres_kv k2 v2 k1 s (conj wf_s Hk2v2)).
+      destruct (def_or_undef k1 s) as [[v1 Hk1v1]|Hk1]. 
+      * apply kv_rel_imp_kv_rel2 in Hk1v1.
+        destruct (def_or_undef k2 s) as [[v2 Hk2v2]|Hk2].
+        -- apply kv_rel_imp_kv_rel2 in Hk2v2.
+           pose proof (read_val_kv2 k1 v1 s (conj wf_s Hk1v1)).
+           pose proof (read_pres_kv2 k2 v2 k1 s (conj wf_s Hk2v2)).
            pose proof (plift_conj _ _ _ H H0).
            eapply dist_has_weakening; [|exact H1].
            intros [] [[]]; subst.
            apply eq_ss' in Hk1v1, Hk2v2.
-           pose proof (read_val_kv k2 v2 s' (conj wf_s' Hk2v2)).
-           pose proof (read_pres_kv k1 n k2 s' (conj wf_s' Hk1v1)).
+           pose proof (read_val_kv2 k2 v2 s' (conj wf_s' Hk2v2)).
+           pose proof (read_pres_kv2 k1 n k2 s' (conj wf_s' Hk1v1)).
            pose proof (plift_conj _ _ _ H2 H5).
            eapply dist_has_weakening; [|exact H6].
            intros [] [[]]; subst.
            unfold pand in *; tauto.
-        -- pose proof (read_val_kv k1 v1 s (conj wf_s Hk1v1)).
-           pose proof (read_undef k2 k1 s (conj wf_s Hk2)).
+        -- apply undef_imp_kv_rel2 in Hk2.
+           pose proof (read_val_kv2 k1 v1 s (conj wf_s Hk1v1)).
+           pose proof (read_pres_kv2 k2 0 k1 s (conj wf_s Hk2)).
            pose proof (plift_conj _ _ _ H H0).
            eapply dist_has_weakening; [|exact H1].
            intros [] [[]]; subst.
            apply eq_ss' in Hk1v1.
-           apply state_equiv_undef with (s' := s') in Hk2; [|auto].
-           pose proof (read_undef_val k2 s' (conj wf_s' Hk2)).
-           pose proof (read_pres_kv k1 n k2 s' (conj wf_s' Hk1v1)).
+           apply eq_ss' in Hk2.
+           pose proof (read_val_kv2 k2 0 s' (conj wf_s' Hk2)).
+           pose proof (read_pres_kv2 k1 n k2 s' (conj wf_s' Hk1v1)).
            pose proof (plift_conj _ _ _ H2 H5).
            eapply dist_has_weakening; [|exact H6].
            intros [] [[]]; subst.
            unfold pand in *; tauto.
-      * destruct (def_or_undef k2 s) as [[v2 Hk2v2]|Hk2].
-        -- pose proof (read_undef_val k1 s (conj wf_s Hk1)).
-           pose proof (read_pres_kv k2 v2 k1 s (conj wf_s Hk2v2)).
+      * apply undef_imp_kv_rel2 in Hk1.
+        destruct (def_or_undef k2 s) as [[v2 Hk2v2]|Hk2].
+        -- apply kv_rel_imp_kv_rel2 in Hk2v2.
+           pose proof (read_val_kv2 k1 0 s (conj wf_s Hk1)).
+           pose proof (read_pres_kv2 k2 v2 k1 s (conj wf_s Hk2v2)).
            pose proof (plift_conj _ _ _ H H0).
            eapply dist_has_weakening; [|exact H1].
            intros [] [[]]; subst.
            apply eq_ss' in Hk2v2.
-           apply state_equiv_undef with (s' := s') in Hk1; [|auto].
-           pose proof (read_val_kv k2 v2 s' (conj wf_s' Hk2v2)).
-           pose proof (read_undef k1 k2 s' (conj wf_s' Hk1)).
+           apply eq_ss' in Hk1.
+           pose proof (read_val_kv2 k2 v2 s' (conj wf_s' Hk2v2)).
+           pose proof (read_pres_kv2 k1 0 k2 s' (conj wf_s' Hk1)).
            pose proof (plift_conj _ _ _ H2 H5).
            eapply dist_has_weakening; [|exact H6].
            intros [] [[]]; subst.
            unfold pand in *; tauto.
-        -- pose proof (read_undef_val k1 s (conj wf_s Hk1)).
-           pose proof (read_undef k2 k1 s (conj wf_s Hk2)).
+        -- apply undef_imp_kv_rel2 in Hk2.
+           pose proof (read_val_kv2 k1 0 s (conj wf_s Hk1)).
+           pose proof (read_pres_kv2 k2 0 k1 s (conj wf_s Hk2)).
            pose proof (plift_conj _ _ _ H H0).
            eapply dist_has_weakening; [|exact H1].
            intros [] [[]]; subst.
-           apply state_equiv_undef with (s' := s') in Hk1, Hk2; [|auto|auto].
-           pose proof (read_undef_val k2 s' (conj wf_s' Hk2)).
-           pose proof (read_undef k1 k2 s' (conj wf_s' Hk1)).
+           apply eq_ss' in Hk1, Hk2.
+           pose proof (read_val_kv2 k2 0 s' (conj wf_s' Hk2)).
+           pose proof (read_pres_kv2 k1 0 k2 s' (conj wf_s' Hk1)).
            pose proof (plift_conj _ _ _ H2 H5).
            eapply dist_has_weakening; [|exact H6].
            intros [] [[]]; subst.
@@ -1981,43 +1985,29 @@ Proof.
       apply poram_lift2_val_bind with
         (Mid := fun _ _ w2 w1 => w1 = v1 /\ w2 = v2).
       * intros s s' [wf_s [wf_s' [Hk1 Hk2]]].
-        destruct Hk2 as [[Hk2v2 Hk2v2']|[Hk2 [Hk2' ?]]]; subst.
-        -- pose proof (read_val_kv k2 v2 s (conj wf_s Hk2v2)).
-           eapply dist_has_weakening; [|exact H].
-           intros [w2 t] []; subst.
-           destruct Hk1 as [[Hk1v1 Hk1v1']|[Hk1 [Hk1' ?]]]; subst.
-           ++ pose proof (read_val_kv k1 v1 s' (conj wf_s' Hk1v1')).
-              eapply dist_has_weakening; [|exact H0].
-              intros [w1 t'] []; subst.
-              unfold pand in *; tauto.
-           ++ pose proof (read_undef_val k1 s' (conj wf_s' Hk1')).
-              eapply dist_has_weakening; [|exact H0].
-              intros [w1 t'] []; subst.
-              unfold pand in *; tauto.
-        -- pose proof (read_undef_val k2 s (conj wf_s Hk2)).
-           eapply dist_has_weakening; [|exact H].
-           intros [w2 t] []. subst.
-           destruct Hk1 as [[Hk1v1 Hk1v1']|[Hk1 [Hk1' foo]]]; subst.
-           ++ pose proof (read_val_kv k1 v1 s' (conj wf_s' Hk1v1')).
-              eapply dist_has_weakening; [|exact H0].
-              intros [w1 t'] []. subst. unfold pand in *; tauto.
-           ++ pose proof (read_undef_val k1 s' (conj wf_s' Hk1')).
-              eapply dist_has_weakening; [|exact H0].
-              intros [w1 t'] []; subst. unfold pand in *; tauto.
+        destruct Hk1 as [Hk1v1 Hk1v1'].
+        destruct Hk2 as [Hk2v2 Hk2v2'].
+        pose proof (read_val_kv2 k2 v2 s (conj wf_s Hk2v2)).
+        eapply dist_has_weakening; [|exact H].
+        intros [w2 t] []; subst.
+        pose proof (read_val_kv2 k1 v1 s' (conj wf_s' Hk1v1')).
+        eapply dist_has_weakening; [|exact H0].
+        intros [w1 t'] []; subst.
+        unfold pand in *; tauto.
       * intros w1 w2 s s' [wf_s [wf_s' [? ?]]]; subst.
         do 2 apply plift_ret.
         unfold triv2; tauto.
-  - apply poram_lift2_kv_stable.
-    + apply bind_stable.
-      * apply read_stable.
-      * intro; apply bind_stable.
-        -- apply read_stable.
-        -- intro; apply mreturn_stable.
-    + apply bind_stable.
-      * apply read_stable.
-      * intro; apply bind_stable.
-        -- apply read_stable.
-        -- intro; apply mreturn_stable.
+  - apply poram_lift2_kv_stable2.
+    + apply bind_stable2.
+      * apply read_stable2.
+      * intro; apply bind_stable2.
+        -- apply read_stable2.
+        -- intro; apply mreturn_stable2.
+    + apply bind_stable2.
+      * apply read_stable2.
+      * intro; apply bind_stable2.
+        -- apply read_stable2.
+        -- intro; apply mreturn_stable2.
 Qed.
 
 Theorem read_write_commute : forall k1 k2 v2,
