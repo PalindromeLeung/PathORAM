@@ -988,6 +988,18 @@ Proof.
   - apply read_pres_kv.
 Qed.
 
+Lemma read_val_kv2 k v :
+  poram_lift
+    (kv_rel2 k v)
+    (kv_rel2 k v)
+    (eq v)
+    (read k).
+Proof.
+  apply poram_split_post_and_pred.
+  - apply read_val2.
+  - apply read_pres_kv2.
+Qed.
+
 Lemma write_wf k v :
   poram_lift
     triv
@@ -1194,8 +1206,21 @@ Proof.
   specialize (pf k v); tauto.
 Qed.
 
+Lemma state_equiv2_sym : forall s s',
+  state_equiv2 s s' -> state_equiv2 s' s.
+Proof.
+  intros s s' pf k v.
+  specialize (pf k v); tauto.
+Qed.
+
 Lemma state_equiv_refl : forall s,
   state_equiv s s.
+Proof.
+  intros s k v; tauto.
+Qed.
+
+Lemma state_equiv2_refl : forall s,
+  state_equiv2 s s.
 Proof.
   intros s k v; tauto.
 Qed.
@@ -1204,6 +1229,16 @@ Lemma state_equiv_trans : forall s1 s2 s3,
   state_equiv s1 s2 ->
   state_equiv s2 s3 ->
   state_equiv s1 s3.
+Proof.
+  intros s1 s2 s3 pf1 pf2 k v.
+  specialize (pf1 k v).
+  specialize (pf2 k v); tauto.
+Qed.
+
+Lemma state_equiv2_trans : forall s1 s2 s3,
+  state_equiv2 s1 s2 ->
+  state_equiv2 s2 s3 ->
+  state_equiv2 s1 s3.
 Proof.
   intros s1 s2 s3 pf1 pf2 k v.
   specialize (pf1 k v).
@@ -1223,10 +1258,29 @@ Proof.
   apply plift_ret; split; auto.
 Qed.
 
+Lemma mreturn_stable2 {X} (x : X) : kv_stable2 (mreturn x).
+Proof.
+  intros s s' [wf_s' eq_ss'].
+  unfold triv, pand.
+  apply plift_ret; split; auto.
+Qed.
+
 Lemma bind_stable {X Y} (m : Poram X) (f : X -> Poram Y) :
   kv_stable m ->
   (forall x, kv_stable (f x)) ->
   kv_stable (x <- m;; f x).
+Proof.
+  intros Hm Hf s s' pfs.
+  eapply plift_bind.
+  - apply Hm; exact pfs.
+  - intros [] pfs'.
+    apply Hf; tauto.
+Qed.
+
+Lemma bind_stable2 {X Y} (m : Poram X) (f : X -> Poram Y) :
+  kv_stable2 m ->
+  (forall x, kv_stable2 (f x)) ->
+  kv_stable2 (x <- m;; f x).
 Proof.
   intros Hm Hf s s' pfs.
   eapply plift_bind.
@@ -1569,6 +1623,24 @@ Proof.
   apply state_equiv_sym; auto.
 Qed.
 
+Lemma poram_lift2_kv_stable2 {X Y} (m : Poram X) (m' : Poram Y) :
+  kv_stable2 m -> kv_stable2 m' ->
+  poram_lift2 state_equiv2 state_equiv2 triv2 m m'.
+Proof.
+  intros Hm Hm' s s' [wf_s [wf_s' eq_ss']].
+  specialize (Hm s s (conj wf_s (state_equiv2_refl s))).
+  eapply dist_has_weakening; [|exact Hm].
+  intros [x t] [_ [wf_t eq_st]].
+  specialize (Hm' s s' (conj wf_s' eq_ss')).
+  eapply dist_has_weakening; [|exact Hm'].
+  intros [y t'] [_ [wf_t' eq_st']].
+  split; [exact I|].
+  split; auto.
+  split; auto.
+  apply state_equiv2_trans with (s2 := s); auto.
+  apply state_equiv2_sym; auto.
+Qed.
+
 Lemma plift_True {X} (m : dist X) : plift triv m.
 Proof.
   destruct m; simpl.
@@ -1771,29 +1843,29 @@ Proof.
 Qed.
 
 Theorem read_read : forall k,
-  poram_equiv
+  poram_equiv2
   eq
   (v <- read k;; mreturn v)
   (read k;; read k).
 Proof.
   intros k s s' eq_ss' wf_s wf_s'.
-  apply equiv_implies_poram_equiv; auto.
-  unfold equiv.
+  apply equiv_implies_poram_equiv2; auto.
+  unfold equiv2.
   apply poram2_split_post_and_pred.
   - apply poram_lift2_val_to_poram_lift2.
     apply poram_lift2_val_bind with
       (Mid := fun s s' v v' =>
-        (kv_rel k v s /\ kv_rel k v s') \/
-        (undef k s /\ undef k s' /\ v = 0 /\ v' = 0)).
+        (kv_rel2 k v s /\ kv_rel2 k v s')).
     + clear eq_ss' wf_s wf_s' s s'.
       intros s s' [wf_s [wf_s' eq_ss']].
       destruct (def_or_undef k s).
       * destruct s0 as [v Hv].
-        pose proof (read_val_kv k v s (conj wf_s Hv)).
+        apply kv_rel_imp_kv_rel2 in Hv.
+        pose proof (read_val_kv2 k v s (conj wf_s Hv)).
         eapply dist_has_weakening; [|exact H].
         intros [] pfs.
         apply eq_ss' in Hv.
-        pose proof (read_val_kv k v s' (conj wf_s' Hv)).
+        pose proof (read_val_kv2 k v s' (conj wf_s' Hv)).
         eapply dist_has_weakening; [|exact H0].
         intros [] pfs'.
         unfold pand in *.
@@ -1801,40 +1873,33 @@ Proof.
         split; try tauto.
         destruct pfs.
         rewrite <- H1. tauto.
-      * pose proof (read_undef_val k s (conj wf_s u)).
+      * apply undef_imp_kv_rel2 in u.
+        pose proof (read_val_kv2 k 0 s (conj wf_s u)).
         eapply dist_has_weakening; [|exact H].
         intros [] pfs.
-        apply state_equiv_undef with (s' := s') in u; [|auto].
-        pose proof (read_undef_val k s' (conj wf_s' u)).
+        apply eq_ss' in u.
+        pose proof (read_val_kv2 k 0 s' (conj wf_s' u)).
         eapply dist_has_weakening; [|exact H0].
         intros [] pfs'.
         unfold pand in *.
-        do 2 (split; try tauto).
-        right.
-        do 2 (split; try tauto).
-        destruct pfs, pfs'; split; congruence.
+        destruct pfs; subst.
+        destruct pfs'; subst.
+        split; try tauto.
     + intros v v'.
       clear wf_s eq_ss' wf_s' s s'.
       intros s s' [wf_s [wf_s' Hk]].
       destruct Hk.
-      * destruct H.
-        apply plift_ret.
-        pose proof (read_val_kv k v s' (conj wf_s' H0)).
-        eapply dist_has_weakening; [|exact H1].
-        intros []. unfold triv, triv2, pand in *; tauto.
-      * destruct H as [us [us' [v_0 v'_0]]].
-        apply plift_ret.
-        pose proof (read_undef_val k s' (conj wf_s' us')).
-        eapply dist_has_weakening; [|exact H].
-        rewrite v_0.
-        intros []; unfold triv2, pand; tauto.
-  - apply poram_lift2_kv_stable.
-    + apply bind_stable.
-      * apply read_stable.
-      * apply mreturn_stable.
-    + apply bind_stable.
-      * apply read_stable.
-      * intro; apply read_stable.
+      apply plift_ret.
+      pose proof (read_val_kv2 k v s' (conj wf_s' H0)).
+      eapply dist_has_weakening; [|exact H1].
+      intros []. unfold triv, triv2, pand in *; tauto.
+  - apply poram_lift2_kv_stable2.
+    + apply bind_stable2.
+      * apply read_stable2.
+      * apply mreturn_stable2.
+    + apply bind_stable2.
+      * apply read_stable2.
+      * intro; apply read_stable2.
 Qed.
 
 Theorem read_commute : forall k1 k2,
