@@ -3,6 +3,7 @@ Import ListNotations.
 
 Require Import POram.Utils.Tree.
 Require Import POram.System.PathORAMDef.
+Require Import POram.System.PathORAMFunCorrect.
 Require Import POram.Utils.Distributions.
 Require Import POram.Utils.Classes.
 
@@ -20,6 +21,9 @@ Definition state_equiv (s s' : state) : Prop :=
     kv_rel k v s <-> kv_rel k v s'.
 
 Infix "==s" := state_equiv (at level 20).
+
+  Definition kv_rel2 (id : block_id) (v : nat) (st : state) : Prop :=
+    kv_rel id v st \/ (undef id st /\ v = 0).
 
 Definition state_equiv2 (s s' : state) : Prop :=
   forall k v,
