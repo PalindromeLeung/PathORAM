@@ -1124,6 +1124,9 @@ Definition get_val_equiv2_single_exception k (s s' : state) : Prop :=
 Definition get_val_equiv_double_exception k1 k2 (s s' : state) : Prop :=
   forall k', k' <> k1 -> k' <> k2 -> get_val k' s = get_val k' s'.
 
+Definition get_val_equiv2_double_exception k1 k2 (s s' : state) : Prop :=
+  forall k', k' <> k1 -> k' <> k2 -> get_val2 k' s = get_val2 k' s'.
+
 Definition near_stable {X} (m : Poram X) k : Prop :=
   forall s, well_formed s -> poram_lift (state_equiv s) (get_val_equiv_single_exception k s) triv m.
 
@@ -2212,13 +2215,13 @@ Proof.
 Qed.
 
 Theorem write_absorb : forall k v v',
-  poram_equiv
+  poram_equiv2
   eq
   (write k v;; write k v')
   (write k v').
 Proof.
   intros k v v' s s' eq_ss' wf_s wf_s'.
-  apply equiv_implies_poram_equiv; auto.
+  apply equiv_implies_poram_equiv2; auto.
   unfold equiv.
   clear eq_ss' wf_s wf_s' s s'.
   apply poram2_split_post_and_pred.
@@ -2241,30 +2244,30 @@ Proof.
       tauto.
   - intros s s' [wf_s [wf_s' eq_ss']].
     apply plift_bind with (P := fun p => well_formed (snd p) /\
-      get_val_equiv_single_exception k s (snd p)).
-    + pose proof (write_near_stable k v s wf_s s (conj wf_s (state_equiv_refl s))).
+      get_val_equiv2_single_exception k s (snd p)).
+    + pose proof (write_near_stable2 k v s wf_s s (conj wf_s (state_equiv2_refl s))).
       eapply dist_has_weakening; [|exact H].
       intros [[] t].
       unfold triv, pand; tauto.
     + intros [[] t] [wf_t Hst].
       simpl in wf_t, Hst.
-      pose proof (write_near_stable k v' t wf_t t (conj wf_t (state_equiv_refl t))).
-      pose proof (write_val_eq k v' t (conj wf_t I)).
+      pose proof (write_near_stable2 k v' t wf_t t (conj wf_t (state_equiv2_refl t))).
+      pose proof (write_val_eq2 k v' t (conj wf_t I)).
       pose proof (plift_conj _ _ _ H H0).
       eapply dist_has_weakening; [|exact H1].
       intros [[] t'] [[_ [wf_t' Htt']] [_ [_ Hkv't']]].
-      pose proof (write_near_stable k v' s wf_s s' (conj wf_s' eq_ss')).
-      pose proof (write_val_eq k v' s' (conj wf_s' I)).
+      pose proof (write_near_stable2 k v' s wf_s s' (conj wf_s' eq_ss')).
+      pose proof (write_val_eq2 k v' s' (conj wf_s' I)).
       pose proof (plift_conj _ _ _ H2 H3).
       eapply dist_has_weakening; [|exact H4].
       intros [[] t''] [[_ [wf_t'' Hst'']] [_ [_ Hkv't'']]].
       unfold prod_rel, triv2; simpl.
       do 3 (split; try tauto).
-      apply get_val_equiv_state_equiv; auto.
+      apply get_val_equiv2_state_equiv2; auto.
       intro k''.
       destruct (nat_eq_dec k'' k).
       * subst.
-        repeat rewrite kv_rel_get_val with (v := v'); auto.
+        repeat rewrite kv_rel2_get_val2 with (v := v'); auto; left; auto.
       * rewrite <- Hst''; auto.
         rewrite <- Htt'; auto.
         rewrite <- Hst; auto.
