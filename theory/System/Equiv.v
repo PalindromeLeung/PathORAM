@@ -16,12 +16,12 @@ Section Equiv.
 
 Context `{C : Config}.
 
-  Definition kv_rel2 (id : block_id) (v : nat) (st : state) : Prop :=
+  Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
     blk_in_state id v st \/ (undef id st /\ v = 0).
 
-Definition state_equiv2 (s s' : state) : Prop :=
+Definition state_equiv (s s' : state) : Prop :=
   forall k v,
-    kv_rel2 k v s <-> kv_rel2 k v s'. 
+    kv_rel k v s <-> kv_rel k v s'. 
     
 Definition dist_equiv {X} (eqv : X -> X -> Prop)
   (d d' : dist X) : Prop :=
@@ -47,12 +47,12 @@ Definition prod_rel {X X' Y Y'} (P : X -> X' -> Prop) (Q : Y -> Y' -> Prop) :
     P (fst p1) (fst p2) /\
     Q (snd p1) (snd p2).
 
-Definition poram_equiv2 {X} (eqv : X -> X -> Prop)
+Definition poram_equiv {X} (eqv : X -> X -> Prop)
   (m m' : Poram X) : Prop :=
   forall s s' : state,
-    state_equiv2 s s' ->
+    state_equiv s s' ->
     well_formed s ->
     well_formed s' ->
-    dist_equiv (prod_rel eqv state_equiv2) (m s) (m' s').
+    dist_equiv (prod_rel eqv state_equiv) (m s) (m' s').
 
 End Equiv.
