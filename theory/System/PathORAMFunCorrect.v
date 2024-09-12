@@ -20,9 +20,6 @@ Require Export POram.System.PathORAMDef.
 Section PORAM_PROOF.
 
   Context `{C : Config}.
-
-  Definition undef k s :=
-    ~ exists v, kv_rel k v s.
     
   Lemma iterate_right_split {X} n : forall (start k : nat) (f : path -> nat -> X -> X) (p : path) (x : X),
       iterate_right start p f (n+k) x =
