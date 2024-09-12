@@ -335,11 +335,11 @@ Proof.
   apply (Hm s Hs).
 Qed.
 
-Lemma kv_rel_functional : forall s,
+Lemma blk_in_state_functional : forall s,
   well_formed s ->
   forall k v v',
-    kv_rel k v s ->
-    kv_rel k v' s ->
+    blk_in_state k v s ->
+    blk_in_state k v' s ->
     v = v'.
 Proof.
   intros s wf_s k v v' [Hv|Hv] [Hv'|Hv'].
@@ -380,7 +380,7 @@ Proof.
   intros s wf_s k v v' pf1 pf2.
   destruct pf1 as [Hkvs|[Hks Hv]]; subst.
   - destruct pf2 as [Hkv's|[Hks Hv]]; subst.
-    + apply kv_rel_functional with (s := s) (k := k); auto.
+    + apply blk_in_state_functional with (s := s) (k := k); auto.
     + elim Hks; exists v; auto.
   - destruct pf2 as [Hkv's|[Hks2 Hv]]; subst.
     + elim Hks; exists v'; auto.
@@ -672,7 +672,7 @@ Proof.
 Defined.
 
 Definition def_or_undef k s :
-  { v : nat & kv_rel k v s } +
+  { v : nat & blk_in_state k v s } +
   { undef k s }.
 Proof.
   destruct (key_in_stash_dec k s) as [[v Hkv]|Hk1].
@@ -697,22 +697,22 @@ Definition get_val2 k s : nat :=
   | None => 0
   end.
 
-Lemma kv_rel_get_val : forall k v s,
+Lemma blk_in_state_get_val : forall k v s,
   well_formed s ->
-  kv_rel k v s -> get_val k s = Some v.
+  blk_in_state k v s -> get_val k s = Some v.
 Proof.
   intros k v s wf_s Hkv.
   unfold get_val.
   destruct (def_or_undef k s) as [[v' Hkv']|Hk].
   - simpl.
-    rewrite kv_rel_functional with (s := s) (k := k) (v := v) (v' := v'); auto.
+    rewrite blk_in_state_functional with (s := s) (k := k) (v := v) (v' := v'); auto.
   - elim Hk.
     exists v; auto.
 Qed.
 
-Lemma get_val_kv_rel : forall k v s,
+Lemma get_val_blk_in_state : forall k v s,
   well_formed s ->
-  get_val k s = Some v -> kv_rel k v s.
+  get_val k s = Some v -> blk_in_state k v s.
 Proof.
   intros k v s wf_s gv_k.
   unfold get_val in gv_k.
@@ -727,12 +727,12 @@ Proof.
   intros.
   unfold get_val2.
   destruct H0.
-  - apply kv_rel_get_val in H0; auto.
+  - apply blk_in_state_get_val in H0; auto.
     rewrite H0; auto.
   - destruct H0; subst.
     destruct get_val eqn:?; auto.
     elim H0; exists n.
-    apply get_val_kv_rel; auto.
+    apply get_val_blk_in_state; auto.
 Qed.
 
 Lemma undef_get_val : forall k s,
@@ -764,7 +764,7 @@ Proof.
   intros k v s wf_s gv_k.
   unfold get_val2 in gv_k.
   destruct (get_val k s) eqn:?; subst.
-  - left. apply get_val_kv_rel; auto.
+  - left. apply get_val_blk_in_state; auto.
   - right; split; auto.
     apply get_val_undef; auto.
 Qed.
@@ -799,11 +799,11 @@ Proof.
   intros s s' wf_s wf_s' Hss' k v.
   specialize (Hss' k).
   split; intro pf.
-  - rewrite kv_rel_get_val with (v := v) in Hss'; auto.
+  - rewrite blk_in_state_get_val with (v := v) in Hss'; auto.
     symmetry in Hss'.
-    apply get_val_kv_rel; auto.
-  - rewrite kv_rel_get_val with (v := v) (s := s') in Hss'; auto.
-    apply get_val_kv_rel; auto.
+    apply get_val_blk_in_state; auto.
+  - rewrite blk_in_state_get_val with (v := v) (s := s') in Hss'; auto.
+    apply get_val_blk_in_state; auto.
 Qed.
 
 Lemma get_val_equiv2_state_equiv2 : forall s s',
@@ -817,21 +817,21 @@ Proof.
     rewrite Hss' in pf.
     unfold get_val2 in pf.
     destruct get_val eqn:?.
-    + left. apply get_val_kv_rel in Heqo; auto.
+    + left. apply get_val_blk_in_state in Heqo; auto.
       congruence.
     + right; split; auto.
       intros [v' Hv'].
-      erewrite kv_rel_get_val in Heqo; eauto.
+      erewrite blk_in_state_get_val in Heqo; eauto.
       discriminate.
   - apply kv_rel2_get_val2 in pf; auto.
     rewrite <- Hss' in pf.
     unfold get_val2 in pf.
     destruct get_val eqn:?.
-    + left. apply get_val_kv_rel in Heqo; auto.
+    + left. apply get_val_blk_in_state in Heqo; auto.
       congruence.
     + right; split; auto.
       intros [v' Hv'].
-      erewrite kv_rel_get_val in Heqo; eauto.
+      erewrite blk_in_state_get_val in Heqo; eauto.
       discriminate.
 Qed.
 
@@ -845,7 +845,7 @@ Proof.
   destruct (def_or_undef k s) as [[v Hkv]|Hk].
   - destruct (def_or_undef k s') as [[v' Hkv']|Hk'].
     + simpl; apply eq_ss' in Hkv'.
-      rewrite kv_rel_functional with (v := v) (v' := v') (s := s) (k := k); auto.
+      rewrite blk_in_state_functional with (v := v) (v' := v') (s := s) (k := k); auto.
     + elim Hk'.
       exists v.
       apply eq_ss'; auto.
@@ -856,8 +856,8 @@ Proof.
     + reflexivity.
 Qed.
 
-Lemma kv_rel_imp_kv_rel2 s k v:
-  kv_rel k v s -> kv_rel2 k v s.
+Lemma blk_in_state_imp_kv_rel2 s k v:
+  blk_in_state k v s -> kv_rel2 k v s.
 Proof.
   unfold kv_rel2; tauto.
 Qed.
@@ -876,11 +876,11 @@ Proof.
   intros s s' wf_s wf_s' eq_ss' k.
   unfold get_val2.
   destruct (get_val k s) eqn:Hks.
-  - apply get_val_kv_rel in Hks; auto.
-    apply kv_rel_imp_kv_rel2 in Hks.
+  - apply get_val_blk_in_state in Hks; auto.
+    apply blk_in_state_imp_kv_rel2 in Hks.
     apply eq_ss' in Hks.
     destruct Hks.
-    + apply kv_rel_get_val in H; auto.
+    + apply blk_in_state_get_val in H; auto.
       rewrite H; auto.
     + destruct H.
       apply undef_get_val in H; auto.
@@ -889,7 +889,7 @@ Proof.
     apply undef_imp_kv_rel2 in Hks.
     apply eq_ss' in Hks.
     destruct Hks.
-    + apply kv_rel_get_val in H; auto.
+    + apply blk_in_state_get_val in H; auto.
       rewrite H; auto.
     + destruct H.
       apply undef_get_val in H; auto.
@@ -928,17 +928,17 @@ Proof.
     unfold triv, pand; tauto.
 Qed.
 
-Lemma read_pres_kv k v k' :
+Lemma read_pres_state k v k' :
   poram_lift
-    (kv_rel k v)
-    (kv_rel k v)
+    (blk_in_state k v)
+    (blk_in_state k v)
     triv
     (read k').
 Proof.
   apply state_plift_bind with
-    (Mid := fun s => well_formed s /\ kv_rel k v s)
+    (Mid := fun s => well_formed s /\ blk_in_state k v s)
     (P := triv).
-  - apply read_access_kv.
+  - apply read_access_state.
   - intros [] _ s wf_s.
     apply plift_ret.
     unfold triv, pand; tauto.
@@ -996,7 +996,7 @@ Lemma read_pres_kv2 k v k' :
     (read k').
 Proof.
   intros s [wf_s [Hkv|[Hk Hv]]].
-  - pose proof (read_pres_kv k v k' s (conj wf_s Hkv)).
+  - pose proof (read_pres_state k v k' s (conj wf_s Hkv)).
     eapply dist_has_weakening; [|exact H].
     intros [v' s'].
     unfold pand, kv_rel2; tauto.
@@ -1007,9 +1007,9 @@ Proof.
     unfold pand, kv_rel2; tauto.
 Qed.
 
-Lemma read_val k v :
+Lemma read_state_val k v :
   poram_lift
-    (kv_rel k v)
+    (blk_in_state k v)
     triv
     (eq v)
     (read k).
@@ -1031,7 +1031,7 @@ Lemma read_val2 k v :
     (read k).
 Proof.
   intros s [wf_s [Hkv|[Hk Hv]]].
-  - pose proof (read_val k v s (conj wf_s Hkv)).
+  - pose proof (read_state_val k v s (conj wf_s Hkv)).
     eapply dist_has_weakening; [|exact H].
     intros [v' s']; tauto.
   - pose proof (read_undef_0 k s (conj wf_s Hk)).
@@ -1039,16 +1039,16 @@ Proof.
     intros [v' s']; subst; tauto.
 Qed.
 
-Lemma read_val_kv k v :
+Lemma read_val_state k v :
   poram_lift
-    (kv_rel k v)
-    (kv_rel k v)
+    (blk_in_state k v)
+    (blk_in_state k v)
     (eq v)
     (read k).
 Proof.
   apply poram_split_post_and_pred.
-  - apply read_val.
-  - apply read_pres_kv.
+  - apply read_state_val.
+  - apply read_pres_state.
 Qed.
 
 Lemma read_val_kv2 k v :
@@ -1112,10 +1112,10 @@ Proof.
   apply HPre'Pre; exact Hs.
 Qed.
 
-Lemma write_val_eq k v :
+Lemma write_state_val_eq k v :
   poram_lift
     triv
-    (kv_rel k v)
+    (blk_in_state k v)
     triv
     (write k v).
 Proof.
@@ -1135,7 +1135,7 @@ Lemma write_val_eq2 k v :
     (write k v).
 Proof.
   intros s pfs.
-  pose proof (write_val_eq k v s pfs).
+  pose proof (write_state_val_eq k v s pfs).
   eapply dist_has_weakening; [|exact H].
   intros [[] s'].
   unfold kv_rel2, pand; tauto.
@@ -1144,14 +1144,14 @@ Qed.
 Lemma write_val_neq k v k' v' :
   k <> k' ->
   poram_lift
-    (kv_rel k' v')
-    (kv_rel k' v')
+    (blk_in_state k' v')
+    (blk_in_state k' v')
     triv
     (write k v).
 Proof.
   intro k_neq.
   apply state_plift_bind with
-    (Mid := fun s => well_formed s /\ kv_rel k' v' s)
+    (Mid := fun s => well_formed s /\ blk_in_state k' v' s)
     (P := triv).
   - apply write_access_neq; auto.
   - intros [] _ s pfs.
@@ -1221,11 +1221,11 @@ Proof.
       apply impl_dist; intro k'_neq.
       assert (k <> k') as k_neq by auto.
       destruct (def_or_undef k' s) as [[v' Hk'v']|Hk'].
-      * rewrite kv_rel_get_val with (v := v'); auto.
+      * rewrite blk_in_state_get_val with (v := v'); auto.
         apply eq_ss' in Hk'v'.
         eapply dist_has_weakening; [|apply write_val_neq]; unfold pand; eauto.
         intros [] pfs; simpl.
-        rewrite kv_rel_get_val with (v := v'); tauto.
+        rewrite blk_in_state_get_val with (v := v'); tauto.
       * rewrite undef_get_val; auto.
         apply state_equiv_undef with (s' := s') in Hk'; auto.
         eapply dist_has_weakening; [|apply write_undef]; unfold pand; eauto.
@@ -1375,18 +1375,18 @@ Proof.
       * apply impl_dist.
         intro pf.
         apply eq_ss' in pf.
-        pose proof (read_pres_kv k v k' s' (conj wf_s' pf)).
+        pose proof (read_pres_state k v k' s' (conj wf_s' pf)).
         eapply dist_has_weakening; [|exact H].
         intros []; unfold pand; tauto.
       * destruct (def_or_undef k s').
         -- destruct s0.
-           pose (read_pres_kv k x k' s' (conj wf_s' k0)).
+           pose (read_pres_state k x k' s' (conj wf_s' b)).
            eapply dist_has_weakening; [|exact p].
            intros [] [_ pf] pf'.
            simpl in pf'.
            apply eq_ss'.
            destruct pf.
-           rewrite kv_rel_functional with (s := s0) (k := k) (v := v) (v' := x); auto.
+           rewrite blk_in_state_functional with (s := s0) (k := k) (v := v) (v' := x); auto.
         -- pose (read_undef k k' s' (conj wf_s' u)).
            eapply dist_has_weakening; [|exact p].
            intros [] [_ pf]; simpl; intros pf'.
@@ -1420,7 +1420,7 @@ Proof.
         intros []; unfold pand; tauto.
       * destruct (def_or_undef k s').
         -- destruct s0.
-           pose (read_pres_kv2 k x k' s' (conj wf_s' (or_introl k0))).
+           pose (read_pres_kv2 k x k' s' (conj wf_s' (or_introl b))).
            eapply dist_has_weakening; [|exact p].
            intros [] [_ pf] pf'.
            simpl in pf'.
@@ -1721,7 +1721,7 @@ Lemma get_val_Some_kv_rel2 k v s :
   kv_rel2 k v s.
 Proof.
   intro; left.
-  apply get_val_kv_rel; auto.
+  apply get_val_blk_in_state; auto.
 Qed.
 
 Lemma get_val_None_kv_rel2 k s :
@@ -1731,7 +1731,7 @@ Lemma get_val_None_kv_rel2 k s :
 Proof.
   intro; right; split; auto.
   intros [v Hv].
-  erewrite kv_rel_get_val in H0; eauto.
+  erewrite blk_in_state_get_val in H0; eauto.
   discriminate.
 Qed.
   
@@ -1867,12 +1867,12 @@ Proof.
               simpl. repeat rewrite kv_rel2_get_val2 with (v := v); auto.
            ++ destruct (def_or_undef k' s) as [[v' Hk'v']|Hk'].
               ** apply plift2_split_eq with (z := v').
-                 --- apply kv_rel_imp_kv_rel2 in Hk'v'.
+                 --- apply blk_in_state_imp_kv_rel2 in Hk'v'.
                      pose proof (write_val_neq2 k v k' v' n s (conj wf_s Hk'v')) as pf.
                      eapply dist_has_weakening; [|exact pf].
                      intros [x t] [_ [wf_t Ht]]; simpl.
                      apply kv_rel2_get_val2; auto. 
-                 --- apply kv_rel_imp_kv_rel2 in Hk'v'.
+                 --- apply blk_in_state_imp_kv_rel2 in Hk'v'.
                      apply eq_ss' in Hk'v'.
                      pose proof (write_val_neq2 k v k' v' n s' (conj wf_s' Hk'v')) as pf.
                      eapply dist_has_weakening; [|exact pf].
@@ -1914,7 +1914,7 @@ Proof.
       intros s s' [wf_s [wf_s' eq_ss']].
       destruct (def_or_undef k s).
       * destruct s0 as [v Hv].
-        apply kv_rel_imp_kv_rel2 in Hv.
+        apply blk_in_state_imp_kv_rel2 in Hv.
         pose proof (read_val_kv2 k v s (conj wf_s Hv)).
         eapply dist_has_weakening; [|exact H].
         intros [] pfs.
@@ -1974,9 +1974,9 @@ Proof.
         (kv_rel2 k2 v' s /\ kv_rel2 k2 v' s')).
     + intros s s' [wf_s [wf_s' eq_ss']].
       destruct (def_or_undef k1 s) as [[v1 Hk1v1]|Hk1]. 
-      * apply kv_rel_imp_kv_rel2 in Hk1v1.
+      * apply blk_in_state_imp_kv_rel2 in Hk1v1.
         destruct (def_or_undef k2 s) as [[v2 Hk2v2]|Hk2].
-        -- apply kv_rel_imp_kv_rel2 in Hk2v2.
+        -- apply blk_in_state_imp_kv_rel2 in Hk2v2.
            pose proof (read_val_kv2 k1 v1 s (conj wf_s Hk1v1)).
            pose proof (read_pres_kv2 k2 v2 k1 s (conj wf_s Hk2v2)).
            pose proof (plift_conj _ _ _ H H0).
@@ -2005,7 +2005,7 @@ Proof.
            unfold pand in *; tauto.
       * apply undef_imp_kv_rel2 in Hk1.
         destruct (def_or_undef k2 s) as [[v2 Hk2v2]|Hk2].
-        -- apply kv_rel_imp_kv_rel2 in Hk2v2.
+        -- apply blk_in_state_imp_kv_rel2 in Hk2v2.
            pose proof (read_val_kv2 k1 0 s (conj wf_s Hk1)).
            pose proof (read_pres_kv2 k2 v2 k1 s (conj wf_s Hk2v2)).
            pose proof (plift_conj _ _ _ H H0).
@@ -2080,7 +2080,7 @@ Proof.
         (kv_rel2 k1 v s /\ kv_rel2 k1 v s')).
     + intros s s' [wf_s [wf_s' eq_ss']].
       destruct (def_or_undef k1 s) as [[v1 Hk1v1]|Hk1].
-      * apply kv_rel_imp_kv_rel2 in Hk1v1.
+      * apply blk_in_state_imp_kv_rel2 in Hk1v1.
         pose proof (read_val_kv2 k1 v1 s (conj wf_s Hk1v1)).
         eapply dist_has_weakening; [|exact H].
         intros [? t] [? [wf_t Ht]]; subst.
@@ -2261,17 +2261,17 @@ Proof.
   apply poram2_split_post_and_pred.
   - intros s s' [wf_s [wf_s' eq_ss']].
     apply plift_bind with (P := fun p => well_formed (snd p)).
-    + pose proof (write_val_eq k v s (conj wf_s I)).
+    + pose proof (write_state_val_eq k v s (conj wf_s I)).
       eapply dist_has_weakening; [|exact H].
       intros [[] t].
       unfold triv, pand; tauto.
     + intros [[] t] wf_t.
       simpl in wf_t.
-      pose proof (write_val_eq k v' t (conj wf_t I)).
+      pose proof (write_state_val_eq k v' t (conj wf_t I)).
       eapply dist_has_weakening; [|exact H].
       intros [[] t'].
       intros [_ [wf_t' Hkv't']].
-      pose proof (write_val_eq k v' s' (conj wf_s' I)).
+      pose proof (write_state_val_eq k v' s' (conj wf_s' I)).
       eapply dist_has_weakening; [|exact H0].
       intros [[] t''].
       unfold prod_rel, pand, triv2.

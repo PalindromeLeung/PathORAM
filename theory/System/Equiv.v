@@ -18,12 +18,12 @@ Context `{C : Config}.
 
 Definition state_equiv (s s' : state) : Prop :=
   forall k v,
-    kv_rel k v s <-> kv_rel k v s'.
+    blk_in_state k v s <-> blk_in_state k v s'.
 
 Infix "==s" := state_equiv (at level 20).
 
   Definition kv_rel2 (id : block_id) (v : nat) (st : state) : Prop :=
-    kv_rel id v st \/ (undef id st /\ v = 0).
+    blk_in_state id v st \/ (undef id st /\ v = 0).
 
 Definition state_equiv2 (s s' : state) : Prop :=
   forall k v,
@@ -43,11 +43,6 @@ Proof.
   unfold dist_equiv, All2; simpl.
   repeat constructor; auto.
 Qed.
-
-Definition state_val_equiv {X} (p p' : path * X * state) : Prop :=
-  match p, p' with
-  | (_,x,s), (_,x',s') => x = x' /\ s ==s s'
-  end.
 
 Definition reflexive {X} (P : X -> X -> Prop) :=
   forall x, P x x.

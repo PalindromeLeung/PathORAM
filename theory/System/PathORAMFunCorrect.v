@@ -65,7 +65,7 @@ Section PORAM_PROOF.
   Qed.
 
   Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
-      kv_rel id v s ->
+      blk_in_state id v s ->
       blk_in_stash id v ((get_pre_wb_st id Read (state_position_map s)
                             (state_stash s)
                             (state_oram s)
@@ -232,9 +232,9 @@ Section PORAM_PROOF.
                    rewrite in_app_iff in *; tauto.
   Qed.
 
-  Lemma get_pre_wb_st_Read_kvr_kvr : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
-      kv_rel id v s ->
-      kv_rel id v ((get_pre_wb_st id' Read (state_position_map s)
+  Lemma get_pre_wb_st_Read_state_state : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
+      blk_in_state id v s ->
+      blk_in_state id v ((get_pre_wb_st id' Read (state_position_map s)
                       (state_stash s)
                       (state_oram s)
                       (calc_path id' s) p_new)).
@@ -264,10 +264,10 @@ Section PORAM_PROOF.
         apply in_clear_path; auto.
   Qed.
 
-  Lemma get_pre_wb_st_Write_kvr_kvr : forall (id id' : block_id) (v v': nat) (s : state) (p_new : path),
+  Lemma get_pre_wb_st_Write_state_state : forall (id id' : block_id) (v v': nat) (s : state) (p_new : path),
       id <> id' -> 
-      kv_rel id v s ->
-      kv_rel id v ((get_pre_wb_st id' (Write v') (state_position_map s)
+      blk_in_state id v s ->
+      blk_in_state id v ((get_pre_wb_st id' (Write v') (state_position_map s)
                       (state_stash s)
                       (state_oram s)
                       (calc_path id' s) p_new)).
@@ -1053,11 +1053,11 @@ Qed.
     apply locate_node_in_path with (lvl := lvl); auto.
   Qed.
   
-  Lemma write_back_in_stash_kv_rel : forall s id v p,
+  Lemma write_back_in_stash_state : forall s id v p,
       well_formed s ->
       length p = LOP ->
       blk_in_stash id v s ->
-      kv_rel id v (write_back_r O p (length p) s).
+      blk_in_state id v (write_back_r O p (length p) s).
   Proof.
     intros.
     destruct (write_back_in_stash_kv_rel_aux (length p) s p id v 0 H); auto; try lia.
@@ -1070,15 +1070,15 @@ Qed.
       eauto.
   Qed.
 
-  Lemma get_post_wb_st_stsh_kvr : forall (id : block_id) (v : nat) (s : state) (p : path),
+  Lemma get_post_wb_st_stsh_state : forall (id : block_id) (v : nat) (s : state) (p : path),
       well_formed s ->
       length p = LOP ->
       blk_in_stash id v s -> 
-      kv_rel id v (get_post_wb_st s p).
+      blk_in_state id v (get_post_wb_st s p).
   Proof.
     intros.
     unfold get_post_wb_st.
-    apply write_back_in_stash_kv_rel; simpl; auto. 
+    apply write_back_in_stash_state; simpl; auto. 
   Qed.
 
   Definition empty_on_path o p :=
@@ -1373,16 +1373,16 @@ Qed.
     apply lookup_tree_lookup_path_oram in Heqo0; auto.
   Qed.
 
-  Lemma get_post_wb_st_kvr_kvr : forall (id : block_id) (v : nat) (s : state) (p : path),
+  Lemma get_post_wb_st_state_state : forall (id : block_id) (v : nat) (s : state) (p : path),
       well_formed s ->
       length p = LOP ->
       empty_on_path (state_oram s) p ->
-      kv_rel id v s -> 
-      kv_rel id v (get_post_wb_st s p).
+      blk_in_state id v s -> 
+      blk_in_state id v (get_post_wb_st s p).
   Proof.
     intros.
     destruct H2.
-    - apply get_post_wb_st_stsh_kvr; auto.
+    - apply get_post_wb_st_stsh_state; auto.
     - right.
       unfold blk_in_path in *.
       unfold get_post_wb_st; simpl.
@@ -2126,14 +2126,14 @@ Qed.
     well_formed s ->
     length p = LOP ->
     length p_new = LOP ->
-    kv_rel id v
+    blk_in_state id v
       (get_post_wb_st
          (get_pre_wb_st id (Write v)
             (state_position_map s) (state_stash s) (state_oram s)
             (calc_path id s) p_new) p).
   Proof.
     intros.
-    apply get_post_wb_st_stsh_kvr; auto.
+    apply get_post_wb_st_stsh_state; auto.
     - apply get_pre_wb_st_wf; auto.
       destruct s; auto.
     - apply get_pre_wb_st_Write_stsh.
@@ -2144,15 +2144,15 @@ Qed.
       well_formed s ->
       length p = LOP ->
       length p_new = LOP -> 
-      kv_rel id v s  -> 
-      kv_rel id v (get_post_wb_st
+      blk_in_state id v s  -> 
+      blk_in_state id v (get_post_wb_st
                      (get_pre_wb_st id Read (state_position_map s)
                         (state_stash s)
                         (state_oram s)
                         (calc_path id s) p_new) p). 
   Proof.
     intros.
-    apply get_post_wb_st_stsh_kvr; auto.
+    apply get_post_wb_st_stsh_state; auto.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply stash_path_combined_rel_Rd. auto.
   Qed.
@@ -2168,48 +2168,47 @@ Qed.
       + destruct b, lvl; simpl; auto.
   Qed.
 
-  Lemma read_access_kvr_kvr :
+  Lemma read_access_state_state :
     forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
       well_formed s ->
       length p_new = LOP -> 
-      kv_rel id v s  -> 
-      kv_rel id v (get_post_wb_st
+      blk_in_state id v s  -> 
+      blk_in_state id v (get_post_wb_st
                      (get_pre_wb_st id' Read (state_position_map s)
                         (state_stash s)
                         (state_oram s)
                         (calc_path id' s) p_new) (calc_path id' s)). 
   Proof.
     intros.
-    apply get_post_wb_st_kvr_kvr; auto.
+    apply get_post_wb_st_state_state; auto.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply H.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
       apply locate_node_in_tr_clear_path.
-    - apply get_pre_wb_st_Read_kvr_kvr; auto.
+    - apply get_pre_wb_st_Read_state_state; auto.
   Qed.
 
-  
-  Lemma write_access_kvr_kvr :
+  Lemma write_access_state_state :
     forall (id id' : block_id) (v v': nat) (s : state) (p_new : path),
       id <> id' -> 
       well_formed s ->
       length p_new = LOP -> 
-      kv_rel id v s  -> 
-      kv_rel id v (get_post_wb_st
+      blk_in_state id v s  -> 
+      blk_in_state id v (get_post_wb_st
                      (get_pre_wb_st id' (Write v') (state_position_map s)
                         (state_stash s)
                         (state_oram s)
                         (calc_path id' s) p_new) (calc_path id' s)). 
   Proof.
     intros.
-    apply get_post_wb_st_kvr_kvr; auto.
+    apply get_post_wb_st_state_state; auto.
     - apply get_pre_wb_st_wf; auto. destruct s; auto.
     - apply H0.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
       apply locate_node_in_tr_clear_path.
-    - apply get_pre_wb_st_Write_kvr_kvr; auto.
+    - apply get_pre_wb_st_Write_state_state; auto.
   Qed.
 
   Lemma zero_sum_stsh_tr_Rd_rev_undef :
@@ -2281,7 +2280,7 @@ Qed.
 
   Lemma zero_sum_stsh_tr_Rd (id : block_id) (v : nat) (m : position_map) (h : stash) (o : oram) :
     well_formed (State m h o) ->
-    kv_rel id v (State m h o) ->
+    blk_in_state id v (State m h o) ->
     get_ret_data id h (calc_path id (State m h o)) o = v.
   Proof.
     simpl.
@@ -2395,9 +2394,9 @@ Qed.
   Qed.
 
   Lemma read_access_wf (id : block_id)(v : nat) :
-    state_plift (fun st => well_formed st /\ kv_rel id v st) (fun st => well_formed st /\ kv_rel id v st) (has_value v) (read_access id).
+    state_plift (fun st => well_formed st /\ blk_in_state id v st) (fun st => well_formed st /\ blk_in_state id v st) (has_value v) (read_access id).
   Proof.
-    remember (fun st : state => well_formed st /\ kv_rel id v st) as Inv. 
+    remember (fun st : state => well_formed st /\ blk_in_state id v st) as Inv. 
     apply (state_plift_bind Inv Inv).
     - apply state_plift_get.
     - intros.
@@ -2436,7 +2435,7 @@ Qed.
   Qed.
 
   Lemma write_access_wf (id : block_id) (v : nat) :
-    state_plift (fun st => well_formed st) (fun st => well_formed st /\ kv_rel id v st) (fun _ => True) (write_access id v).
+    state_plift (fun st => well_formed st) (fun st => well_formed st /\ blk_in_state id v st) (fun _ => True) (write_access id v).
   Proof.
     remember (fun st : state => well_formed st) as Inv.
     apply (state_plift_bind Inv Inv).
@@ -2447,7 +2446,7 @@ Qed.
       + apply state_plift_liftT.
         apply coin_flips_length.
       + intros. simpl.
-        apply (state_plift_bind (fun st => well_formed st /\ kv_rel id v st) (fun _ => True)).
+        apply (state_plift_bind (fun st => well_formed st /\ blk_in_state id v st) (fun _ => True)).
         * apply state_plift_put; simpl; split.
           apply get_post_wb_st_wf; auto.
           -- apply get_pre_wb_st_wf; auto. destruct x; exact H.
@@ -2462,24 +2461,24 @@ Qed.
       (write_and_read_access id v).
   Proof.
     apply (state_plift_bind
-             (fun st => well_formed st /\ kv_rel id v st)
+             (fun st => well_formed st /\ blk_in_state id v st)
              (fun _ => True)).
     - eapply write_access_wf.
     - intros _ _.
-      apply (state_plift_weaken (fun st : state => well_formed st /\ kv_rel id v st)).
+      apply (state_plift_weaken (fun st : state => well_formed st /\ blk_in_state id v st)).
       + exact dist_has_weakening.
       + tauto.
       + apply read_access_wf.
   Qed.
 
-  Lemma read_access_kv id v id' :
+  Lemma read_access_state id v id' :
     state_plift
-      (fun st => well_formed st /\ kv_rel id v st)
-      (fun st => well_formed st /\ kv_rel id v st)
+      (fun st => well_formed st /\ blk_in_state id v st)
+      (fun st => well_formed st /\ blk_in_state id v st)
       (fun _ => True)
       (read_access id').
   Proof.
-    remember (fun st : state => well_formed st /\ kv_rel id v st) as Inv. 
+    remember (fun st : state => well_formed st /\ blk_in_state id v st) as Inv. 
     apply (state_plift_bind Inv Inv).
     - apply state_plift_get.
     - intros.
@@ -2492,7 +2491,7 @@ Qed.
           rewrite HeqInv. split.
           -- apply get_post_wb_st_wf; [|apply H].
              apply get_pre_wb_st_wf; auto. destruct x. exact H.
-          -- apply read_access_kvr_kvr; auto.
+          -- apply read_access_state_state; auto.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
 
@@ -2599,12 +2598,12 @@ Qed.
       well_formed s ->
       length p = LOP ->
       blk_in_stash i v s ->
-      kv_rel i v
+      blk_in_state i v
         (get_post_wb_st s p).
   Proof.
     intros.
     unfold get_post_wb_st.
-    apply get_post_wb_st_stsh_kvr; auto.
+    apply get_post_wb_st_stsh_state; auto.
   Qed.
   
   Lemma blk_in_stash_neq : 
@@ -2614,7 +2613,7 @@ Qed.
       length p_new = LOP ->
       blk_in_stash i v' s -> 
       i <> k -> 
-      kv_rel i v'
+      blk_in_state i v'
         (get_post_wb_st
            (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
               (state_oram s) (calc_path k s) p_new) p).
@@ -2627,8 +2626,8 @@ Qed.
   
   Lemma write_access_neq : forall i k v v',
       i <> k -> 
-      state_plift (fun s : state => well_formed s /\ kv_rel i v' s)
-        (fun st : state => well_formed st /\ kv_rel i v' st)
+      state_plift (fun s : state => well_formed s /\ blk_in_state i v' s)
+        (fun st : state => well_formed st /\ blk_in_state i v' st)
         (fun _ =>  True)
         (write_access k v).
   Proof.
@@ -2642,13 +2641,13 @@ Qed.
       + apply state_plift_liftT.
         apply coin_flips_length.
       + intros p p_len.
-        apply (state_plift_bind (fun st : state => well_formed st /\ kv_rel i v' st) (fun _ => True)).
+        apply (state_plift_bind (fun st : state => well_formed st /\ blk_in_state i v' st) (fun _ => True)).
         * apply state_plift_put.
           destruct H0; split.
           -- apply get_post_wb_st_wf; [|apply H0].
              apply get_pre_wb_st_wf; auto.
              destruct x; simpl in *; tauto.
-          -- apply write_access_kvr_kvr; auto.
+          -- apply write_access_state_state; auto.
         * intros. apply state_plift_ret; auto.
   Qed.
   
@@ -2656,8 +2655,8 @@ Qed.
     forall (i k : block_id) (v v' : nat),
       i <> k -> 
       state_plift
-        (fun s => well_formed s /\ kv_rel i v' s)
-        (fun s => well_formed s /\ kv_rel i v' s)
+        (fun s => well_formed s /\ blk_in_state i v' s)
+        (fun s => well_formed s /\ blk_in_state i v' s)
         (has_value v')
         (_ <- write_access k v ;; read_access i).
   Proof.
