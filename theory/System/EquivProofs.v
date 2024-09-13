@@ -2098,3 +2098,59 @@ Proof.
 Qed.
 
 End EquivProofs.
+
+Require Import Lia RAM.
+
+Module Type ConfigParams.
+  Parameter LOP : nat.
+
+End ConfigParams.
+
+Module Dist_State <: StateMonad.
+
+  Definition state S X := dist (X * S).
+  Definition State S X := S -> state S X.
+
+  Definition ret {S X} := @StateT_ret S dist _ X.
+  Definition bind {S X} := @StateT_bind S dist _ X.
+
+  Definition get : forall {S}, State S S := fun S => get.
+  Definition put : forall {S}, S -> State S unit := fun S => put.
+
+End Dist_State.
+
+(* Path ORAM is a RAM (functional correctness specification, WIP) *)
+Module PathORAM (C : ConfigParams) <: RAM (Dist_State).
+
+  Global Instance PoramConfig : Config := {LOP := C.LOP}.
+
+  Definition K := block_id.
+  Definition V := nat.
+  Definition S : Type := state.
+
+  Module M := Dist_State.
+  Definition bind {X Y} := @M.bind S X Y.
+  Definition ret {X} := @M.ret S X.
+  Definition get := @M.get S.
+  Definition put := @M.put S.
+
+  Definition well_formed s := 
+    well_formed s.
+
+  Definition read : K -> M.State S V := read.
+
+  Definition write : K -> V -> M.State S unit := write.
+
+  Definition equiv : forall {X}, M.State S X -> M.State S X -> Prop :=
+    fun X => poram_equiv eq.
+
+  Lemma read_read : forall (k : K),
+    equiv
+      (bind (read k) (fun v => ret v))
+      (bind (read k) (fun _ => read k)).
+  Proof.
+    exact read_read.
+  Qed.
+
+End PathORAM.
+

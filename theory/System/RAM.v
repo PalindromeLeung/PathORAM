@@ -20,9 +20,6 @@ Module Type RAM (M : StateMonad).
   Parameter K : Type.
   Parameter V : Type.
 
-  (* Wrapped value type, specific to implementation *)
-  Parameter Vw : Type -> Type.
-
   (* Inner implementation of RAM (TODO move or something) *)
   Parameter S : Type.
 
@@ -30,22 +27,18 @@ Module Type RAM (M : StateMonad).
   Parameter well_formed : S -> Prop.
 
   (* Read and write operations *)
-  Parameter read : K -> M.State S (Vw V).
-  Parameter write : K -> V -> M.State S (Vw V).
+  Parameter read : K -> M.State S V.
+  Parameter write : K -> V -> M.State S unit.
 
-  (* Get payload *)
-  Parameter get_payload : M.state S (Vw V) -> option V.
-
-  (* Wrap value *)
-  Parameter wrap : V -> Vw V.
+  Parameter equiv : forall {X}, M.State S X -> M.State S X -> Prop.
 
   (* --- RAM laws (TODO maybe add uniform syntax here, and maybe change if not quite right) --- *)
-  Axiom read_read :
-    forall (k : K) (s : S), 
-      well_formed s ->
-      get_payload ((M.bind (read k) (fun _ => read k)) s) =
-      get_payload ((M.bind (read k) (fun v => M.ret v)) s). 
+  Axiom read_read : forall (k : K),
+    equiv
+      (M.bind (read k) (fun v => M.ret v))
+      (M.bind (read k) (fun _ => read k)).
 
+(*
   Axiom read_write :
     forall (k : K) (v : V) (s : S),
       well_formed s ->
@@ -70,4 +63,6 @@ write(key1,value1) ; write(key2,value2) == write(key2,value2) ; write(key1,value
   *)
 
   (* TODO how does it relate to lens laws? *)
+*)
+
 End RAM.

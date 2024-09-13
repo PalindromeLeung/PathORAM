@@ -1,6 +1,9 @@
 Require Import List RAM.
 Import ListNotations.
 
+(* TODO: uncomment *)
+
+(*
 Section StateMonad.
 
 Definition State S X := S -> X * S.
@@ -327,3 +330,4 @@ Module KV_RAM <: RAM (KV_State).
   Admitted.
 
 End KV_RAM.
+*)
