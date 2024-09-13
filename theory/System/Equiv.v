@@ -16,18 +16,12 @@ Section Equiv.
 
 Context `{C : Config}.
 
+  Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
+    blk_in_state id v st \/ (undef id st /\ v = 0).
+
 Definition state_equiv (s s' : state) : Prop :=
   forall k v,
-    kv_rel k v s <-> kv_rel k v s'.
-
-Infix "==s" := state_equiv (at level 20).
-
-  Definition kv_rel2 (id : block_id) (v : nat) (st : state) : Prop :=
-    kv_rel id v st \/ (undef id st /\ v = 0).
-
-Definition state_equiv2 (s s' : state) : Prop :=
-  forall k v,
-    kv_rel2 k v s <-> kv_rel2 k v s'. 
+    kv_rel k v s <-> kv_rel k v s'. 
     
 Definition dist_equiv {X} (eqv : X -> X -> Prop)
   (d d' : dist X) : Prop :=
@@ -43,11 +37,6 @@ Proof.
   unfold dist_equiv, All2; simpl.
   repeat constructor; auto.
 Qed.
-
-Definition state_val_equiv {X} (p p' : path * X * state) : Prop :=
-  match p, p' with
-  | (_,x,s), (_,x',s') => x = x' /\ s ==s s'
-  end.
 
 Definition reflexive {X} (P : X -> X -> Prop) :=
   forall x, P x x.
@@ -65,25 +54,5 @@ Definition poram_equiv {X} (eqv : X -> X -> Prop)
     well_formed s ->
     well_formed s' ->
     dist_equiv (prod_rel eqv state_equiv) (m s) (m' s').
-
-Definition poram_equiv2 {X} (eqv : X -> X -> Prop)
-  (m m' : Poram X) : Prop :=
-  forall s s' : state,
-    state_equiv2 s s' ->
-    well_formed s ->
-    well_formed s' ->
-    dist_equiv (prod_rel eqv state_equiv2) (m s) (m' s').
-
-(* a lawful action should yield extensionally equivalent
-   output states on extensionally equivalent input states *)
-Definition lawful {X} (eqv : X -> X -> Prop) (m : Poram X) : Prop :=
-  poram_equiv eqv m m.
-
-Lemma lawful_ret {X} P (x : X) : reflexive P -> lawful P (mreturn x).
-Proof.
-  intros P_ref s s' Hss' wf_s wf_s'.
-  apply dist_equiv_ret.
-  split; auto.
-Qed.
 
 End Equiv.
