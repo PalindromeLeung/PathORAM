@@ -663,24 +663,24 @@ Proof.
       * apply Hk2; exists v; auto.
 Defined.
 
-Definition get_val k s : option nat :=
+Definition get_state_val k s : option nat :=
   match def_or_undef k s with
   | inleft p => Some (projT1 p)
   | inright _ => None
   end.
 
-Definition get_val2 k s : nat :=
-  match get_val k s with
+Definition get_val k s : nat :=
+  match get_state_val k s with
   | Some v => v
   | None => 0
   end.
 
-Lemma blk_in_state_get_val : forall k v s,
+Lemma blk_in_state_get_state_val : forall k v s,
   well_formed s ->
-  blk_in_state k v s -> get_val k s = Some v.
+  blk_in_state k v s -> get_state_val k s = Some v.
 Proof.
   intros k v s wf_s Hkv.
-  unfold get_val.
+  unfold get_state_val.
   destruct (def_or_undef k s) as [[v' Hkv']|Hk].
   - simpl.
     rewrite blk_in_state_functional with (s := s) (k := k) (v := v) (v' := v'); auto.
@@ -688,70 +688,67 @@ Proof.
     exists v; auto.
 Qed.
 
-Lemma get_val_blk_in_state : forall k v s,
+Lemma get_state_val_blk_in_state : forall k v s,
   well_formed s ->
-  get_val k s = Some v -> blk_in_state k v s.
+  get_state_val k s = Some v -> blk_in_state k v s.
 Proof.
   intros k v s wf_s gv_k.
-  unfold get_val in gv_k.
+  unfold get_state_val in gv_k.
   destruct (def_or_undef k s) as [[v' Hv']|]; [|discriminate].
   inversion gv_k; congruence.
 Qed.
 
-Lemma kv_rel_get_val2 : forall k v s,
+Lemma kv_rel_get_val : forall k v s,
   well_formed s ->
-  kv_rel k v s -> get_val2 k s = v.
+  kv_rel k v s -> get_val k s = v.
 Proof.
   intros.
-  unfold get_val2.
+  unfold get_val.
   destruct H0.
-  - apply blk_in_state_get_val in H0; auto.
+  - apply blk_in_state_get_state_val in H0; auto.
     rewrite H0; auto.
   - destruct H0; subst.
-    destruct get_val eqn:?; auto.
+    destruct get_state_val eqn:?; auto.
     elim H0; exists n.
-    apply get_val_blk_in_state; auto.
+    apply get_state_val_blk_in_state; auto.
 Qed.
 
-Lemma undef_get_val : forall k s,
+Lemma undef_get_state_val : forall k s,
   well_formed s ->
-  undef k s -> get_val k s = None.
+  undef k s -> get_state_val k s = None.
 Proof.
   intros k s wf_s Hks.
-  unfold get_val.
+  unfold get_state_val.
   destruct (def_or_undef k s) as [[v Hkv]|Hk]; auto.
   elim Hks.
   exists v; auto.
 Qed.
 
-Lemma get_val_undef : forall k s,
+Lemma get_state_val_undef : forall k s,
   well_formed s ->
-  get_val k s = None -> 
+  get_state_val k s = None -> 
   undef k s.
 Proof.
   intros.
-  unfold get_val in H0.
+  unfold get_state_val in H0.
   destruct (def_or_undef k s) as [[v Hkv]|Hk]; auto.
   discriminate.
 Qed.
 
-Lemma get_val2_kv_rel : forall k v s,
+Lemma get_val_kv_rel : forall k v s,
     well_formed s -> 
-    get_val2 k s = v -> kv_rel k v s.
+    get_val k s = v -> kv_rel k v s.
 Proof.
   intros k v s wf_s gv_k.
-  unfold get_val2 in gv_k.
-  destruct (get_val k s) eqn:?; subst.
-  - left. apply get_val_blk_in_state; auto.
+  unfold get_val in gv_k.
+  destruct (get_state_val k s) eqn:?; subst.
+  - left. apply get_state_val_blk_in_state; auto.
   - right; split; auto.
-    apply get_val_undef; auto.
+    apply get_state_val_undef; auto.
 Qed.
 
 Definition get_val_equiv s s' : Prop :=
   forall k, get_val k s = get_val k s'.
-
-Definition get_val_equiv2 s s' : Prop :=
-  forall k, get_val2 k s = get_val2 k s'.
 
 Lemma poram_lift_change_post {X Y}
   (Pre Post Post' : state -> state -> Prop)
@@ -769,32 +766,32 @@ Proof.
   split; auto.
 Qed.
 
-Lemma get_val_equiv2_state_equiv2 : forall s s',
+Lemma get_val_equiv_state_equiv : forall s s',
   well_formed s -> well_formed s' ->
-  get_val_equiv2 s s' ->
+  get_val_equiv s s' ->
   state_equiv s s'.
 Proof.
   intros s s' wf_s wf_s' Hss' k v.
   split; intro pf.
-  - apply kv_rel_get_val2 in pf; auto.
+  - apply kv_rel_get_val in pf; auto.
     rewrite Hss' in pf.
-    unfold get_val2 in pf.
-    destruct get_val eqn:?.
-    + left. apply get_val_blk_in_state in Heqo; auto.
+    unfold get_val in pf.
+    destruct get_state_val eqn:?.
+    + left. apply get_state_val_blk_in_state in Heqo; auto.
       congruence.
     + right; split; auto.
       intros [v' Hv'].
-      erewrite blk_in_state_get_val in Heqo; eauto.
+      erewrite blk_in_state_get_state_val in Heqo; eauto.
       discriminate.
-  - apply kv_rel_get_val2 in pf; auto.
+  - apply kv_rel_get_val in pf; auto.
     rewrite <- Hss' in pf.
-    unfold get_val2 in pf.
-    destruct get_val eqn:?.
-    + left. apply get_val_blk_in_state in Heqo; auto.
+    unfold get_val in pf.
+    destruct get_state_val eqn:?.
+    + left. apply get_state_val_blk_in_state in Heqo; auto.
       congruence.
     + right; split; auto.
       intros [v' Hv'].
-      erewrite blk_in_state_get_val in Heqo; eauto.
+      erewrite blk_in_state_get_state_val in Heqo; eauto.
       discriminate.
 Qed.
 
@@ -810,31 +807,31 @@ Proof.
   unfold kv_rel; tauto.
 Qed.
 
-Lemma state_equiv_get_val_equiv2 : forall s s',
+Lemma state_equiv_get_val_equiv : forall s s',
   well_formed s -> well_formed s' ->
   state_equiv s s' ->
-  get_val_equiv2 s s'.
+  get_val_equiv s s'.
 Proof.
   intros s s' wf_s wf_s' eq_ss' k.
-  unfold get_val2.
-  destruct (get_val k s) eqn:Hks.
-  - apply get_val_blk_in_state in Hks; auto.
+  unfold get_val.
+  destruct (get_state_val k s) eqn:Hks.
+  - apply get_state_val_blk_in_state in Hks; auto.
     apply blk_in_state_imp_kv_rel in Hks.
     apply eq_ss' in Hks.
     destruct Hks.
-    + apply blk_in_state_get_val in H; auto.
+    + apply blk_in_state_get_state_val in H; auto.
       rewrite H; auto.
     + destruct H.
-      apply undef_get_val in H; auto.
+      apply undef_get_state_val in H; auto.
       rewrite H; auto.
-  - apply get_val_undef in Hks; auto.
+  - apply get_state_val_undef in Hks; auto.
     apply undef_imp_kv_rel in Hks.
     apply eq_ss' in Hks.
     destruct Hks.
-    + apply blk_in_state_get_val in H; auto.
+    + apply blk_in_state_get_state_val in H; auto.
       rewrite H; auto.
     + destruct H.
-      apply undef_get_val in H; auto.
+      apply undef_get_state_val in H; auto.
       rewrite H; auto.
 Qed.
 
@@ -1123,23 +1120,17 @@ Qed.
 Definition get_val_equiv_single_exception k (s s' : state) : Prop :=
   forall k', k' <> k -> get_val k' s = get_val k' s'.
 
-Definition get_val_equiv2_single_exception k (s s' : state) : Prop :=
-  forall k', k' <> k -> get_val2 k' s = get_val2 k' s'.
-
 Definition get_val_equiv_double_exception k1 k2 (s s' : state) : Prop :=
   forall k', k' <> k1 -> k' <> k2 -> get_val k' s = get_val k' s'.
 
-Definition get_val_equiv2_double_exception k1 k2 (s s' : state) : Prop :=
-  forall k', k' <> k1 -> k' <> k2 -> get_val2 k' s = get_val2 k' s'.
-
 Definition near_stable {X} (m : Poram X) k : Prop :=
-  forall s, well_formed s -> poram_lift (state_equiv s) (get_val_equiv2_single_exception k s) triv m.
+  forall s, well_formed s -> poram_lift (state_equiv s) (get_val_equiv_single_exception k s) triv m.
 
 Lemma write_near_stable k v : near_stable (write k v) k.
 Proof.
   intros s wf_s s' [wf_s' eq_ss'].
   apply dist_has_weakening with
-    (P := pand (fun p => well_formed (snd p)) (fun p => get_val_equiv2_single_exception k s (snd p))).
+    (P := pand (fun p => well_formed (snd p)) (fun p => get_val_equiv_single_exception k s (snd p))).
   - intros []; unfold pand, triv; tauto.
   - apply plift_conj.
     + eapply dist_has_weakening; [| apply write_wf].
@@ -1149,22 +1140,22 @@ Proof.
       apply impl_dist; intro k'_neq.
       assert (k <> k') as k_neq by auto.
       destruct (def_or_undef k' s) as [[v' Hk'v']|Hk'].
-      * rewrite kv_rel_get_val2 with (v := v'); [|auto|left; auto].
+      * rewrite kv_rel_get_val with (v := v'); [|auto|left; auto].
         apply or_introl with (B := undef k' s /\ v' = 0) in Hk'v' .
         apply eq_ss' in Hk'v'.
         pose proof (write_val_neq k v k' v' k_neq s' (conj wf_s' Hk'v')).
         eapply dist_has_weakening; [|exact H].
         intros [[] t] pfs.
         unfold pand in *.
-        rewrite kv_rel_get_val2 with (v := v'); tauto.
-      * rewrite kv_rel_get_val2 with (v := 0); [|auto|right; auto].
+        rewrite kv_rel_get_val with (v := v'); tauto.
+      * rewrite kv_rel_get_val with (v := 0); [|auto|right; auto].
         assert (kv_rel k' 0 s) by (right; tauto).
         apply eq_ss' in H.
         pose proof (write_val_neq k v k' 0 k_neq s' (conj wf_s' H)).
         eapply dist_has_weakening; [|exact H0].
         intros [[] t] pfs.
         unfold pand in *.
-        rewrite kv_rel_get_val2 with (v := 0); tauto.
+        rewrite kv_rel_get_val with (v := 0); tauto.
 Qed.
 
 Lemma state_equiv_sym : forall s s',
@@ -1514,23 +1505,23 @@ Proof.
   exact I.
 Qed.
 
-Lemma get_val_Some_kv_rel k v s :
+Lemma get_state_val_Some_kv_rel k v s :
   well_formed s ->
-  get_val k s = Some v ->
+  get_state_val k s = Some v ->
   kv_rel k v s.
 Proof.
   intro; left.
-  apply get_val_blk_in_state; auto.
+  apply get_state_val_blk_in_state; auto.
 Qed.
 
-Lemma get_val_None_kv_rel k s :
+Lemma get_state_val_None_kv_rel k s :
   well_formed s ->
-  get_val k s = None ->
+  get_state_val k s = None ->
   kv_rel k 0 s.
 Proof.
   intro; right; split; auto.
   intros [v Hv].
-  erewrite blk_in_state_get_val in H0; eauto.
+  erewrite blk_in_state_get_state_val in H0; eauto.
   discriminate.
 Qed.
   
@@ -1557,8 +1548,8 @@ Proof.
       unfold prod_rel, triv2; simpl; tauto.
   - intros s s' [wf_s [wf_s' eq_ss']].
     apply plift_ret.
-    destruct (get_val k s) as [v|] eqn:Hks.
-    + apply get_val_Some_kv_rel in Hks; auto.
+    destruct (get_state_val k s) as [v|] eqn:Hks.
+    + apply get_state_val_Some_kv_rel in Hks; auto.
       apply plift_bind with
         (P := fun p => fst p = v /\ well_formed (snd p) /\ state_equiv s (snd p)); auto.
       * pose proof (read_stable k s s' (conj wf_s' eq_ss')).
@@ -1577,13 +1568,13 @@ Proof.
         intros [[] t'] [[_ [wf_t' Hst']] [_ [_ Hkv't']]].
         split; [exact I|].
         simpl; do 2 (split; try tauto).
-        apply get_val_equiv2_state_equiv2; auto.
+        apply get_val_equiv_state_equiv; auto.
         intro k'.
         destruct (nat_eq_dec k' k).
         -- subst.
-           repeat rewrite kv_rel_get_val2 with (v := v'); auto.
+           repeat rewrite kv_rel_get_val with (v := v'); auto.
         -- rewrite <- Hst'; auto.
-    + apply get_val_None_kv_rel in Hks; auto.
+    + apply get_state_val_None_kv_rel in Hks; auto.
       apply plift_bind with
         (P := fun p => fst p = 0 /\ well_formed (snd p) /\ state_equiv s (snd p)); auto.
       * pose proof (read_stable k s s' (conj wf_s' eq_ss')).
@@ -1603,11 +1594,11 @@ Proof.
         intros [[] t'] [[_ [wf_t' Hst']] [_ [_ Hkv't']]].
         split; [exact I|].
         simpl; do 2 (split; try tauto).
-        apply get_val_equiv2_state_equiv2; auto.
+        apply get_val_equiv_state_equiv; auto.
         intro k'.
         destruct (nat_eq_dec k' k).
         -- subst.
-           repeat rewrite kv_rel_get_val2 with (v := 0); auto.
+           repeat rewrite kv_rel_get_val with (v := 0); auto.
         -- rewrite <- Hst'; auto.
 Qed.
 
@@ -1641,8 +1632,8 @@ Proof.
   - apply poram_lift2_bind with
       (Mid := state_equiv) (P := triv2).
     + clear s s' H H0 H1.
-      apply poram_lift_change_post with (Post := get_val_equiv2).
-      * apply get_val_equiv2_state_equiv2.
+      apply poram_lift_change_post with (Post := get_val_equiv).
+      * apply get_val_equiv_state_equiv.
       * apply poram_lift2_forall; [exact 0|].
         intros k' s s' [wf_s [wf_s' eq_ss']].
         apply plift2_and; [|apply plift2_and]; [ | | apply plift2_and] .
@@ -1663,32 +1654,32 @@ Proof.
               pose proof (write_val_eq k' v s' (conj wf_s' I)) as pf'.
               eapply dist_has_weakening; [|exact pf'].
               intros [y t'] [_ [wf_t' Ht']].
-              simpl. repeat rewrite kv_rel_get_val2 with (v := v); auto.
+              simpl. repeat rewrite kv_rel_get_val with (v := v); auto.
            ++ destruct (def_or_undef k' s) as [[v' Hk'v']|Hk'].
               ** apply plift2_split_eq with (z := v').
                  --- apply blk_in_state_imp_kv_rel in Hk'v'.
                      pose proof (write_val_neq k v k' v' n s (conj wf_s Hk'v')) as pf.
                      eapply dist_has_weakening; [|exact pf].
                      intros [x t] [_ [wf_t Ht]]; simpl.
-                     apply kv_rel_get_val2; auto.
+                     apply kv_rel_get_val; auto.
                  --- apply blk_in_state_imp_kv_rel in Hk'v'.
                      apply eq_ss' in Hk'v'.
                      pose proof (write_val_neq k v k' v' n s' (conj wf_s' Hk'v')) as pf.
                      eapply dist_has_weakening; [|exact pf].
                      intros [x t] [_ [wf_t Ht]]; simpl.
-                     apply kv_rel_get_val2; auto.
+                     apply kv_rel_get_val; auto.
               ** apply plift2_split_eq with (z := 0).
                  --- pose proof (write_undef k k' v n s (conj wf_s Hk')) as pf.
                      eapply dist_has_weakening; [|exact pf].
                      intros [x t] [_ [wf_t Ht]]; simpl.
-                     unfold get_val2.
-                     rewrite undef_get_val; auto.
+                     unfold get_val.
+                     rewrite undef_get_state_val; auto.
                  --- apply undef_imp_kv_rel in Hk'.
                      apply eq_ss' in Hk'.
                      pose proof (write_val_neq k v k' 0 n s' (conj wf_s' Hk')) as pf.
                      eapply dist_has_weakening; [|exact pf].
                      intros [x t] [_ [wf_t Ht]]; simpl.
-                     rewrite kv_rel_get_val2 with (v := 0); auto.
+                     rewrite kv_rel_get_val with (v := 0); auto.
     + intros _ _ _.
       apply poram_lift2_ret_l.
       intro s''.
@@ -1917,7 +1908,7 @@ Proof.
   - apply poram_lift2_bind with
       (Mid := fun s s' =>
         kv_rel k2 v2 s' /\
-        get_val_equiv2_single_exception k2 s s'
+        get_val_equiv_single_exception k2 s s'
       )
       (P := triv2).
     + intros s s' [wf_s [wf_s' eq_ss']].
@@ -1934,8 +1925,8 @@ Proof.
       intros k k_neq; simpl.
       rewrite <- Hs't'; auto.
       apply state_equiv_sym in Hst.
-      rewrite state_equiv_get_val_equiv2 with (s' := s); auto.
-      apply state_equiv_get_val_equiv2; auto.
+      rewrite state_equiv_get_val_equiv with (s' := s); auto.
+      apply state_equiv_get_val_equiv; auto.
     + intros v _ _.
       apply poram_lift2_bind with
         (Mid := state_equiv)
@@ -1952,17 +1943,17 @@ Proof.
         unfold triv2; simpl.
         do 3 (split; try tauto).
         simpl.
-        apply get_val_equiv2_state_equiv2; auto.
+        apply get_val_equiv_state_equiv; auto.
         intro k.
         destruct (nat_eq_dec k k2).
         -- subst.
-           rewrite kv_rel_get_val2 with (v := v2); auto.
+           rewrite kv_rel_get_val with (v := v2); auto.
            apply state_equiv_sym in Hs't'.
-           rewrite state_equiv_get_val_equiv2 with (s' := s'); auto.
-           rewrite kv_rel_get_val2 with (v := v2); auto.
+           rewrite state_equiv_get_val_equiv with (s' := s'); auto.
+           rewrite kv_rel_get_val with (v := v2); auto.
         -- rewrite <- Hst; auto.
            rewrite Hss'; auto.
-           rewrite state_equiv_get_val_equiv2 with (s' := t'); auto.
+           rewrite state_equiv_get_val_equiv with (s' := t'); auto.
       * intros _ v' _ s s' pfs.
         do 2 (apply plift_ret).
         split; [exact I|exact pfs].
@@ -2004,7 +1995,7 @@ Proof.
       (Mid := fun s s' =>
         kv_rel k1 v1 s /\
         kv_rel k2 v2 s' /\
-        get_val_equiv2_double_exception k1 k2 s s'
+        get_val_equiv_double_exception k1 k2 s s'
       )
       (P := triv2).
     + intros s s' [wf_s [wf_s' eq_ss']].
@@ -2037,12 +2028,12 @@ Proof.
       intros [[] t'] [[_ [wf_t' Hs't']] [[_ [_ Hk1v1t']] [_ [_ Hk2v2t']]]].
       split; [exact I|].
       simpl; do 2 (split; auto).
-      apply get_val_equiv2_state_equiv2; auto.
+      apply get_val_equiv_state_equiv; auto.
       intro k.
       destruct (nat_eq_dec k k1); subst.
-      * repeat rewrite kv_rel_get_val2 with (v := v1); auto.
+      * repeat rewrite kv_rel_get_val with (v := v1); auto.
       * destruct (nat_eq_dec k k2); subst.
-        -- repeat rewrite kv_rel_get_val2 with (v := v2); auto.
+        -- repeat rewrite kv_rel_get_val with (v := v2); auto.
         -- rewrite <- Hst; auto.
            rewrite <- Hs't'; auto.
 Qed.
@@ -2077,7 +2068,7 @@ Proof.
       tauto.
   - intros s s' [wf_s [wf_s' eq_ss']].
     apply plift_bind with (P := fun p => well_formed (snd p) /\
-      get_val_equiv2_single_exception k s (snd p)).
+      get_val_equiv_single_exception k s (snd p)).
     + pose proof (write_near_stable k v s wf_s s (conj wf_s (state_equiv_refl s))).
       eapply dist_has_weakening; [|exact H].
       intros [[] t].
@@ -2096,21 +2087,14 @@ Proof.
       intros [[] t''] [[_ [wf_t'' Hst'']] [_ [_ Hkv't'']]].
       unfold prod_rel, triv2; simpl.
       do 3 (split; try tauto).
-      apply get_val_equiv2_state_equiv2; auto.
+      apply get_val_equiv_state_equiv; auto.
       intro k''.
       destruct (nat_eq_dec k'' k).
       * subst.
-        repeat rewrite kv_rel_get_val2 with (v := v'); auto; left; auto.
+        repeat rewrite kv_rel_get_val with (v := v'); auto; left; auto.
       * rewrite <- Hst''; auto.
         rewrite <- Htt'; auto.
         rewrite <- Hst; auto.
 Qed.
 
-Print Assumptions read_write.
-Print Assumptions write_read.
-Print Assumptions read_read.
-Print Assumptions read_commute.
-Print Assumptions read_write_commute.
-Print Assumptions write_commute.
-Print Assumptions write_absorb.
 End EquivProofs.
