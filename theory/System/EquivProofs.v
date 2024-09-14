@@ -1959,7 +1959,6 @@ Proof.
         split; [exact I|exact pfs].
 Qed.
 
-(* write still returns old val *)
 Theorem write_commute : forall k1 k2 v1 v2,
   k1 <> k2 ->
   poram_equiv
@@ -2098,3 +2097,118 @@ Proof.
 Qed.
 
 End EquivProofs.
+
+Require Import Lia RAM.
+
+Module Type ConfigParams.
+  Parameter LOP : nat.
+
+End ConfigParams.
+
+Module Dist_State <: StateMonad.
+
+  Definition state S X := dist (X * S).
+  Definition State S X := S -> state S X.
+
+  Definition ret {S X} := @StateT_ret S dist _ X.
+  Definition bind {S X} := @StateT_bind S dist _ X.
+
+  Definition get : forall {S}, State S S := fun S => get.
+  Definition put : forall {S}, S -> State S unit := fun S => put.
+
+End Dist_State.
+
+(* Path ORAM is a RAM (functional correctness specification, WIP) *)
+Module PathORAM (C : ConfigParams) <: RAM (Dist_State).
+
+  Global Instance PoramConfig : Config := {LOP := C.LOP}.
+
+  Definition K := block_id.
+  Definition V := nat.
+  Definition S : Type := state.
+
+  Module M := Dist_State.
+  Definition bind {X Y} := @M.bind S X Y.
+  Definition ret {X} := @M.ret S X.
+  Definition get := @M.get S.
+  Definition put := @M.put S.
+
+  Definition well_formed s := 
+    well_formed s.
+
+  Definition read : K -> M.State S V := read.
+
+  Definition write : K -> V -> M.State S unit := write.
+
+  Definition equiv : forall {X}, M.State S X -> M.State S X -> Prop :=
+    fun X => poram_equiv eq.
+
+  Theorem read_write : forall (k : K),
+    equiv
+      (ret tt)
+      (bind (read k) (fun v => write k v)).
+  Proof.
+    exact read_write.
+  Qed.
+
+  Theorem write_read : forall (k : K) (v : V),
+    equiv
+      (bind (write k v) (fun _ => ret v))
+      (bind (write k v) (fun _ => read k)).
+  Proof.
+    exact write_read.
+  Qed.
+
+  Theorem read_read : forall (k : K),
+    equiv
+      (bind (read k) (fun v => ret v))
+      (bind (read k) (fun _ => read k)).
+  Proof.
+    exact read_read.
+  Qed.
+
+  Theorem read_commute : forall (k1 k2 : K),
+    equiv
+      (bind (read k1) (fun v1 =>
+        bind (read k2) (fun v2 =>
+        ret (v1, v2))))
+      (bind (read k2) (fun v2 =>
+        bind (read k1) (fun v1 =>
+        ret (v1, v2)))).
+  Proof.
+    exact read_commute.
+  Qed.
+
+  Theorem read_write_commute : forall (k1 k2 : K) (v2 : V),
+    k1 <> k2 ->
+    equiv
+      (bind (read k1) (fun v1 =>
+        bind (write k2 v2) (fun _ =>
+        ret v1)))
+      (bind (write k2 v2) (fun _ =>
+        bind (read k1) (fun v1 =>
+        ret v1))).
+  Proof.
+    exact read_write_commute.
+  Qed.
+
+  Theorem write_commute : forall (k1 k2 : K) (v1 v2 : V),
+    k1 <> k2 ->
+    equiv
+      (bind (write k1 v1) (fun _ =>
+        write k2 v2))
+      (bind (write k2 v2) (fun _ =>
+        write k1 v1)).
+  Proof.
+    exact write_commute.
+  Qed.
+
+  Theorem write_absorb : forall (k : K) (v v' : V),
+    equiv
+      (bind (write k v) (fun _ => write k v'))
+      (write k v').
+  Proof.
+    exact write_absorb.
+  Qed.
+
+End PathORAM.

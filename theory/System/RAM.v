@@ -20,9 +20,6 @@ Module Type RAM (M : StateMonad).
   Parameter K : Type.
   Parameter V : Type.
 
-  (* Wrapped value type, specific to implementation *)
-  Parameter Vw : Type -> Type.
-
   (* Inner implementation of RAM (TODO move or something) *)
   Parameter S : Type.
 
@@ -30,44 +27,64 @@ Module Type RAM (M : StateMonad).
   Parameter well_formed : S -> Prop.
 
   (* Read and write operations *)
-  Parameter read : K -> M.State S (Vw V).
-  Parameter write : K -> V -> M.State S (Vw V).
+  Parameter read : K -> M.State S V.
+  Parameter write : K -> V -> M.State S unit.
 
-  (* Get payload *)
-  Parameter get_payload : M.state S (Vw V) -> option V.
+  Parameter equiv : forall {X},
+    M.State S X -> M.State S X -> Prop.
 
-  (* Wrap value *)
-  Parameter wrap : V -> Vw V.
+  (* I *)
+  Axiom read_write : forall k ,
+    equiv
+      (M.ret tt)
+      (M.bind (read k) (fun v => write k v)).
 
-  (* --- RAM laws (TODO maybe add uniform syntax here, and maybe change if not quite right) --- *)
-  Axiom read_read :
-    forall (k : K) (s : S), 
-      well_formed s ->
-      get_payload ((M.bind (read k) (fun _ => read k)) s) =
-      get_payload ((M.bind (read k) (fun v => M.ret v)) s). 
+  (* II *)
+  Axiom write_read : forall k v,
+    equiv
+      (M.bind (write k v) (fun _ => M.ret v))
+      (M.bind (write k v) (fun _ => read k)).
 
-  Axiom read_write :
-    forall (k : K) (v : V) (s : S),
-      well_formed s ->
-      get_payload ((M.bind (write k v) (fun _ => read k)) s) =
-      get_payload ((M.bind (write k v) (fun _ => M.ret (wrap v))) s).
+  (* III *)
+  Axiom read_read : forall (k : K),
+    equiv
+      (M.bind (read k) (fun v => M.ret v))
+      (M.bind (read k) (fun _ => read k)).
 
-  Axiom read_write_commute :
-    forall (k1 k2 : K) (v : V) f (s : S),
-      well_formed s ->
-      k1 <> k2 ->
-      get_payload (M.bind (read k1) (fun v' => M.bind (write k2 v) (fun _ => f v')) s) =
-      get_payload (M.bind (write k2 v) (fun _ => M.bind (read k1) f) s).
+  (* IV *)
+  Axiom read_commute : forall (k1 k2 : K),
+    equiv
+      (M.bind (read k1) (fun v1 =>
+        M.bind (read k2) (fun v2 =>
+        M.ret (v1, v2))))
+      (M.bind (read k2) (fun v2 =>
+        M.bind (read k1) (fun v1 =>
+        M.ret (v1, v2)))).
 
-  Axiom read_commute :
-    forall (k1 k2 : K) f (s : S),
-      well_formed s ->
-      get_payload (M.bind (read k1) (fun v1 => M.bind (read k2) (fun v2 => f v1 v2)) s) =
-      get_payload (M.bind (read k2) (fun v2 => M.bind (read k1) (fun v1 => f v1 v2)) s).
+  (* V *)
+  Axiom read_write_commute : forall (k1 k2 : K) (v2 : V),
+    k1 <> k2 ->
+    equiv
+      (M.bind (read k1) (fun v1 =>
+        M.bind (write k2 v2) (fun _ =>
+        M.ret v1)))
+      (M.bind (write k2 v2) (fun _ =>
+        M.bind (read k1) (fun v1 =>
+        M.ret v1))).
 
-  (* TODO remaining laws
-write(key1,value1) ; write(key2,value2) == write(key2,value2) ; write(key1,value1) -- write-commute law (requires key1 =/= key2)
-  *)
+  (* VI *)
+  Axiom write_commute : forall (k1 k2 : K) (v1 v2 : V),
+    k1 <> k2 ->
+    equiv
+      (M.bind (write k1 v1) (fun _ =>
+        write k2 v2))
+      (M.bind (write k2 v2) (fun _ =>
+        write k1 v1)).
 
-  (* TODO how does it relate to lens laws? *)
+  (* VII *)
+  Axiom write_absorb : forall (k : K) (v v' : V),
+    equiv
+      (M.bind (write k v) (fun _ => write k v'))
+      (write k v').
+
 End RAM.
