@@ -1,29 +1,43 @@
 Require Import List RAM.
 Import ListNotations.
 
-(* TODO: uncomment *)
+Section OptStateMonad.
 
-(*
-Section StateMonad.
+Definition OptState S X := S -> option (X * S).
 
-Definition State S X := S -> X * S.
+Definition ret {S X} : X -> OptState S X :=
+  fun x s => Some (x, s).
 
-Definition ret {S X} : X -> State S X := pair.
+Definition bind {S X Y} : OptState S X ->
+  (X -> OptState S Y) -> OptState S Y :=
+  fun m f s =>
+    match m s with
+    | Some (x, s') => f x s'
+    | None => None
+    end.
 
-Definition bind {S X Y} : State S X ->
-  (X -> State S Y) -> State S Y :=
-  fun m f s => let (x, s') := m s in f x s'.
+Definition get {S} : OptState S S :=
+  fun s => Some (s, s).
 
-Definition get {S} : State S S :=
-  fun s => (s, s).
+Definition put {S} : S -> OptState S unit :=
+  fun s _ => Some (tt, s).
 
-Definition put {S} : S -> State S unit :=
-  fun s _ => (tt, s).
+Definition opt_lift {X} (P : X -> Prop) : option X -> Prop :=
+  fun o =>
+    match o with
+    | Some x => P x
+    | None => True
+    end.
 
-Definition state_lift {S X} (Pre Post : S -> Prop)
-  (P : X -> Prop) : State S X -> Prop :=
+Definition opt_lift2 {X Y} (P : X -> Y -> Prop) : option X -> option Y -> Prop :=
+  fun o1 o2 =>
+    opt_lift (fun x => opt_lift (P x) o2) o1.
+
+Definition opt_state_plift {S X}
+  (Pre Post : S -> Prop)
+  (P : X -> Prop) : OptState S X -> Prop :=
   fun f => forall s, Pre s ->
-    P (fst (f s)) /\ Post (snd (f s)).
+    opt_lift (fun p => P (fst p) /\ Post (snd p)) (f s).
 
 Lemma weaken_lemma {S X}
   {Pre : S -> Prop}
@@ -31,18 +45,19 @@ Lemma weaken_lemma {S X}
   {Post' : S -> Prop}
   (P : X -> Prop)
   {P' : X -> Prop}
-  (m : State S X) :
+  (m : OptState S X) :
   (forall s, Post s -> Post' s) ->
   (forall x, P x -> P' x) ->
-  state_lift Pre Post P m ->
-  state_lift Pre Post' P' m.
+  opt_state_plift Pre Post P m ->
+  opt_state_plift Pre Post' P' m.
 Proof.
   intros HPostPost' HPP' Hm s Hs.
-  split.
-  - apply HPP'.
-    now apply Hm.
-  - apply HPostPost'.
-    now apply Hm.
+  unfold opt_state_plift in Hm.
+  specialize (Hm s Hs).
+  destruct (m s); simpl in *; auto.
+  destruct Hm; split.
+  - apply HPP'; auto.
+  - apply HPostPost'; auto.
 Qed.
 
 Lemma ret_lemma {S X}
@@ -50,7 +65,7 @@ Lemma ret_lemma {S X}
   {P : X -> Prop}
   {x : X} :
   P x ->
-  state_lift Pre Pre P (ret x).
+  opt_state_plift Pre Pre P (ret x).
 Proof.
   simpl.
   intros p st; simpl.
@@ -63,22 +78,23 @@ Lemma bind_lemma {S X Y}
   {Post : S -> Prop}
   (P : X -> Prop)
   {Q : Y -> Prop}
-  {mx : State S X}
-  {f : X -> State S Y} :
-  state_lift Pre Mid P mx ->
-  (forall x, P x -> state_lift Mid Post Q (f x)) ->
-  state_lift Pre Post Q (bind mx f).
+  {mx : OptState S X}
+  {f : X -> OptState S Y} :
+  opt_state_plift Pre Mid P mx ->
+  (forall x, P x -> opt_state_plift Mid Post Q (f x)) ->
+  opt_state_plift Pre Post Q (bind mx f).
 Proof.
   intros Hmx Hf s Hs.
-  destruct (Hmx s Hs) as [HP HMid].
-  destruct (Hf _ HP _ HMid).
+  specialize (Hmx s Hs).
   unfold bind.
-  destruct (mx s); simpl in *; now split.
+  destruct (mx s) as [[x s']|]; simpl in *; auto.
+  destruct Hmx.
+  apply Hf; auto.
 Qed.
 
 Lemma get_lemma {S}
   {Pre : S -> Prop} :
-  state_lift Pre Pre Pre get.
+  opt_state_plift Pre Pre Pre get.
 Proof.
   intros s; simpl.
   tauto.
@@ -88,13 +104,13 @@ Lemma put_lemma {S}
   {Pre Pre' : S -> Prop}
   {s : S} :
   Pre' s ->
-  state_lift Pre Pre' (fun _ => True) (put s).
+  opt_state_plift Pre Pre' (fun _ => True) (put s).
 Proof.
   intros Hs s' _; simpl.
   tauto.
 Qed.
 
-End StateMonad.
+End OptStateMonad.
 
 Section Map.
 
@@ -192,8 +208,8 @@ Qed.
 End Map.
 
 Module KV_State <: StateMonad.
-  Definition state (S X : Type) := prod X S.
-  Definition State (S X : Type) := S -> prod X S.
+  Definition state (S X : Type) := option (prod X S).
+  Definition State (S X : Type) := S -> option (prod X S).
   Definition ret {S} := @ret S.
   Definition bind {S} := @bind S.
   Definition get {S} := @get S.
@@ -209,125 +225,100 @@ Module KV_RAM <: RAM (KV_State).
 
   Definition S : Type := Map K V.
   Definition well_formed := @well_formed K V.
-  Definition Vw (V : Type) := option V.
 
   Definition bind {X Y} := @bind S X Y.
   Definition ret {X} := @ret S X.
   Definition get := @get S.
   Definition put := @put S.
 
-  Definition read (k : K) : State S (Vw V) :=
-    bind 
-      get
-      (fun s => ret (lookup k s)).
+  Definition lift {X} (o : option X) : OptState S X :=
+    fun s =>
+      match o with
+      | Some x => Some (x, s)
+      | None => None
+      end.
 
-  Definition write (k : K) (v : V) : State S (Vw V) :=
-    bind 
-      get 
-      (fun (s : Map K V) =>
-        bind
-          (put (insert k v s))
-          (fun _ => ret None)).
+  Definition read (k : K) : State S V :=
+    bind get (fun s =>
+    lift (lookup k s)).
 
-  Definition wrap (v : V) := Some v.
+  Definition write (k : K) (v : V) : State S unit :=
+    bind get (fun s =>
+    bind (put (insert k v s)) (fun _ =>
+    ret tt)).
 
-  Definition get_payload (s : state S (Vw V)) := fst s.
+Definition prod_rel {X X' Y Y'} (P : X -> X' -> Prop) (Q : Y -> Y' -> Prop) :
+  X * Y -> X' * Y' -> Prop :=
+  fun p1 p2 =>
+    P (fst p1) (fst p2) /\
+    Q (snd p1) (snd p2).
 
-  Definition write_and_read (k : K) (v : V) : State S (Vw V):=
-    bind (write k v) (fun _ => read k).
+  Definition state_equiv (s1 s2 : S) : Prop :=
+    forall (k : K), lookup k s1 = lookup k s2.
 
-  Lemma write_and_read_lemma (k : K) (v : V) :
-    state_lift
-      well_formed
-      well_formed
-      (eq (Some v))
-      (write_and_read k v).
+  Definition equiv {X : Type} (m1 m2 : State S X) : Prop :=
+    forall s1 s2, well_formed s1 -> well_formed s2 -> state_equiv s1 s2 ->
+    opt_lift2 (prod_rel eq state_equiv) (m1 s1) (m2 s2).
+
+  Theorem read_write : forall (k : K),
+    equiv
+      (ret tt)
+      (bind (read k) (fun v => write k v)).
   Proof.
-    apply (bind_lemma
-      (fun st => well_formed st /\ lookup k st = Some v)
-      (fun _ => True)).
-    - simpl.
-      apply (bind_lemma
-        well_formed
-        well_formed).
-      + apply get_lemma.
-      + intros st wf_st.
-        apply put_lemma.
-        split.
-        * apply well_formed_insert.
-          exact wf_st.
-        * apply lookup_insert.
-          exact wf_st.
-    - intros _ _.
-      apply (bind_lemma
-        well_formed
-        (fun m => Some v = lookup k m)).
-      + apply (weaken_lemma
-          (fun st => well_formed st /\ lookup k st = Some v)
-          (fun st => well_formed st /\ lookup k st = Some v)).
-        * tauto.
-        * firstorder.
-        * apply get_lemma.
-      + intros st Hkv.
-        apply ret_lemma.
-        exact Hkv.
-  Qed.
+  Admitted.
 
-  Theorem write_and_read_correct (k : K) (v : V) (s : S) :
-    well_formed s ->
-    fst (write_and_read k v s) = Some v.
+  Theorem write_read : forall (k : K) (v : V),
+    equiv
+      (bind (write k v) (fun _ => ret v))
+      (bind (write k v) (fun _ => read k)).
   Proof.
-    intro wf_s.
-    destruct (write_and_read_lemma k v s wf_s) as [Hv _].
-    symmetry; exact Hv.
-  Qed.
+  Admitted.
 
-  Lemma read_and_read_lemma (k : K) (s : S):
-    @state_lift S (Vw V)
-      well_formed
-      well_formed
-      (fun v => eq (get_payload (bind (read k) ret s)) v)
+  Theorem read_read : forall (k : K),
+    equiv
+      (bind (read k) (fun v => ret v))
       (bind (read k) (fun _ => read k)).
   Proof.
-    admit. (* TODO *)
   Admitted.
 
-  (* RAM laws (TODO move some of the above stuff here) *)
-  Theorem read_read :
-    forall (k : K) (s : S), 
-      well_formed s ->
-      get_payload ((bind (read k) (fun _ => read k)) s) =
-      get_payload ((bind (read k) (fun v => ret v)) s). 
-  Proof.
-    intros. pose proof (read_and_read_lemma k s). 
-    unfold state_lift in H1. specialize (H1 s H0). 
-    destruct H1. auto.
-  Qed.
-
-  Theorem read_write :
-    forall (k : K) (v : V) (s : S),
-      well_formed s ->
-      get_payload ((bind (write k v) (fun _ => read k)) s) =
-      get_payload ((bind (write k v) (fun _ => ret (wrap v))) s).
+  Theorem read_commute : forall (k1 k2 : K),
+    equiv
+      (bind (read k1) (fun v1 =>
+        bind (read k2) (fun v2 =>
+        ret (v1, v2))))
+      (bind (read k2) (fun v2 =>
+        bind (read k1) (fun v1 =>
+        ret (v1, v2)))).
   Proof.
   Admitted.
 
-  Theorem read_write_commute :
-    forall (k1 k2 : K) (v : V) f (s : S),
-      well_formed s ->
-      k1 <> k2 ->
-      get_payload (bind (read k1) (fun v' => bind (write k2 v) (fun _ => f v')) s) =
-      get_payload (bind (write k2 v) (fun _ => bind (read k1) f) s).
+  Theorem read_write_commute : forall (k1 k2 : K) (v2 : V),
+    k1 <> k2 ->
+    equiv
+      (bind (read k1) (fun v1 =>
+        bind (write k2 v2) (fun _ =>
+        ret v1)))
+      (bind (write k2 v2) (fun _ =>
+        bind (read k1) (fun v1 =>
+        ret v1))).
   Proof.
   Admitted.
 
-  Theorem read_commute :
-    forall (k1 k2 : K) f (s : S),
-      well_formed s ->
-      get_payload (bind (read k1) (fun v1 => bind (read k2) (fun v2 => f v1 v2)) s) =
-      get_payload (bind (read k2) (fun v2 => bind (read k1) (fun v1 => f v1 v2)) s).
+  Theorem write_commute : forall (k1 k2 : K) (v1 v2 : V),
+    k1 <> k2 ->
+    equiv
+      (bind (write k1 v1) (fun _ =>
+        write k2 v2))
+      (bind (write k2 v2) (fun _ =>
+        write k1 v1)).
+  Proof.
+  Admitted.
+
+  Theorem write_absorb : forall (k : K) (v v' : V),
+    equiv
+      (bind (write k v) (fun _ => write k v'))
+      (write k v').
   Proof.
   Admitted.
 
 End KV_RAM.
-*)
