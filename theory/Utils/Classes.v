@@ -1,11 +1,38 @@
+Require Import Arith Lia.
+
 (*** CLASSES ***)
 
 (* I'm rolling my own version of lots of datatypes and using typeclasses
  * pervasively. Here are the typeclasses that support the hand-rolled datatype
  * definitions.
  *)
-Class Ord (A : Type) := { ord_dec : A -> A -> comparison }.
-#[export] Instance NatOrd : Ord nat := { ord_dec := Nat.compare }.
+
+Class Ord (A : Type) := {
+  ord_dec : A -> A -> comparison;
+  ord_refl : forall x, ord_dec x x = Eq;
+  ord_eq : forall x y, ord_dec x y = Eq -> x = y;
+  ord_lt_trans : forall x y z,
+    ord_dec x y = Lt ->
+    ord_dec y z = Lt ->
+    ord_dec x z = Lt;
+  }.
+
+Lemma compare_lt_trans : forall x y z,
+  x ?= y = Lt ->
+  y ?= z = Lt ->
+  x ?= z = Lt.
+Proof.
+  intros.
+  rewrite Nat.compare_lt_iff in *.
+  lia.
+Qed.
+
+Global Instance NatOrd : Ord nat := {
+  ord_dec := Nat.compare;
+  ord_refl := Nat.compare_refl;
+  ord_eq := Nat.compare_eq;
+  ord_lt_trans := compare_lt_trans
+ }.
 
 Class Monoid (A : Type) :=
   { null : A
