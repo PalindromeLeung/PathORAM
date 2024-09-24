@@ -2,14 +2,6 @@ Require Import POram.Utils.Classes.
 Require Import Coq.Lists.List.
 Import ListNotations.
 
-(* DICTIONARIES *)
-
-(* Probably switch to `Coq.FSets.FMaps` or `ExtLib.Map.FMapAList` in a real
- * development. Rolling your own is easy enough to do, and if you go this route
- * you may want to enforce well-formedness and/or decideable equality of the key
- * space via type classes.
- *)
-
 Record dict (K V : Type) := Dict { dict_elems : list (K * V) }.
 Arguments Dict {K V} _.
 Arguments dict_elems {K V} _.
