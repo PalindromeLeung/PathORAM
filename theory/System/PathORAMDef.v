@@ -5,7 +5,6 @@ Import MonadNotation.
 Require Import Coq.Classes.EquivDec.
 Require Import Coq.QArith.QArith.
 Require Import POram.Utils.Dictionary.
-Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Tree.
 Require Import POram.Utils.Lists.
 Require Import POram.Utils.Classes.

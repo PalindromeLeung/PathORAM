@@ -4,7 +4,6 @@ Import ListNotations.
 Require Import POram.Utils.Classes.
 Import MonadNotation.
 Require Import POram.Utils.Tree.
-Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Distributions.
 Require Import POram.Utils.Dictionary.
 Require Import POram.System.PathORAMFunCorrect.

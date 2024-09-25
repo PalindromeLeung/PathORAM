@@ -1,5 +1,4 @@
 Require Import POram.Utils.Classes.
-Require Import POram.Utils.Vectors.
 Import MonadNotation.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Lists.List.
