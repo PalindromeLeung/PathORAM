@@ -98,8 +98,6 @@ Definition coin_flip : dist bool := Dist [ (true, 1 / 2) ; (false , 1 / 2) ] eq_
 (*   let sum_tot := sum_dist d in *)
 (*   Dist(map_alist (fun x : Q => x / sum_tot) supp). *)
 
-Definition event (A : Type) := A -> bool.
-
 (* might collide when you import the List Lib. *)
 
 (* The goal of evalDist is to evaluate the probability when given an event under a certain distribution.      *)
@@ -128,12 +126,6 @@ Fixpoint filter_dist {A} (l: list (A * Q))
 
 (* Definition uniform_dist {A} (l: list A) :dist A:= *)
 (*  norm_dist(Dist(map_l (fun x => (x, 1)) l)). *)
-
-Fixpoint mk_n_list (n: nat):list nat :=
-  match n with
-  | O => []
-  | S n' => [n'] ++ mk_n_list n'
-  end.
 
 Lemma zero_one_neq : ~ (0 == 1)%Q.
 Proof.
@@ -203,17 +195,6 @@ Global Instance Pred_Dist_Lift : PredLift dist :=
     plift_bind := dist_lift_bind;
   |}.
 
-Lemma plift_map : forall {X Y} (f : X -> Y) (d : dist X) (P : Y -> Prop), 
-    plift (fun x => P (f x)) d -> 
-    plift P (Classes.map f d).
-Proof.
-  intros.
-  eapply plift_bind.
-  - exact H.
-  - intros. 
-    eapply plift_ret.
-    apply H0; auto.
-Qed.
 
 Lemma coin_flip_triv :
   plift (fun _ => True) coin_flip.
@@ -256,9 +237,6 @@ Global Instance Pred_Dist_Lift2 : PredLift2 dist.
     plift2 := dist_lift2
   |}.
 Proof.
-  - intros.
-    unfold dist_lift2; simpl.
-    repeat constructor; auto.
   - intros.
     unfold dist_lift2 in *.
     unfold plift in *; simpl in *.

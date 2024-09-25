@@ -99,17 +99,17 @@ Definition acc_dist_list {C : Config}
   (arg_list : list (block_id * operation)) : Poram (list path) :=
   let l := List.map (fun '(bid, op) => access bid op) arg_list in
   let p := sequence l in
-  map (List.map fst) p.
+  monad_map (List.map fst) p.
 
 Definition get_dist_list_bool {C : Config}
   (arg_list : list (block_id * operation))(s : state) : dist (list bool) :=
-  map (@List.concat bool) (map fst ((acc_dist_list arg_list) s)).
+  monad_map (@List.concat bool) (monad_map fst ((acc_dist_list arg_list) s)).
 
 Lemma state_plift_map :
   forall {X Y} (Pre Post: state -> Prop) (P : Y -> Prop)
     (f : X -> Y) (m : Poram X),
     state_plift Pre Post (fun x => P (f x)) m ->
-    state_plift Pre Post P (map f m).
+    state_plift Pre Post P (monad_map f m).
 Proof.
   intros.
   eapply state_plift_bind.
