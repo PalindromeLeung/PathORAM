@@ -98,12 +98,27 @@ Proof.
     simpl; auto.
 Qed.
 
-(* TODO: refactor *)
-Class PredLift2 M `{Monad M} := {
-  plift2 {X Y} : (X -> Y -> Prop) -> M X -> M Y -> Prop;
-  plift2_bind {X Y X' Y'} : forall (P : X -> Y -> Prop) (Q : X' -> Y' -> Prop)
-    (m1 : M X) (m2 : M Y) (f1 : X -> M X') (f2 : Y -> M Y'),
-    plift2 P m1 m2 ->
-    (forall x y, P x y -> plift2 Q (f1 x) (f2 y)) ->
-    plift2 Q (mbind m1 f1) (mbind m2 f2)
-  }.
+Definition plift2 {M} `{PredLift M} {X Y} (P : X -> Y -> Prop) :
+  M X -> M Y -> Prop :=
+  fun mx my =>
+    plift (fun x => plift (P x) my) mx.
+
+Lemma plift2_bind_l {M} `{PredLift M} {X Y Z}
+  (P : X -> Z -> Prop) (Q : Y -> Z -> Prop)
+  (m : M X) (f : X -> M Y) (n : M Z) :
+  plift2 P m n ->
+  (forall x, plift (P x) n -> plift2 Q (f x) n) ->
+  plift2 Q (mbind m f) n.
+Proof.
+  apply plift_bind.
+Qed.
+
+Lemma plift2_ret_l {M} `{PredLift M} {X Y}
+  (P : X -> Y -> Prop) (x : X) (m : M Y) :
+  plift (P x) m ->
+  plift2 P (mreturn x) m.
+Proof.
+  intros.
+  eapply plift_ret.
+  exact H1.
+Qed.

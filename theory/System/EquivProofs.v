@@ -32,7 +32,7 @@ Definition poram_lift {X} (Pre Post : state -> Prop)
     (pand well_formed Post)
     P.
 
-Definition state_plift2 {M} `{PredLift2 M} {S X Y}
+Definition state_plift2 {M} `{PredLift M} {S X Y}
   (Pre Post : S -> S -> Prop)
   (P : X -> Y -> Prop)
   (m1 : StateT S M X)
@@ -41,7 +41,7 @@ Definition state_plift2 {M} `{PredLift2 M} {S X Y}
     Pre s1 s2 ->
     plift2 (prod_rel P Post) (m1 s1) (m2 s2).
 
-Definition state_plift2_val {M} `{PredLift2 M} {S X Y}
+Definition state_plift2_val {M} `{PredLift M} {S X Y}
   (Pre : S -> S -> Prop)
   (Post : S -> S -> X -> Y -> Prop)
   (m1 : StateT S M X)
@@ -80,7 +80,8 @@ Proof.
   unfold prod_rel; simpl; tauto.
 Qed.
 
-Lemma state_plift2_bind {M} `{PredLift2 M}
+(*
+Lemma state_plift2_bind {M} `{PredLift M}
   {S X Y X' Y'}
   (Pre Mid Post : S -> S -> Prop)
   (P : X -> Y -> Prop)
@@ -101,7 +102,9 @@ Proof.
   - intros [x s] [y s'] [H1 H2]; simpl in *.
     apply Hf1f2; auto.
 Qed.
+*)
 
+(*
 Lemma poram_lift2_bind {X Y X' Y'}
   (Pre Mid Post : state -> state -> Prop)
   (P : X -> Y -> Prop)
@@ -118,7 +121,9 @@ Lemma poram_lift2_bind {X Y X' Y'}
 Proof.
   apply state_plift2_bind.
 Qed.
+*)
 
+(*
 Lemma poram_lift2_val_bind {X Y X' Y'}
   (Pre : state -> state -> Prop)
   (Mid : state -> state -> X -> Y -> Prop)
@@ -139,6 +144,7 @@ Proof.
   - intros [x t] [y t'] pfs'.
     apply Hf1f2; auto.
 Qed.
+*)
 
 Definition equiv {X} (m1 m2 : Poram X) : Prop :=
   poram_lift2
