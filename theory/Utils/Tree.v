@@ -9,12 +9,6 @@ Inductive tree X : Type :=
 Arguments leaf {_}.
 Arguments node {_} _ _ _.
 
-Fixpoint get_height {X} (o : tree X) : nat :=
-  match o with
-  | leaf => 0
-  | node  _ l r => S (max (get_height l) (get_height r))
-  end.
-
 Fixpoint is_p_b_tr {X} (o : tree X) (l : nat) : Prop :=
   match o, l with
   | leaf, O => True

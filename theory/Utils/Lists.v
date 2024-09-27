@@ -1,19 +1,9 @@
 Require Import POram.Utils.Classes.
 Require Import Coq.Lists.List.
 Import ListNotations.
-(*** LISTS ***)
-
-(* #[export] Instance Functor_list : Functor list := { map := List.map }. *)
-#[export] Instance Monoid_list {A : Type} : Monoid (list A) := { null := nil ; append := @List.app A }.
 
 Definition disjoint_list {A} (l1 l2 : list A) :=
   forall a, ~ (In a l1 /\ In a l2).
-
-Fixpoint filter {A} (l: list A) (f: A -> bool): list A :=
-  match l with
-  | [] => []
-  | x :: l => if f x then x::(filter l f) else filter l f 
-  end.
 
 Fixpoint takeL {A} n (l : list A) : list A :=
   match n with

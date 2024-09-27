@@ -5,7 +5,6 @@ Import MonadNotation.
 Require Import Coq.Classes.EquivDec.
 Require Import Coq.QArith.QArith.
 Require Import POram.Utils.Dictionary.
-Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Tree.
 Require Import POram.Utils.Lists.
 Require Import POram.Utils.Classes.
@@ -205,14 +204,6 @@ Section PORAM.
     let up_h := remove_list_sub block_eqb wbs h in 
     let up_o := up_oram_tr o lvl wbs p in
     (State m up_h up_o).
-
-  (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
-
-  Fixpoint write_back (s : state) (p : path) (lvl : nat) : state := 
-    match lvl with
-    | O => s 
-    | S m => write_back (blocks_selection p m s) p m
-    end.
 
   Fixpoint iterate_right {X} (start : nat) (p : path) (f : path -> nat -> X -> X) (n : nat) (x : X) : X :=
     match n with

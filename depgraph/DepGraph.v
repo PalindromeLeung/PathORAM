@@ -19,18 +19,19 @@ Require POram.System.RAM.
 
 Print FileDependGraph
   Classes
+  Dictionary
   Distributions
-  Lists
-  NoDup
-  Rationals
-  StateT
-  Tree
-  Vectors
   Equiv
   EquivProofs
   KVRam
+  Lists
+  NoDup
   PathORAMDef
   PathORAMFunCorrect
   PathORAMSecurity
   RAM
+  Rationals
+  StateT
+  Tree
+  Vectors
   .

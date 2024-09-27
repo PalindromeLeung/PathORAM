@@ -9,8 +9,6 @@ Require Import Lia.
 Require Import POram.Utils.Classes.
 Import MonadNotation.
 Require Import POram.Utils.Lists.
-Require Import POram.Utils.Vectors.
-Require Import POram.Utils.Rationals.
 Require Import POram.Utils.Distributions.
 Require Import POram.Utils.Tree.
 Require Import POram.Utils.StateT.
@@ -21,36 +19,6 @@ Require Export POram.System.PathORAMDef.
 Section PORAM_PROOF.
 
   Context `{C : Config}.
-    
-  Lemma iterate_right_split {X} n : forall (start k : nat) (f : path -> nat -> X -> X) (p : path) (x : X),
-      iterate_right start p f (n+k) x =
-        iterate_right start p f n
-          (iterate_right (n + start) p f k x).
-  Proof.
-    induction n; intros.
-    - reflexivity.
-    - simpl.
-      rewrite IHn.
-      rewrite plus_n_Sm.
-      reflexivity.
-  Qed.
-
-  Lemma factor_lemma {X} (L k : nat) (p : path) (f : path -> nat -> X -> X) (x : X) :
-    (k < L)%nat ->
-    iterate_right 0 p f L x =
-      iterate_right 0 p f k
-        (f p k
-           (iterate_right (S k) p f (L - 1 - k) x)
-        ).
-  Proof.
-    intro.
-    assert (L = k + S ((L - 1) - k))%nat by lia.
-    rewrite H0 at 1.
-    rewrite iterate_right_split.
-    rewrite <- (plus_n_O).
-    simpl.
-    reflexivity. 
-  Qed.
 
   Lemma kv_in_list_partition:
     forall (id : block_id) (v : nat) (s : state) (del : list block),
@@ -1063,24 +1031,6 @@ Qed.
       | Some (Some bucket) => In (Block id v) bucket
       | _ => False
       end.
-
-  Lemma empty_on_path_true ob o1 o2 p :
-    empty_on_path (node ob o1 o2) (true :: p) ->
-    empty_on_path o1 p.
-  Proof.
-    intros pf lvl.
-    specialize (pf (S lvl)).
-    exact pf.
-  Qed.
-
-  Lemma empty_on_path_false ob o1 o2 p :
-    empty_on_path (node ob o1 o2) (false :: p) ->
-    empty_on_path o2 p.
-  Proof.
-    intros pf lvl.
-    specialize (pf (S lvl)).
-    exact pf.
-  Qed.
 
   Lemma lookup_tree_lookup_path_oram_invert o : forall bkt p,
     In bkt (lookup_path_oram o p) -> exists lvl,
@@ -2526,60 +2476,6 @@ Qed.
     apply write_and_read_access_lift. auto.
   Qed.
 
-  Lemma blk_in_stash_get_pre_wb_st :
-    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
-      blk_in_stash i v' s ->
-      i <> k ->
-      blk_in_stash i v'
-        (get_pre_wb_st k
-           (Write v)
-           (state_position_map s)
-           (state_stash s)
-           (state_oram s)
-           (calc_path k s)
-           p_new).
-  Proof.
-    intros.
-    unfold get_pre_wb_st.
-    unfold blk_in_stash in *.
-    simpl; right.
-    apply In_remove_list.
-    - apply in_or_app; right; auto.
-    - simpl.
-      rewrite Nat.eqb_neq; auto.
-  Qed.
-
-  Lemma blk_in_stash_get_post_wb_st :
-    forall (s : state) (i : block_id) (v : nat) p,
-      well_formed s ->
-      length p = LOP ->
-      blk_in_stash i v s ->
-      blk_in_state i v
-        (get_post_wb_st s p).
-  Proof.
-    intros.
-    unfold get_post_wb_st.
-    apply get_post_wb_st_stsh_state; auto.
-  Qed.
-  
-  Lemma blk_in_stash_neq : 
-    forall (s : state) (i k: block_id) (v v' : nat) (p p_new : path),
-      well_formed s ->
-      length p = LOP ->
-      length p_new = LOP ->
-      blk_in_stash i v' s -> 
-      i <> k -> 
-      blk_in_state i v'
-        (get_post_wb_st
-           (get_pre_wb_st k (Write v) (state_position_map s) (state_stash s) 
-              (state_oram s) (calc_path k s) p_new) p).
-  Proof.
-    intros.
-    apply blk_in_stash_get_post_wb_st; auto.
-    apply get_pre_wb_st_wf; destruct s; auto.
-    apply blk_in_stash_get_pre_wb_st; auto.
-  Qed.
-  
   Lemma write_access_neq : forall i k v v',
       i <> k -> 
       state_plift (fun s : state => well_formed s /\ blk_in_state i v' s)
@@ -2622,22 +2518,4 @@ Qed.
     - intros [p x] _. apply read_access_wf. 
   Qed.
 
-  Lemma value_pred_weaken :
-    forall {X} (S : Type) (M : Type -> Type) `{PredLift M}
-      (Pre Post: S -> Prop) (P Q : X -> Prop),
-      (forall x, P x -> Q x) ->
-      has_weakening M ->
-      forall m, state_plift Pre Post P m ->
-           state_plift Pre Post Q m.
-  Proof.
-    intros.
-    unfold state_plift.
-    intros.
-    specialize (H3 s H4).
-    unfold has_weakening in H2.
-    apply H2 with (P := (fun '(x, s') => P x /\ Post s')).
-    - intros. destruct x.  destruct H5. split. apply H1; tauto. auto.
-    - auto.
-  Qed.
-  
 End PORAM_PROOF.

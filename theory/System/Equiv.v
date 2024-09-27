@@ -16,30 +16,18 @@ Section Equiv.
 
 Context `{C : Config}.
 
-  Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
+Definition kv_rel (id : block_id) (v : nat) (st : state) : Prop :=
     blk_in_state id v st \/ (undef id st /\ v = 0).
 
 Definition state_equiv (s s' : state) : Prop :=
   forall k v,
     kv_rel k v s <-> kv_rel k v s'. 
-    
+
 Definition dist_equiv {X} (eqv : X -> X -> Prop)
   (d d' : dist X) : Prop :=
   All2 eqv
     (List.map fst (dist_pmf d))
     (List.map fst (dist_pmf d')).
-
-Lemma dist_equiv_ret {X} (eqv : X -> X -> Prop) :
-  forall x x', eqv x x' ->
-  dist_equiv eqv (mreturn x) (mreturn x').
-Proof.
-  intros x x' Hxx'.
-  unfold dist_equiv, All2; simpl.
-  repeat constructor; auto.
-Qed.
-
-Definition reflexive {X} (P : X -> X -> Prop) :=
-  forall x, P x x.
 
 Definition prod_rel {X X' Y Y'} (P : X -> X' -> Prop) (Q : Y -> Y' -> Prop) :
   X * Y -> X' * Y' -> Prop :=

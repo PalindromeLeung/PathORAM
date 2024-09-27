@@ -35,13 +35,6 @@ Definition state_plift {S} {M} `{Monad M} `{PredLift M} {X} (Pre Post : S -> Pro
   fun mx =>
     forall s, Pre s -> plift (fun '(x, s') => P x /\ Post s') (mx s).
 
-(* similar but relates state to value *)
-Definition state_plift_val {S} {M} `{Monad M} `{PredLift M} {X} (Pre : S -> Prop)
-  (Post : S -> X -> Prop) :
-  StateT S M X -> Prop :=
-  fun mx =>
-    forall s, Pre s -> plift (fun '(x, s') => Post s' x) (mx s).
-
 (*
  * state_prob_bind is analogous to the sequencing rule in Hoare Logic
  *)

@@ -1,12 +1,5 @@
 Require Import Arith Lia.
 
-(*** CLASSES ***)
-
-(* I'm rolling my own version of lots of datatypes and using typeclasses
- * pervasively. Here are the typeclasses that support the hand-rolled datatype
- * definitions.
- *)
-
 Class Ord (A : Type) := {
   ord_dec : A -> A -> comparison;
   ord_refl : forall x, ord_dec x x = Eq;
@@ -34,20 +27,6 @@ Global Instance NatOrd : Ord nat := {
   ord_lt_trans := compare_lt_trans
  }.
 
-Class Monoid (A : Type) :=
-  { null : A
-  ; append : A -> A -> A
-  }.
-
-Module MonoidNotation.
-  Notation "x ++ y " := (append x y) (at level 60, right associativity).
-End MonoidNotation.
-Import MonoidNotation.
-
-Class Functor (T : Type -> Type) :=
-  { map : forall {A B : Type}, (A -> B) -> T A -> T B
-  }.
-
 Class Monad (M : Type -> Type) :=
   { mreturn : forall {A : Type}, A -> M A
   ; mbind   : forall {A B : Type}, M A -> (A -> M B) -> M B
@@ -64,14 +43,6 @@ Module MonadNotation.
 End MonadNotation.
 Import MonadNotation.
 
-(* user-defined well-formedness criteria for a datatype, e.g., that a dictionary
- * represented by an association-list has sorted and non-duplicate keys
- *)
-Class WF (A : Type) := { wf : A -> Type }.
-
-(* MISSING: correctness criteria, e.g., that `Ord` is an actual total order, etc.
- *)
-
 Class PredLift M `{Monad M} := {
   plift {X} : (X -> Prop) -> M X -> Prop;
   plift_ret {X} : forall x (P : X -> Prop), P x -> plift P (mreturn x);
@@ -86,18 +57,50 @@ Definition has_weakening M `{PredLift M} : Prop :=
     (forall x, P x -> Q x) ->
   forall m, plift P m -> plift Q m.
 
-Definition monad_map {M} `{Monad M} X Y (f : X -> Y) (m : M X) : M Y :=
+Definition monad_map {M} `{Monad M} {X Y} (f : X -> Y) (m : M X) : M Y :=
   x <- m;;
   mreturn (f x).
 
-Global Instance Monad_Functor {M} `{Monad M} : Functor M := {|
-  map := monad_map
-  |}.
+Lemma plift_map : forall {M} `{PredLift M} {X Y} (f : X -> Y) (m : M X) (P : Y -> Prop), 
+    plift (fun x => P (f x)) m -> 
+    plift P (monad_map f m).
+Proof.
+  intros.
+  eapply plift_bind.
+  - exact H1.
+  - intros. 
+    eapply plift_ret.
+    apply H2; auto.
+Qed.
 
+Fixpoint constm_list {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (list A) :=
+  match n with
+  | O => mreturn (@nil A)
+  | S n' =>
+      x <- xM ;;
+      xs <- constm_list xM n' ;;
+      mreturn (cons x xs)
+  end.
+
+Lemma constm_list_length {A} {M} `{PredLift M} (m : M A) n :
+  plift (fun _ => True) m ->
+  plift (fun p => length p = n) (constm_list m n).
+Proof.
+  intro Hm.
+  induction n.
+  - apply plift_ret; auto.
+  - eapply plift_bind; eauto.
+    intros x _.
+    eapply plift_bind; eauto.
+    simpl.
+    intros l Hl.
+    apply plift_ret.
+    simpl; auto.
+Qed.
+
+(* TODO: refactor *)
 Class PredLift2 M `{Monad M} := {
   plift2 {X Y} : (X -> Y -> Prop) -> M X -> M Y -> Prop;
-  plift2_ret {X Y} : forall x y (P : X -> Y -> Prop),
-    P x y -> plift2 P (mreturn x) (mreturn y);
   plift2_bind {X Y X' Y'} : forall (P : X -> Y -> Prop) (Q : X' -> Y' -> Prop)
     (m1 : M X) (m2 : M Y) (f1 : X -> M X') (f2 : Y -> M Y'),
     plift2 P m1 m2 ->
