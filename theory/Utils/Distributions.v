@@ -3,22 +3,6 @@ Import MonadNotation.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Lists.List.
 Import ListNotations.
-(*** DISTRIBUTIONS ***)
-
-(* You may need to just roll your own on this one, and it will be a pain. This
- * representation is mostly just a placeholder. This representation represents
- * the distribution as an association list, so must be a discrete distribution
- * with finite support. We allow multiple keys in the association list (so a
- * multimap) because to restrict otherwise would require an `Ord` restraint on
- * the value type, which makes it more painful to use things like the `Monad`
- * typeclass and notation. Another way to go is to use `dict` instead of a raw
- * association list, which has the dual trade-offs.
- *
- * These are extensional distributions, which make reasoning about conditional
- * probabilities and distribution independence a pain. consider moving to
- * intensional distributions a la the "A Language for Probabilistically
- * Oblivious Computation" paper (Fig 10). 
- *)
 
 Definition sum_dist {A} (l : list (A * Q)) : Q :=
   List.fold_right Qplus 0 (List.map snd l).
@@ -202,12 +186,12 @@ Proof.
 Qed.
 
 Definition coin_flips (n : nat) : dist (list bool) :=
-  constm_vec coin_flip n.
+  constm_list coin_flip n.
 
 Lemma coin_flips_length (n : nat):
   plift (fun p => length p = n) (coin_flips n).
 Proof.
-  apply constm_vec_length.
+  apply constm_list_length.
   exact coin_flip_triv.
 Qed.
 

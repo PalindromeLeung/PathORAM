@@ -73,18 +73,18 @@ Proof.
     apply H2; auto.
 Qed.
 
-Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (list A) :=
+Fixpoint constm_list {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (list A) :=
   match n with
   | O => mreturn (@nil A)
   | S n' =>
       x <- xM ;;
-      xs <- constm_vec xM n' ;;
+      xs <- constm_list xM n' ;;
       mreturn (cons x xs)
   end.
 
-Lemma constm_vec_length {A} {M} `{PredLift M} (m : M A) n :
+Lemma constm_list_length {A} {M} `{PredLift M} (m : M A) n :
   plift (fun _ => True) m ->
-  plift (fun p => length p = n) (constm_vec m n).
+  plift (fun p => length p = n) (constm_list m n).
 Proof.
   intro Hm.
   induction n.
@@ -98,6 +98,7 @@ Proof.
     simpl; auto.
 Qed.
 
+(* TODO: refactor *)
 Class PredLift2 M `{Monad M} := {
   plift2 {X Y} : (X -> Y -> Prop) -> M X -> M Y -> Prop;
   plift2_bind {X Y X' Y'} : forall (P : X -> Y -> Prop) (Q : X' -> Y' -> Prop)
