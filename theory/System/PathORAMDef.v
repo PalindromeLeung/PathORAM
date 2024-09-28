@@ -224,7 +224,10 @@ Section PORAM.
   Definition write_back_r (start : nat) (p : path) (step : nat) (s : state):=
     iterate_right start p blocks_selection step s.
 
-    Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
+  Definition get_pre_wb_st (id : block_id) (op : operation) (s : state) (p p_new: path) :=
+    let m := state_position_map s in
+    let h := state_stash s in
+    let o := state_oram s in
     let m' := update_dict id p_new m in
     let bkts := lookup_path_oram o p in
     let bkt_blocks := concat bkts in
@@ -262,7 +265,7 @@ Section PORAM.
     (* flip a bunch of coins to get the new path *)      
     p_new <- liftT (coin_flips len_m) ;;
     (* get the updated path oram state to put and the data to return *)
-    let n_st := get_post_wb_st (get_pre_wb_st id op m h o p p_new) p in
+    let n_st := get_post_wb_st (get_pre_wb_st id op PST p p_new) p in
     let ret_data := get_ret_data id h p o in
     (* put the updated state back *)
     _ <- put n_st ;;

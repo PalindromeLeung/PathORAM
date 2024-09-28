@@ -35,9 +35,7 @@ Section PORAM_PROOF.
 
   Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
       blk_in_state id v s ->
-      blk_in_stash id v ((get_pre_wb_st id Read (state_position_map s)
-                            (state_stash s)
-                            (state_oram s)
+      blk_in_stash id v ((get_pre_wb_st id Read s
                             (calc_path id s) p_new)).
   Proof.
     intros.
@@ -176,9 +174,7 @@ Section PORAM_PROOF.
 
   Lemma get_pre_wb_st_Read_state_state : forall (id id' : block_id) (v : nat) (s : state) (p_new : path),
       blk_in_state id v s ->
-      blk_in_state id v ((get_pre_wb_st id' Read (state_position_map s)
-                      (state_stash s)
-                      (state_oram s)
+      blk_in_state id v ((get_pre_wb_st id' Read s
                       (calc_path id' s) p_new)).
   Proof.
     intros.
@@ -209,9 +205,7 @@ Section PORAM_PROOF.
   Lemma get_pre_wb_st_Write_state_state : forall (id id' : block_id) (v v': nat) (s : state) (p_new : path),
       id <> id' -> 
       blk_in_state id v s ->
-      blk_in_state id v ((get_pre_wb_st id' (Write v') (state_position_map s)
-                      (state_stash s)
-                      (state_oram s)
+      blk_in_state id v ((get_pre_wb_st id' (Write v') s
                       (calc_path id' s) p_new)).
   Proof.
     intros.
@@ -413,9 +407,7 @@ Qed.
   Lemma stash_path_combined_rel_Rd_undef : forall (id id' : block_id) (s : state) (p_new : path),
       well_formed s ->
       undef id s ->
-      undef id ((get_pre_wb_st id' Read (state_position_map s)
-                   (state_stash s)
-                   (state_oram s)
+      undef id ((get_pre_wb_st id' Read s
                    (calc_path id' s) p_new)).
   Proof.
     intros id id' s p_new wf_s Hids [v Hv].
@@ -453,9 +445,7 @@ Qed.
       id <> id' ->
       well_formed s ->
       undef id' s ->
-      undef id' ((get_pre_wb_st id (Write v) (state_position_map s)
-                   (state_stash s)
-                   (state_oram s)
+      undef id' ((get_pre_wb_st id (Write v) s
                    (calc_path id s) p_new)).
   Proof. 
     intros id id' v s p_new Hneq wf_s Hids [v' Hv'].
@@ -484,10 +474,7 @@ Qed.
     
   Lemma get_pre_wb_st_Write_stsh : forall (id : block_id) (v : nat) (s : state) (p_new : path),
       blk_in_stash id v
-        ((get_pre_wb_st id (Write v)
-          (state_position_map s)
-          (state_stash s)
-          (state_oram s)
+        ((get_pre_wb_st id (Write v) s
           (calc_path id s)
           p_new)).
   Proof.
@@ -520,12 +507,12 @@ Qed.
       destruct b0. 
       + destruct p'.  inversion H.
         destruct b0.
-        * eapply IHo1; eauto. exact H.
+        * apply IHo1 with (p := p); eauto.
         * inversion H.
       + destruct p'. inversion H.
         destruct b0.
         * inversion H.
-        * eapply IHo2; eauto. exact H.
+        * apply IHo2 with (p := p); eauto.
   Qed.
 
   Lemma locate_comp_block_selection :
@@ -2004,17 +1991,17 @@ Qed.
         rewrite Nat.eqb_neq in id_cond. auto.
   Qed.
 
-  Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (m : position_map) (h : stash) (o : oram) (p p_new : path),
-      well_formed (State m h o) ->
+  Lemma get_pre_wb_st_wf : forall (id : block_id) (op : operation) (s : state) (p p_new : path),
+      well_formed s ->
       length p_new = LOP ->
-      lookup_dict (makeBoolList false LOP) id m = p ->    
-      well_formed (get_pre_wb_st id op m h o p p_new).
+      lookup_dict (makeBoolList false LOP) id (state_position_map s) = p ->    
+      well_formed (get_pre_wb_st id op s p p_new).
   Proof.
     intros.
     unfold get_pre_wb_st.
-    destruct op. 
-    - simpl. apply rd_op_wf; auto.
-    - simpl. apply wr_op_wf; auto.
+    destruct op.
+    - simpl; apply rd_op_wf; destruct s; auto.
+    - simpl; apply wr_op_wf; destruct s; auto.
   Qed.
 
   Lemma get_post_wb_st_wf : forall (s : state) (p : path),
@@ -2035,13 +2022,12 @@ Qed.
     blk_in_state id v
       (get_post_wb_st
          (get_pre_wb_st id (Write v)
-            (state_position_map s) (state_stash s) (state_oram s)
+            s
             (calc_path id s) p_new) p).
   Proof.
     intros.
     apply get_post_wb_st_stsh_state; auto.
     - apply get_pre_wb_st_wf; auto.
-      destruct s; auto.
     - apply get_pre_wb_st_Write_stsh.
   Qed.
   
@@ -2052,15 +2038,13 @@ Qed.
       length p_new = LOP -> 
       blk_in_state id v s  -> 
       blk_in_state id v (get_post_wb_st
-                     (get_pre_wb_st id Read (state_position_map s)
-                        (state_stash s)
-                        (state_oram s)
+                     (get_pre_wb_st id Read s
                         (calc_path id s) p_new) p). 
   Proof.
     intros.
     apply get_post_wb_st_stsh_state; auto.
-    - apply get_pre_wb_st_wf; auto. destruct s; auto.
-    - apply stash_path_combined_rel_Rd. auto.
+    - apply get_pre_wb_st_wf; auto.
+    - apply stash_path_combined_rel_Rd; auto.
   Qed.
 
   Lemma locate_node_in_tr_clear_path o : forall p lvl,
@@ -2080,14 +2064,12 @@ Qed.
       length p_new = LOP -> 
       blk_in_state id v s  -> 
       blk_in_state id v (get_post_wb_st
-                     (get_pre_wb_st id' Read (state_position_map s)
-                        (state_stash s)
-                        (state_oram s)
+                     (get_pre_wb_st id' Read s
                         (calc_path id' s) p_new) (calc_path id' s)). 
   Proof.
     intros.
     apply get_post_wb_st_state_state; auto.
-    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply get_pre_wb_st_wf; auto.
     - apply H.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
@@ -2102,14 +2084,12 @@ Qed.
       length p_new = LOP -> 
       blk_in_state id v s  -> 
       blk_in_state id v (get_post_wb_st
-                     (get_pre_wb_st id' (Write v') (state_position_map s)
-                        (state_stash s)
-                        (state_oram s)
+                     (get_pre_wb_st id' (Write v') s
                         (calc_path id' s) p_new) (calc_path id' s)). 
   Proof.
     intros.
     apply get_post_wb_st_state_state; auto.
-    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply get_pre_wb_st_wf; auto.
     - apply H0.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
@@ -2123,14 +2103,12 @@ Qed.
       length p_new = LOP -> 
       undef id s  -> 
       undef id (get_post_wb_st
-                     (get_pre_wb_st id' Read (state_position_map s)
-                        (state_stash s)
-                        (state_oram s)
+                     (get_pre_wb_st id' Read s
                         (calc_path id' s) p_new) (calc_path id' s)). 
   Proof.
     intros.
     apply distribute_via_get_post_wb_st_undef; auto.
-    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply get_pre_wb_st_wf; auto.
     - apply H.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
@@ -2145,14 +2123,12 @@ Qed.
       length p_new = LOP -> 
       undef id' s -> 
       undef id' (get_post_wb_st
-                  (get_pre_wb_st id (Write v) (state_position_map s)
-                     (state_stash s)
-                     (state_oram s)
+                  (get_pre_wb_st id (Write v) s
                      (calc_path id s) p_new) (calc_path id s)). 
   Proof.
     intros.
     apply distribute_via_get_post_wb_st_undef; auto.
-    - apply get_pre_wb_st_wf; auto. destruct s; auto.
+    - apply get_pre_wb_st_wf; auto.
     - apply H.
     - unfold get_pre_wb_st; simpl.
       intro lvl.
@@ -2231,7 +2207,6 @@ Qed.
         * apply state_plift_put.
           apply get_post_wb_st_wf.
           -- apply get_pre_wb_st_wf; auto.
-             destruct x; exact H.
           -- apply H.
         * intros _ _.
           apply state_plift_ret; auto.
@@ -2292,7 +2267,6 @@ Qed.
         * apply state_plift_put.
           apply get_post_wb_st_wf; [|apply wf_s].
           apply get_pre_wb_st_wf; auto.
-          destruct s; auto.
         * intros _ _.
           apply state_plift_ret.
           simpl; symmetry.
@@ -2314,7 +2288,7 @@ Qed.
         * apply state_plift_put. rewrite HeqInv in H; destruct H.
           rewrite HeqInv. split.
           -- apply get_post_wb_st_wf; [|apply H].
-             apply get_pre_wb_st_wf; auto. destruct x. exact H.
+             apply get_pre_wb_st_wf; auto.
           -- apply zero_sum_stsh_tr_Rd_rev; auto. apply H. 
         * intros. rewrite HeqInv. apply state_plift_ret.
           rewrite HeqInv in H. destruct H. simpl.
@@ -2335,7 +2309,7 @@ Qed.
         apply (state_plift_bind well_formed (fun _ => True)).
         * apply state_plift_put; simpl.
           apply get_post_wb_st_wf; auto.
-          -- apply get_pre_wb_st_wf; auto. destruct x; exact H.
+          -- apply get_pre_wb_st_wf; auto.
           -- apply H.
         * intros. eapply state_plift_ret. auto.
   Qed.
@@ -2355,7 +2329,7 @@ Qed.
         apply (state_plift_bind (fun st => well_formed st /\ blk_in_state id v st) (fun _ => True)).
         * apply state_plift_put; simpl; split.
           apply get_post_wb_st_wf; auto.
-          -- apply get_pre_wb_st_wf; auto. destruct x; exact H.
+          -- apply get_pre_wb_st_wf; auto.
           -- apply H.
           -- apply zero_sum_stsh_tr_Wr; auto. 
              apply H.
@@ -2396,7 +2370,7 @@ Qed.
         * apply state_plift_put. rewrite HeqInv in H; destruct H.
           rewrite HeqInv. split.
           -- apply get_post_wb_st_wf; [|apply H].
-             apply get_pre_wb_st_wf; auto. destruct x. exact H.
+             apply get_pre_wb_st_wf; auto.
           -- apply read_access_state_state; auto.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
@@ -2420,7 +2394,7 @@ Qed.
         * apply state_plift_put. rewrite HeqInv in H; destruct H.
           rewrite HeqInv. split.
           -- apply get_post_wb_st_wf; [|apply H].
-             apply get_pre_wb_st_wf; auto. destruct x. exact H.
+             apply get_pre_wb_st_wf; auto.
           -- apply zero_sum_stsh_tr_Rd_rev_undef; auto.
         * intros. rewrite HeqInv. apply state_plift_ret; auto.
   Qed.
@@ -2447,7 +2421,6 @@ Qed.
           rewrite HeqInv. split.
           -- apply get_post_wb_st_wf; [|apply H].
              apply get_pre_wb_st_wf; auto.
-             destruct x. exact H.
           -- apply zero_sum_stsh_tr_Wr_rev_undef; auto. 
         * intros. rewrite HeqInv.
           apply state_plift_ret; auto.
@@ -2498,7 +2471,6 @@ Qed.
           destruct H0; split.
           -- apply get_post_wb_st_wf; [|apply H0].
              apply get_pre_wb_st_wf; auto.
-             destruct x; simpl in *; tauto.
           -- apply write_access_state_state; auto.
         * intros. apply state_plift_ret; auto.
   Qed.
