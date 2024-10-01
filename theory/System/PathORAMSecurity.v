@@ -14,6 +14,7 @@ Require Import POram.Utils.StateT.
 Require Import POram.Utils.Distributions.
 Require Import POram.System.PathORAMDef.
 Require Import POram.System.PathORAMFunCorrect.
+Require Import POram.System.EquivProofs.
 
 (* assume that the tree has one node and 2 leaves, then the path is 1 bit long *)
 (**
@@ -145,8 +146,50 @@ Lemma state_plift_P_split :
     state_plift Pre Post P s /\  
       state_plift Pre Post Q s ->
     state_plift Pre Post (fun x => (P x /\ Q x)) s.
-Admitted. 
-    
+Admitted.
+
+Lemma access_ret_LOP_path :
+  forall {C : Config} (id : block_id) (op : operation),
+    state_plift
+      well_formed
+      well_formed
+      (fun pn : path * nat => length (fst pn) = LOP) (access id op).
+Proof.
+  intros.
+  simpl.
+  destruct op; simpl.
+  - eapply state_plift_bind.    (* Read *)
+    + admit.
+    + intros x Px. simpl.
+      eapply state_plift_bind.
+      * admit.
+      * intros x0 P0. eapply state_plift_bind.
+        -- eapply state_plift_put.
+           apply get_post_wb_st_wf.
+           ++ apply get_pre_wb_st_wf.
+              ** admit.         (* x is WF *)
+              ** admit.         (* LOP, should be derivable from WF *)
+              ** reflexivity.
+           ++ apply path_length. admit. (* x is WF *)
+        -- intros. apply state_plift_ret. simpl.
+           apply path_length. admit. (* x is WF *)
+  - eapply state_plift_bind.    (* Read *)
+    + admit.
+    + intros x Px. simpl.
+      eapply state_plift_bind.
+      * admit.
+      * intros x0 P0. eapply state_plift_bind.
+        -- eapply state_plift_put.
+           apply get_post_wb_st_wf.
+           ++ apply get_pre_wb_st_wf.
+              ** admit.         (* x is WF *)
+              ** admit.         (* LOP, should be derivable from WF *)
+              ** reflexivity.
+           ++ apply path_length. admit. (* x is WF *)
+        -- intros. apply state_plift_ret. simpl.
+           apply path_length. admit. (* x is WF *)
+Admitted.
+
 Lemma acc_dist_list_length :
   forall {C : Config} (arg_list : list (block_id * operation)),
     state_plift well_formed well_formed 
@@ -170,8 +213,9 @@ Proof.
       rewrite Forall_map.
       rewrite Forall_forall.
       intros; simpl.
-      admit.
-Admitted. 
+      destruct x.
+      apply access_ret_LOP_path.
+Qed. 
     
 Fixpoint replicate {X} (n : nat) (m : X) : list X :=
   match n with
