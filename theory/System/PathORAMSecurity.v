@@ -159,36 +159,38 @@ Proof.
   simpl.
   destruct op; simpl.
   - eapply state_plift_bind.    (* Read *)
-    + admit.
+    + apply state_plift_get.
     + intros x Px. simpl.
       eapply state_plift_bind.
-      * admit.
+      * apply state_plift_liftT.
+        apply coin_flips_length.
       * intros x0 P0. eapply state_plift_bind.
         -- eapply state_plift_put.
            apply get_post_wb_st_wf.
            ++ apply get_pre_wb_st_wf.
-              ** admit.         (* x is WF *)
-              ** admit.         (* LOP, should be derivable from WF *)
+              ** destruct x; auto.
+              ** auto.
               ** reflexivity.
-           ++ apply path_length. admit. (* x is WF *)
+           ++ apply path_length; auto.
         -- intros. apply state_plift_ret. simpl.
-           apply path_length. admit. (* x is WF *)
-  - eapply state_plift_bind.    (* Read *)
-    + admit.
+           apply path_length; auto.
+  - eapply state_plift_bind.    (* Write *)
+    + apply state_plift_get.
     + intros x Px. simpl.
       eapply state_plift_bind.
-      * admit.
+      * apply state_plift_liftT.
+        apply coin_flips_length.
       * intros x0 P0. eapply state_plift_bind.
         -- eapply state_plift_put.
            apply get_post_wb_st_wf.
            ++ apply get_pre_wb_st_wf.
-              ** admit.         (* x is WF *)
-              ** admit.         (* LOP, should be derivable from WF *)
+              ** destruct x; auto.
+              ** auto.
               ** reflexivity.
-           ++ apply path_length. admit. (* x is WF *)
+           ++ apply path_length; auto.
         -- intros. apply state_plift_ret. simpl.
-           apply path_length. admit. (* x is WF *)
-Admitted.
+           apply path_length; auto.
+Qed.
 
 Lemma acc_dist_list_length :
   forall {C : Config} (arg_list : list (block_id * operation)),
