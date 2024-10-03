@@ -2372,7 +2372,6 @@ Qed.
     - eapply write_access_wf.
     - intros _ _.
       apply (state_plift_weaken (fun st : state => well_formed st /\ blk_in_state id v st)).
-      + exact dist_has_weakening.
       + tauto.
       + apply read_access_wf.
   Qed.

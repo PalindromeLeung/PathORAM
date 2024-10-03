@@ -49,13 +49,22 @@ Class PredLift M `{Monad M} := {
   plift_bind {X Y} : forall (P : X -> Prop) (Q : Y -> Prop)
     (mx : M X) (f : X -> M Y), plift P mx ->
     (forall x, P x -> plift Q (f x)) ->
-    plift Q (mbind mx f)
+    plift Q (mbind mx f);
+  plift_weaken {X} (P Q : X -> Prop) : (forall x, P x -> Q x) ->
+    forall m, plift P m -> plift Q m;
+  plift_true {X} : forall (m : M X), plift (fun _ => True) m;
+  plift_split {X} (P Q : X -> Prop) : forall m,
+    plift P m -> plift Q m -> plift (fun x => P x /\ Q x) m;
   }.
 
-Definition has_weakening M `{PredLift M} : Prop :=
-  forall X (P Q : X -> Prop),
-    (forall x, P x -> Q x) ->
-  forall m, plift P m -> plift Q m.
+Lemma plift_triv {M} `{PredLift M} {X} (P : X -> Prop) (m : M X) :
+  (forall x, P x) -> plift P m.
+Proof.
+  intros.
+  apply plift_weaken with (P := fun _ => True).
+  - intros; auto.
+  - apply plift_true.
+Qed.
 
 Definition monad_map {M} `{Monad M} {X Y} (f : X -> Y) (m : M X) : M Y :=
   x <- m;;

@@ -171,13 +171,42 @@ Proof.
     intros (a, b) pa. exact pa.
 Qed.
 
+Lemma dist_lift_weaken {X} (P Q : X -> Prop) :
+  (forall x, P x -> Q x) -> forall d,
+  dist_lift P d -> dist_lift Q d.
+Proof.
+  intros.
+  unfold dist_lift in *.
+  destruct d.
+  eapply Forall_impl; eauto.
+Qed.
+
+Lemma dist_split {X} (P Q : X -> Prop) d :
+  dist_lift P d ->
+  dist_lift Q d ->
+  dist_lift (fun x => P x /\ Q x) d.
+Proof.
+  destruct d; simpl.
+  repeat rewrite Forall_forall.
+  intros; auto.
+Qed.
+
+Lemma dist_true {X} (d : dist X) : dist_lift (fun _ => True) d.
+Proof.
+  destruct d; simpl.
+  rewrite Forall_forall.
+  auto.
+Qed.
+
 Global Instance Pred_Dist_Lift : PredLift dist :=
   {|
     plift := @dist_lift;
     plift_ret := dist_lift_ret;
     plift_bind := dist_lift_bind;
+    plift_weaken := @dist_lift_weaken;
+    plift_split := @dist_split;
+    plift_true := @dist_true;
   |}.
-
 
 Lemma coin_flip_triv :
   plift (fun _ => True) coin_flip.
@@ -193,22 +222,6 @@ Lemma coin_flips_length (n : nat):
 Proof.
   apply constm_list_length.
   exact coin_flip_triv.
-Qed.
-
-Lemma dist_lift_weaken {X} (P Q : X -> Prop) (d : dist X) :
-  (forall x, P x -> Q x) -> 
-  dist_lift P d -> dist_lift Q d.
-Proof.
-  intros.
-  unfold dist_lift in *.
-  destruct d.
-  eapply Forall_impl; eauto.
-Qed.
-
-Lemma dist_has_weakening : has_weakening dist.
-Proof.
-  intros X P Q HPQ m.
-  apply dist_lift_weaken; auto.
 Qed.
 
 Definition dist_lift2 X Y (P : X -> Y -> Prop)
