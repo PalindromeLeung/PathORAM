@@ -6,6 +6,8 @@ Require Import Coq.Classes.EquivDec.
 Require Import Coq.QArith.QArith.
 Require Import POram.Utils.Dictionary.
 Require Import POram.Utils.Tree.
+Require Import POram.Utils.Fin.
+Require Import POram.Utils.Vec.
 Require Import POram.Utils.Lists.
 Require Import POram.Utils.Classes.
 Require Import POram.Utils.StateT.
@@ -77,11 +79,15 @@ Section PORAM.
                            { block_blockid : block_id
                            ; block_payload : nat
                            }.
-  Definition position_map := dict block_id path.
+
+  (* TODO: better name *)
+  Definition Path := path LOP.
+  Definition position_map := dict block_id Path.
   Definition stash := list block.
   Definition bucket := list block.
 
-  Definition oram : Type := tree (option bucket).
+  Definition oram : Type := pb_tree (S LOP) (option bucket).
+  Definition level : Type := Fin (S LOP).
 
   Record state : Type := State
                            { state_position_map : position_map
@@ -96,72 +102,117 @@ Section PORAM.
   Definition Poram : Type -> Type :=
     StateT state dist.
 
-  Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
-    match o with
-    | leaf => fun _ => []
-    | node obkt o_l o_r =>
-        fun p => 
-          match p with
-          | [] =>
-              match obkt with
-              | Some bkt => [bkt]
-              | None => []
-              end
-          | h :: t =>
-              match h with
-              | true => match obkt with
-                       | Some bkt => bkt :: lookup_path_oram o_l t
-                       | None => lookup_path_oram o_l t
-                       end
-              | false => match obkt with
-                        | Some bkt => bkt :: lookup_path_oram o_r t
-                        | None => lookup_path_oram o_r t
-                        end
-              end
-          end
-    end.
-
-  Fixpoint clear_path (o : oram ) : path -> oram :=
-    match o with
-    | leaf => fun _ => leaf
-    | node obkt o_l o_r =>
-        fun p =>
-          match p with
-          | [] => node None o_l o_r
-          | h :: t =>
-              match h with
-              | true => node None (clear_path o_l t) o_r
-              | false => node None o_l (clear_path o_r t)
-              end
-          end
-    end.
-
-  Fixpoint makeBoolList (b : bool) (n : nat) : list bool :=
+  (* TODO: move to Tree.v *)
+  Fixpoint lookup_path {X} {n} : pb_tree (S n) X -> path n -> list X :=
     match n with
-    | O => []
-    | S m => b :: makeBoolList b m
+    | 0%nat => fun t p =>
+      match t with
+      | (x, _, _) => [x]
+      end
+    | S m => fun t p =>
+      match t with
+      | (x, t_l, t_r) =>
+        match p with
+        | (true, p') => x :: lookup_path t_l p'
+        | (false, p') => x :: lookup_path t_r p'
+        end
+      end
     end.
+
+  (* TODO: move to Lists.v *)
+  Fixpoint filter_Some {X} (l : list (option X)) : list X :=
+    match l with
+    | [] => []
+    | Some x :: l' => x :: filter_Some l'
+    | None :: l' => filter_Some l'
+    end.
+
+  Lemma filter_Some_correct {X} (l : list (option X)) : forall x,
+    In x (filter_Some l) <-> In (Some x) l.
+  Proof.
+    intro x; split; intro pf.
+    - induction l as [|o l'].
+      + destruct pf.
+      + destruct o as [x'|].
+        * destruct pf.
+          -- left; congruence.
+          -- right; auto.
+        * right; auto.
+  - induction l as [|o l'].
+    + destruct pf.
+    + destruct pf.
+      * subst.
+        left; reflexivity.
+      * destruct o.
+        -- right; auto.
+        -- auto.
+  Qed.
+
+  Definition lookup_path_oram (o : oram) (p : Path) : list bucket :=
+    filter_Some (lookup_path o p).
+
+  (* TODO: move to Tree.v *)
+  Fixpoint write_on_path {X} {n} : X -> pb_tree (S n) X -> path n -> pb_tree (S n) X :=
+    match n with
+    | 0%nat => fun x t p =>
+      match t with
+      | (_, t_l, t_r) => (x, t_l, t_r)
+      end
+    | S m => fun x t p =>
+      match t with
+      | (_, t_l, t_r) =>
+        match p with
+        | (true, p') => (x, write_on_path x t_l p', t_r)
+        | (false, p') => (x, t_l, write_on_path x t_r p')
+        end
+      end
+    end.
+
+  Definition clear_path : oram -> Path -> oram :=
+    write_on_path None.
+
+  (* TODO: move to vec.v *)
+  Fixpoint vec_replicate {X} n (x : X) : vec n X :=
+    match n with
+    | 0%nat => tt
+    | S m => (x, vec_replicate m x)
+    end.
+
+  Definition default_path : Path :=
+    vec_replicate LOP false.
 
   Definition calc_path (id : block_id) (s : state):=
-    let l := LOP in 
-    lookup_dict (makeBoolList false l) id (state_position_map s).
+    lookup_dict default_path id (state_position_map s).
 
-  Definition blk_in_p (id : block_id) (v : nat) (o : oram) (p: path) := 
+  Definition blk_in_p (id : block_id) (v : nat) (o : oram) (p: Path) := 
     let path_blks := concat(lookup_path_oram o p) in
     In (Block id v) path_blks.
 
   Definition blk_in_path (id : block_id) (v : nat) (s : state): Prop :=
     blk_in_p id v (state_oram s) (calc_path id s).
 
-  Scheme Equality for list.
-  Definition isEqvPath (p1 p2 : path) (idx : nat) : bool := list_beq bool Bool.eqb  (takeL idx p1) (takeL idx p2).
+  Fixpoint equiv_up_to {n} : path n -> path n -> Fin (S n) -> bool :=
+    match n with
+    | 0%nat => fun _ _ _ => true
+    | S m => fun p1 p2 i =>
+      match i with
+      | inl _ => true
+      | inr j =>
+        match p1, p2 with
+        | (b1, p1'), (b2, p2') => Bool.eqb b1 b2 && equiv_up_to p1' p2' j
+        end
+      end
+    end.
 
-  Fixpoint get_cand_bs (h : stash)(p : path)(stop : nat)(m : position_map) : list block :=
+  Definition isEqvPath (p1 p2 : Path) (idx : level) : bool :=
+    equiv_up_to p1 p2 idx.
+
+  Fixpoint get_cand_bs (h : stash)(p : Path)(stop : level)(m : position_map) : list block :=
     match h with
     | [] => []
     | x :: xs =>
         let l := LOP in 
-        let rhs_path := lookup_dict (makeBoolList false l) (block_blockid x) m in
+        let rhs_path := lookup_dict default_path (block_blockid x) m in
         if @isEqvPath p rhs_path stop 
         then x :: get_cand_bs xs p stop m 
         else get_cand_bs xs p stop m 
@@ -169,13 +220,12 @@ Section PORAM.
 
   (* n is the capability of each node, the current magic number is 4 based on the original paper *)
 
-  Definition get_write_back_blocks (p : path) (h : stash) (n : nat)(lvl : nat) (mp : position_map ) : list block :=
+  Definition get_write_back_blocks (p : Path) (h : stash) (n : nat)(lvl : level) (mp : position_map ) : list block :=
     match (length h) with
     | O => []
     | S m => let cand_bs := get_cand_bs h p lvl mp in
             takeL (Nat.min (length cand_bs) n ) cand_bs
     end.
-
 
   Scheme Equality for nat.
   
@@ -187,15 +237,15 @@ Section PORAM.
         else lookup_ret_data id t
     end.
 
-  Definition up_oram_tr (o : oram) (stop : nat) (d_n : bucket)
-    (p : path) : oram :=
+  Definition up_oram_tr (o : oram) (stop : level) (d_n : bucket)
+    (p : Path) : oram :=
     update_tree o stop (Some d_n) p.
 
   Definition block_eqb (b1 b2 : block) : bool :=
     (Nat.eqb (block_blockid b1) (block_blockid b2)) &&
     (Nat.eqb (block_payload b1) (block_payload b2)).
   
-  Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
+  Definition blocks_selection (p : Path) (lvl : level) (s : state ) : state :=
     (* unpack the state *)
     let m := state_position_map s in (* pos_map *) 
     let h := state_stash s in        (* stash *)
@@ -205,26 +255,23 @@ Section PORAM.
     let up_o := up_oram_tr o lvl wbs p in
     (State m up_h up_o).
 
-  Fixpoint iterate_right {X} (start : nat) (p : path) (f : path -> nat -> X -> X) (n : nat) (x : X) : X :=
+  (* TODO: Tree.v *)
+  Fixpoint flatten_pb_tree {X} {n} : pb_tree n X -> list X :=
     match n with
-    | O => x
-    | S m => f p start (iterate_right (S start) p f m x)
+    | 0%nat => fun _ => []
+    | S m => fun t =>
+      match t with
+      | (x, t_l, t_r) => x :: flatten_pb_tree t_l ++ flatten_pb_tree t_r
+      end
     end.
 
-    Fixpoint get_all_blks_tree (o : oram) : list block :=
-    match o with
-    | leaf => []
-    | node obkt o_l o_r => 
-        match obkt with
-        | None => get_all_blks_tree o_l ++ get_all_blks_tree o_r
-        | Some bkt => bkt ++ (get_all_blks_tree o_l ++ get_all_blks_tree o_r)
-        end
-    end.
+  Definition get_all_blks_tree (o : oram) : list block :=
+    concat (filter_Some (flatten_pb_tree o)).
 
-  Definition write_back_r (start : nat) (p : path) (step : nat) (s : state):=
-    iterate_right start p blocks_selection step s.
+  Definition write_back_r (p : Path) (s : state):=
+    Fin_iterate (blocks_selection p) s.
 
-    Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: path) :=
+  Definition get_pre_wb_st (id : block_id) (op : operation) (m : position_map) (h : stash ) (o : oram) (p p_new: Path) :=
     let m' := update_dict id p_new m in
     let bkts := lookup_path_oram o p in
     let bkt_blocks := concat bkts in
@@ -239,28 +286,27 @@ Section PORAM.
     let o' := clear_path o p in 
     State m' h''' o'.
 
-  Definition get_post_wb_st (s : state) (id_path : path):=
-    write_back_r O id_path (length id_path) s.
-  
-  Definition get_ret_data (id : block_id)(h : stash)(p : path) (o : oram):=
+  Definition get_post_wb_st (s : state) (id_path : Path):=
+    write_back_r id_path s.
+
+  Definition get_ret_data (id : block_id)(h : stash)(p : Path) (o : oram):=
     let bkts := lookup_path_oram o p in
     let bkt_blocks := concat bkts in
     let h' := bkt_blocks ++ h in
     let ret_data := lookup_ret_data id h' in
-    ret_data. 
+    ret_data.
 
   Definition access (id : block_id) (op : operation) :
-    Poram (path * nat) :=
+    Poram (Path * nat) :=
     PST <- get ;;
     (* unpack the state *)
     let m := state_position_map PST in
     let h := state_stash  PST in
     let o := state_oram PST in 
     (* get path for the index we are querying *)
-    let len_m := LOP in
-    let p := lookup_dict (makeBoolList false len_m) id m in
+    let p := lookup_dict default_path id m in
     (* flip a bunch of coins to get the new path *)      
-    p_new <- liftT (coin_flips len_m) ;;
+    p_new <- liftT (coin_flips LOP) ;;
     (* get the updated path oram state to put and the data to return *)
     let n_st := get_post_wb_st (get_pre_wb_st id op m h o p p_new) p in
     let ret_data := get_ret_data id h p o in
@@ -275,34 +321,29 @@ Section PORAM.
       no_dup_tree : NoDup (List.map block_blockid (get_all_blks_tree (state_oram s)));
       tree_stash_disj : disjoint_list (List.map block_blockid (get_all_blks_tree (state_oram s)))
                           (List.map block_blockid (state_stash s)); 
-      is_pb_tr : is_p_b_tr (state_oram s) (S LOP);
       blk_in_path_in_tree :
       forall id, 
         let m := state_position_map s in
-        let p := lookup_dict (makeBoolList false LOP) id m in
+        let p := lookup_dict default_path id m in
         let o := state_oram s in 
         let bkts := lookup_path_oram o p in
         let bkt_blocks := concat bkts in
         In id (List.map block_blockid (get_all_blks_tree o)) ->
         In id (List.map block_blockid bkt_blocks);
-      path_length : 
-      let m := (state_position_map s) in
-      let len_m := LOP in 
-      forall id, length(lookup_dict (makeBoolList false len_m) id m) = LOP;
     }.
 
-  Definition read_access (id : block_id) : Poram (path * nat) := access id Read.
+  Definition read_access (id : block_id) : Poram (Path * nat) := access id Read.
 
-  Definition write_access (id : block_id) (v : nat) : Poram (path * nat) :=
+  Definition write_access (id : block_id) (v : nat) : Poram (Path * nat) :=
     access id (Write v).
 
-  Definition write_and_read_access (id : block_id) (v : nat) : Poram (path * nat) :=
+  Definition write_and_read_access (id : block_id) (v : nat) : Poram (Path * nat) :=
     _ <- write_access id  v;;
     read_access id.
 
-  Definition has_value (v : nat) : (path * nat) -> Prop := fun '(_, val) => v = val.
+  Definition has_value (v : nat) : (Path * nat) -> Prop := fun '(_, val) => v = val.
 
-  Definition get_payload {X} (dist_a : dist (path * X * state)) : X :=
+  Definition get_payload {X} (dist_a : dist (Path * X * state)) : X :=
     match peek dist_a with
     | (_, x,_) => x
     end.
@@ -317,13 +358,10 @@ Section PORAM.
   Definition undef k s :=
     ~ exists v, blk_in_state k v s.
 
-  Definition locate_node_in_tr (o : oram) (lvl : nat) (p : path) : option bucket :=
-    match lookup_tree o lvl p with
-    | None => None
-    | Some o => o
-    end.
+  Definition locate_node_in_tr (o : oram) (lvl : level) (p : Path) : option bucket :=
+    lookup_tree o lvl p.
 
-  Definition at_lvl_in_path (o : oram ) (lvl : nat) (p : path) (x : block) : Prop :=
+  Definition at_lvl_in_path (o : oram ) (lvl : level) (p : Path) (x : block) : Prop :=
     match locate_node_in_tr o lvl p with
     | None => False
     | Some v => In x v

@@ -1,4 +1,5 @@
 Require Import Arith Lia.
+Require Import POram.Utils.Vec.
 
 Class Ord (A : Type) := {
   ord_dec : A -> A -> comparison;
@@ -73,30 +74,14 @@ Proof.
     apply H2; auto.
 Qed.
 
-Fixpoint constm_list {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (list A) :=
+Fixpoint constm_vec {A : Type} {M : Type -> Type} `{Monad M} (xM : M A) (n : nat) : M (vec n A) :=
   match n with
-  | O => mreturn (@nil A)
+  | O => mreturn tt
   | S n' =>
       x <- xM ;;
-      xs <- constm_list xM n' ;;
-      mreturn (cons x xs)
+      xs <- constm_vec xM n' ;;
+      mreturn (x, xs)
   end.
-
-Lemma constm_list_length {A} {M} `{PredLift M} (m : M A) n :
-  plift (fun _ => True) m ->
-  plift (fun p => length p = n) (constm_list m n).
-Proof.
-  intro Hm.
-  induction n.
-  - apply plift_ret; auto.
-  - eapply plift_bind; eauto.
-    intros x _.
-    eapply plift_bind; eauto.
-    simpl.
-    intros l Hl.
-    apply plift_ret.
-    simpl; auto.
-Qed.
 
 (* TODO: refactor *)
 Class PredLift2 M `{Monad M} := {

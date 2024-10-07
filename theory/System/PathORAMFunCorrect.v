@@ -33,7 +33,7 @@ Section PORAM_PROOF.
     exact block_eqb_correct.
   Qed.
 
-  Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
+  Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : Path),
       blk_in_state id v s ->
       blk_in_stash id v ((get_pre_wb_st id Read (state_position_map s)
                             (state_stash s)
