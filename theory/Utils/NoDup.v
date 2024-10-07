@@ -179,39 +179,74 @@ Qed.
         inversion H; auto.
   Qed.
 
-  Lemma up_oram_tr_tree_or_delta o : forall id lvl dlt p,
+  Lemma flatten_update_tree {X} {n} (t : Tree.pb_tree (S n) X)
+    (lvl : Fin.Fin (S n)) (p : Tree.path n) (x x' : X) :
+    In x (flatten_pb_tree (Tree.update_tree t lvl x' p)) ->
+    x = x' \/ In x (flatten_pb_tree t).
+  Proof.
+    induction n; intro pf.
+    - destruct t as [[]].
+      simpl in pf.
+      destruct pf; [auto|contradiction].
+    - destruct t as [[y t_l] t_r].
+      destruct lvl.
+      + simpl in pf.
+        destruct pf; auto.
+        right; right; auto.
+      + destruct p as [[|] p'].
+        * destruct pf as [|pf].
+          -- right; left; auto.
+          -- apply in_app_or in pf.
+             destruct pf as [pf|pf].
+             ++ destruct (IHn _ _ _ pf).
+                ** left; auto.
+                ** right; right.
+                   apply in_or_app.
+                   left; auto.
+             ++ right; right.
+                apply in_or_app.
+                right; auto.
+        * destruct pf as [|pf].
+          -- right; left; auto.
+          -- apply in_app_or in pf.
+             destruct pf as [pf|pf].
+             ++ right; right.
+                apply in_or_app.
+                left; auto.
+             ++ destruct (IHn _ _ _ pf).
+                ** left; auto.
+                ** right; right.
+                   apply in_or_app.
+                   right; auto.
+  Qed.
+
+  Lemma up_oram_tr_tree_or_delta `{Config} o : forall id lvl dlt p,
       In id (List.map block_blockid (get_all_blks_tree
                                        (up_oram_tr o lvl dlt p))) ->
       In id (List.map block_blockid (get_all_blks_tree o)) \/
         In id (List.map block_blockid dlt).
   Proof.
-    induction o; simpl; intros; auto.
-    destruct data; simpl.
-    - destruct lvl; simpl in *.
-      + repeat rewrite map_app in *.
-        repeat rewrite in_app_iff in *.
-        tauto.
-      + destruct p; simpl in *.
-        * repeat rewrite map_app in *.
-          left. auto.
-        * destruct b0; simpl in *; try repeat rewrite map_app in *;
-            try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
-          -- edestruct IHo1; eauto.
-          -- edestruct IHo2; eauto.
-    - destruct lvl; simpl in *.
-      + repeat rewrite map_app in *.
-        repeat rewrite in_app_iff in *.
-        tauto.
-      + destruct p; simpl in *.
-        * repeat rewrite map_app in *.
-          left. auto.
-        * destruct b; simpl in *; try repeat rewrite map_app in *;
-            try repeat rewrite in_app_iff in *; try repeat destruct H; auto.
-          -- edestruct IHo1; eauto.
-          -- edestruct IHo2; eauto.
+    intros id lvl dlt p pf.
+    rewrite in_map_iff in pf.
+    destruct pf as [b [Hb1 Hb2]].
+    unfold get_all_blks_tree in *.
+    rewrite in_concat in Hb2.
+    destruct Hb2 as [bs [Hbs1 Hbs2]].
+    rewrite filter_Some_correct in Hbs1.
+    unfold up_oram_tr in Hbs1.
+    apply flatten_update_tree in Hbs1.
+    destruct Hbs1 as [pf|pf].
+    - inversion pf; subst.
+      right; apply in_map; auto.
+    - left.
+      rewrite in_map_iff.
+      exists b; split; auto.
+      rewrite in_concat.
+      exists bs; split; auto.
+      rewrite filter_Some_correct; auto.
   Qed.
 
-  Lemma NoDup_up_oram_tree : forall o dlt lvl p,
+  Lemma NoDup_up_oram_tree `{Config} : forall o dlt lvl p,
       NoDup (List.map block_blockid dlt) ->
       NoDup (List.map block_blockid (get_all_blks_tree o)) -> 
       disjoint_list (List.map block_blockid (get_all_blks_tree o))
@@ -220,6 +255,37 @@ Qed.
         (List.map block_blockid
            (get_all_blks_tree (up_oram_tr o lvl dlt p))).
   Proof.
+    unfold oram.
+    destruct H.
+    intros.
+    unfold PathORAMDef.LOP in o.
+    induction LOP.
+    - destruct o as [[b []] []].
+      unfold up_oram_tr.
+      unfold get_all_blks_tree.
+      simpl.
+      rewrite app_nil_r; auto.
+    - destruct o as [[b t_l] t_r].
+  Admitted.
+(*
+      unfold up_oram_tr.
+      unfold get_all_blks_tree.
+      destruct lvl.
+      + simpl Tree.update_tree.
+simpl.
+
+    intros.
+    unfold LOP in o.
+    unfold get_all_blks_tree.
+    unfold filter_Some.
+    Search NoDup map.
+    intros o dlt lvl p pf1 pf2 pf3.
+    unfold get_all_blks_tree.
+    destruct H.
+    unfold oram in o.
+    induction LOP.
+    - simpl.
+      destruct o.
     induction o; simpl; intros; auto.
     destruct lvl; simpl; auto.
     - destruct data; simpl; auto.
@@ -340,6 +406,7 @@ Qed.
              ++ apply (H1 id); split; auto.
                 apply in_or_app; left; auto.
   Qed.
+  *)
   
   (* TODO: make generic and move elsewhere *)
   Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
@@ -391,7 +458,7 @@ Qed.
       + apply IHlst; inversion H; auto.
   Qed.
   
-  Lemma disjoint_dlt : forall o lvl dlt lst p,
+  Lemma disjoint_dlt `{C:Config} : forall o lvl dlt lst p,
       NoDup (List.map block_blockid lst) ->
       subset_rel dlt lst ->
       disjoint_list
@@ -429,4 +496,3 @@ Qed.
       + apply block_eqb_correct.
       + eapply NoDup_map_inv; eauto.
   Qed.
-  

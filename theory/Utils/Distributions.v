@@ -3,6 +3,7 @@ Import MonadNotation.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Lists.List.
 Import ListNotations.
+Require Import POram.Utils.Vec.
 
 Definition sum_dist {A} (l : list (A * Q)) : Q :=
   List.fold_right Qplus 0 (List.map snd l).
@@ -185,15 +186,9 @@ Proof.
   repeat constructor.
 Qed.
 
-Definition coin_flips (n : nat) : dist (list bool) :=
-  constm_list coin_flip n.
+Definition coin_flips (n : nat) : dist (vec n bool) :=
+  constm_vec coin_flip n.
 
-Lemma coin_flips_length (n : nat):
-  plift (fun p => length p = n) (coin_flips n).
-Proof.
-  apply constm_list_length.
-  exact coin_flip_triv.
-Qed.
 
 Lemma dist_lift_weaken {X} (P Q : X -> Prop) (d : dist X) :
   (forall x, P x -> Q x) -> 
