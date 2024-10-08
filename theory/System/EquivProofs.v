@@ -494,9 +494,9 @@ Proof.
 Qed.
 
 Lemma read_state_val k v :
-  poram_lift
-    (blk_in_state k v)
-    triv
+  state_plift
+    (fun s => well_formed s /\ blk_in_state k v s)
+    well_formed
     (eq v)
     (read k).
 Proof.
@@ -505,14 +505,13 @@ Proof.
   - intros [] pf s [wf_s kv_s].
     apply plift_ret; split.
     + exact pf.
-    + split; auto.
-      exact I.
+    + auto.
 Qed.
 
 Lemma read_val k v :
-  poram_lift
-    (kv_rel k v)
-    triv
+  state_plift
+    (fun s => well_formed s /\ kv_rel k v s)
+    well_formed
     (eq v)
     (read k).
 Proof.
@@ -525,27 +524,42 @@ Proof.
     intros [v' s']; subst; tauto.
 Qed.
 
+Lemma state_plift_split_post_and_pred {X}
+  (m : Poram X) Pre Post P :
+  state_plift Pre well_formed P m ->
+  state_plift Pre Post triv m ->
+  state_plift Pre Post P m.
+Proof.
+  intros Hm1 Hm2 s pfs.
+  specialize (Hm1 s pfs).
+  specialize (Hm2 s pfs).
+  pose proof (plift_conj _ _ _ Hm1 Hm2).
+  eapply plift_weaken; [|exact H].
+  unfold pand, triv.
+  intros []; tauto.
+Qed.
+
 Lemma read_val_kv k v :
-  poram_lift
-    (kv_rel k v)
-    (kv_rel k v)
+  state_plift
+    (fun s => well_formed s /\ kv_rel k v s)
+    (fun s => well_formed s /\ kv_rel k v s)
     (eq v)
     (read k).
 Proof.
-  apply poram_split_post_and_pred.
+  apply state_plift_split_post_and_pred.
   - apply read_val.
   - apply read_pres_kv.
 Qed.
 
 Lemma write_wf k v :
-  poram_lift
-    triv
-    triv
+  state_plift
+    well_formed
+    well_formed
     triv
     (write k v).
 Proof.
   eapply state_plift_bind.
-  - intros s [wf_s _].
+  - intros s wf_s.
     eapply plift_weaken;
       [|apply write_access_just_wf]; auto.
     intros [p s'] [_ wf_s'].
@@ -559,9 +573,9 @@ Qed.
 
 Lemma write_undef k k' v :
   k <> k' ->
-  poram_lift
-    (undef k')
-    (undef k')
+  state_plift
+    (fun s => well_formed s /\ undef k' s)
+    (fun s => well_formed s /\ undef k' s)
     triv
     (write k v).
 Proof.
@@ -587,13 +601,13 @@ Proof.
 Qed.
 
 Lemma write_state_val_eq k v :
-  poram_lift
-    triv
-    (blk_in_state k v)
+  state_plift
+    well_formed
+    (fun s => well_formed s /\ blk_in_state k v s)
     triv
     (write k v).
 Proof.
-  unfold poram_lift, write; eapply state_plift_bind.
+  unfold state_plift, write; eapply state_plift_bind.
   - apply state_plift_pre with (Pre := well_formed).
     + unfold pand; tauto.
     + apply write_access_wf.
@@ -602,9 +616,9 @@ Proof.
 Qed.
 
 Lemma write_val_eq k v :
-  poram_lift
-    triv
-    (kv_rel k v)
+  state_plift
+    well_formed
+    (fun s => well_formed s /\ kv_rel k v s)
     triv
     (write k v).
 Proof.
@@ -617,9 +631,9 @@ Qed.
 
 Lemma write_state_val_neq k v k' v' :
   k <> k' ->
-  poram_lift
-    (blk_in_state k' v')
-    (blk_in_state k' v')
+  state_plift
+    (fun s => well_formed s /\ blk_in_state k' v' s)
+    (fun s => well_formed s /\ blk_in_state k' v' s)
     triv
     (write k v).
 Proof.
@@ -635,9 +649,9 @@ Qed.
 
 Lemma write_val_neq k v k' v' :
   k <> k' ->
-  poram_lift
-    (kv_rel k' v')
-    (kv_rel k' v')
+  state_plift
+    (fun s => well_formed s /\ kv_rel k' v' s)
+    (fun s => well_formed s /\ kv_rel k' v' s)
     triv
     (write k v).
 Proof.
@@ -659,7 +673,10 @@ Definition get_val_equiv_double_exception k1 k2 (s s' : state) : Prop :=
   forall k', k' <> k1 -> k' <> k2 -> get_val k' s = get_val k' s'.
 
 Definition near_stable {X} (m : Poram X) k : Prop :=
-  forall s, well_formed s -> poram_lift (state_equiv s) (get_val_equiv_single_exception k s) triv m.
+  forall s, well_formed s ->
+  state_plift
+    (fun s' => well_formed s' /\ state_equiv s s')
+    (fun s' => well_formed s' /\  get_val_equiv_single_exception k s s') triv m.
 
 Lemma write_near_stable k v : near_stable (write k v) k.
 Proof.
