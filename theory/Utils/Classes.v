@@ -55,6 +55,9 @@ Class PredLift M `{Monad M} := {
   plift_true {X} : forall (m : M X), plift (fun _ => True) m;
   plift_split {X} (P Q : X -> Prop) : forall m,
     plift P m -> plift Q m -> plift (fun x => P x /\ Q x) m;
+  plift_comm {X Y} (P : X -> Y -> Prop) (m1 : M X) (m2 : M Y) :
+    plift (fun y => plift (fun x => P x y) m1) m2 ->
+    plift (fun x => plift (P x) m2) m1
   }.
 
 Lemma plift_triv {M} `{PredLift M} {X} (P : X -> Prop) (m : M X) :
@@ -122,6 +125,44 @@ Proof.
   apply plift_bind.
 Qed.
 
+Lemma plift2_bind_r {M} `{PredLift M} {X Y Z}
+  (P : Z -> X -> Prop) (Q : Z -> Y -> Prop)
+  (m : M X) (f : X -> M Y) (n : M Z) :
+  plift2 P n m ->
+  (forall x, plift (fun z => P z x) n -> plift2 Q n (f x)) ->
+  plift2 Q n (mbind m f).
+Proof.
+  intros.
+  apply plift_comm.
+  eapply plift2_bind_l.
+  - apply plift_comm in H1.
+    exact H1.
+  - intros.
+    specialize (H2 x).
+    apply plift_comm in H2; auto.
+Qed.
+
+Lemma plift2_bind {M} `{PredLift M} {X Y X' Y'} : forall (P : X -> Y -> Prop)
+  (Q : X' -> Y' -> Prop) (m1 : M X) (m2 : M Y) (f1 : X -> M X') (f2 : Y -> M Y'),
+  plift2 P m1 m2 ->
+  (forall x y, P x y -> plift2 Q (f1 x) (f2 y)) ->
+  plift2 Q (mbind m1 f1) (mbind m2 f2).
+Proof.
+  intros.
+  apply plift2_bind_l with (P := fun x y' => plift (fun x' => Q x' y') (f1 x)).
+  - apply plift2_bind_r with (P := P).
+    + auto.
+    + intros.
+      eapply plift_weaken; [|exact H3].
+      simpl; intros.
+      apply H2 in H4.
+      unfold plift2 in H4.
+      apply plift_comm; auto.
+  - intros.
+    apply plift_comm.
+    exact H3.
+Qed.
+
 Lemma plift2_ret_l {M} `{PredLift M} {X Y}
   (P : X -> Y -> Prop) (x : X) (m : M Y) :
   plift (P x) m ->
@@ -131,3 +172,15 @@ Proof.
   eapply plift_ret.
   exact H1.
 Qed.
+
+Lemma plift2_ret_r {M} `{PredLift M} {X Y}
+  (P : Y -> X -> Prop) (x : X) (m : M Y) :
+  plift (fun y => P y x) m ->
+  plift2 P m (mreturn x).
+Proof.
+  intros.
+  apply plift_comm.
+  apply plift2_ret_l.
+  auto.
+Qed.
+
