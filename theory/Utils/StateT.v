@@ -93,13 +93,12 @@ Qed.
 
 Lemma state_plift_weaken {S} {M} `{PredLift M} {X}
   {Pre : S -> Prop} (Post : S -> Prop) {Post' : S -> Prop}
-  (P : X -> Prop) :
-  has_weakening M -> forall m,
+  (P : X -> Prop) : forall m,
   (forall s, Post s -> Post' s) ->
   state_plift Pre Post P m ->
   state_plift Pre Post' P m.
 Proof.
-  intros HM m HPostPost' Hm s Hs.
-  eapply HM; [| apply Hm; auto].
+  intros m HPostPost' Hm s Hs.
+  eapply plift_weaken; [| apply Hm; auto].
   intros [x s'] [Hx Hs']; auto.
 Qed.

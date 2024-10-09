@@ -171,13 +171,58 @@ Proof.
     intros (a, b) pa. exact pa.
 Qed.
 
+Lemma dist_lift_weaken {X} (P Q : X -> Prop) :
+  (forall x, P x -> Q x) -> forall d,
+  dist_lift P d -> dist_lift Q d.
+Proof.
+  intros.
+  unfold dist_lift in *.
+  destruct d.
+  eapply Forall_impl; eauto.
+Qed.
+
+Lemma dist_split {X} (P Q : X -> Prop) d :
+  dist_lift P d ->
+  dist_lift Q d ->
+  dist_lift (fun x => P x /\ Q x) d.
+Proof.
+  destruct d; simpl.
+  repeat rewrite Forall_forall.
+  intros; auto.
+Qed.
+
+Lemma dist_true {X} (d : dist X) : dist_lift (fun _ => True) d.
+Proof.
+  destruct d; simpl.
+  rewrite Forall_forall.
+  auto.
+Qed.
+
+Lemma dist_comm {X Y} (P : X -> Y -> Prop) (m1 : dist X) (m2 : dist Y) :
+  dist_lift (fun y => dist_lift (fun x => P x y) m1) m2 ->
+  dist_lift (fun x => dist_lift (P x) m2) m1.
+Proof.
+  destruct m1 as [m1 m1_law].
+  destruct m2 as [m2 m2_law].
+  simpl; clear m1_law m2_law.
+  repeat rewrite Forall_forall.
+  intros.
+  rewrite Forall_forall; intros.
+  apply H in H1.
+  rewrite Forall_forall in H1.
+  apply H1; auto.
+Qed.
+
 Global Instance Pred_Dist_Lift : PredLift dist :=
   {|
     plift := @dist_lift;
     plift_ret := dist_lift_ret;
     plift_bind := dist_lift_bind;
+    plift_weaken := @dist_lift_weaken;
+    plift_split := @dist_split;
+    plift_true := @dist_true;
+    plift_comm := @dist_comm;
   |}.
-
 
 Lemma coin_flip_triv :
   plift (fun _ => True) coin_flip.
@@ -195,75 +240,6 @@ Proof.
   exact coin_flip_triv.
 Qed.
 
-Lemma dist_lift_weaken {X} (P Q : X -> Prop) (d : dist X) :
-  (forall x, P x -> Q x) -> 
-  dist_lift P d -> dist_lift Q d.
-Proof.
-  intros.
-  unfold dist_lift in *.
-  destruct d.
-  eapply Forall_impl; eauto.
-Qed.
-
-Lemma dist_has_weakening : has_weakening dist.
-Proof.
-  intros X P Q HPQ m.
-  apply dist_lift_weaken; auto.
-Qed.
-
 Definition dist_lift2 X Y (P : X -> Y -> Prop)
   (dx : dist X) (dy : dist Y) : Prop :=
   plift (fun x => plift (P x) dy) dx.
-
-Global Instance Pred_Dist_Lift2 : PredLift2 dist.
-  refine {|
-    plift2 := dist_lift2
-  |}.
-Proof.
-  - intros.
-    unfold dist_lift2 in *.
-    unfold plift in *; simpl in *.
-    unfold dist_lift in *; simpl in *.
-    unfold mbind; simpl.
-    unfold mbind_dist_pmf.
-    rewrite Forall_map.
-    rewrite Forall_flat_map.
-    rewrite Forall_forall.
-    intros [x q] Hx.
-    rewrite Forall_forall.
-    intros [x' q'] Hx'.
-    rewrite Forall_map.
-    rewrite Forall_flat_map.
-    rewrite Forall_forall.
-    intros [y r] Hy.
-    destruct m1.
-    rewrite Forall_map in H.
-    rewrite Forall_forall in H.
-    specialize (H _ Hx); simpl in H.
-    destruct m2.
-    rewrite Forall_map in H.
-    rewrite Forall_forall in H.
-    specialize (H _ Hy); simpl in H.
-    specialize (H0 _ _ H).
-    destruct (f1 x).
-    rewrite Forall_map in H0.
-    rewrite Forall_forall in H0.
-    unfold update_probs in Hx'.
-    rewrite in_map_iff in Hx'.
-    destruct Hx' as [[y' q''] [Hy'1 Hy'2]].
-    inversion Hy'1; subst.
-    specialize (H0 _ Hy'2); simpl in H0.
-    unfold update_probs.
-    destruct (f2 y).
-    rewrite Forall_map in *.
-    eapply Forall_impl; [|exact H0].
-    intros []; auto.
-Defined.
-
-
-
-
-
-
-
-
