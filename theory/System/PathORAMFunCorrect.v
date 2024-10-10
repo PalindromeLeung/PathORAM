@@ -24,13 +24,12 @@ Section PORAM_PROOF.
     forall (id : block_id) (v : nat) (s : state) (del : list block),
       blk_in_stash id v s ->
       (In (Block id v)
-         (remove_list_sub block_eqb del (state_stash s))  \/
+         (remove_list_sub eqb del (state_stash s))  \/
          (In (Block id v) del)).
   Proof.
     intros.
     unfold blk_in_stash in H.
     apply remove_list_sub_lemma; auto.
-    exact block_eqb_correct.
   Qed.
 
   Lemma stash_path_combined_rel_Rd : forall (id : block_id) (v : nat) (s : state) (p_new : path),
@@ -54,16 +53,15 @@ Section PORAM_PROOF.
   Proof.
     induction bs.
     - right; simpl; tauto.
-    - destruct (block_eqb b a) eqn:?.
-      + apply block_eqb_correct in Heqb0; subst.
+    - destruct (eqb b a) eqn:?.
+      + rewrite eqb_true_iff in Heqb0; subst.
         left; left; reflexivity.
       + destruct IHbs.
         * left; right; auto.
         * right; intros [Heq|HIn].
           -- subst.
-             rewrite eqb_correct_refl in Heqb0;
-               [discriminate|].
-             exact block_eqb_correct.
+             rewrite eqb_refl in Heqb0.
+             discriminate.
           -- contradiction.
   Qed.
 

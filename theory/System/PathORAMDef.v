@@ -191,17 +191,28 @@ Section PORAM.
     (p : path) : oram :=
     update_tree o stop (Some d_n) p.
 
-  Definition block_eqb (b1 b2 : block) : bool :=
-    (Nat.eqb (block_blockid b1) (block_blockid b2)) &&
-    (Nat.eqb (block_payload b1) (block_payload b2)).
-  
+  Global Instance Block_EqDec : EqDec block.
+  Proof.
+    constructor.
+    intros [id v] [id' v'].
+    destruct (Nat.eqb id id') eqn:id_cond.
+    - rewrite Nat.eqb_eq in id_cond; subst.
+      destruct (Nat.eqb v v') eqn:val_cond.
+      + rewrite Nat.eqb_eq in val_cond; subst.
+        left; reflexivity.
+      + rewrite Nat.eqb_neq in val_cond.
+        right; congruence.
+    - rewrite Nat.eqb_neq in id_cond.
+      right; congruence.
+  Defined.
+
   Definition blocks_selection (p : path) (lvl : nat) (s : state ) : state :=
     (* unpack the state *)
     let m := state_position_map s in (* pos_map *) 
     let h := state_stash s in        (* stash *)
     let o := state_oram s in         (* oram tree *)
     let wbs := get_write_back_blocks p h 4 lvl m in (* 4 is the capability of the bucket or equivalently the number of blocks the bucket holds *)
-    let up_h := remove_list_sub block_eqb wbs h in 
+    let up_h := remove_list_sub eqb wbs h in 
     let up_o := up_oram_tr o lvl wbs p in
     (State m up_h up_o).
 
@@ -331,19 +342,5 @@ Section PORAM.
     | None => False
     | Some v => In x v
     end.
-
-  Lemma block_eqb_correct : eqb_correct block_eqb.
-  Proof.
-    unfold block_eqb.
-    intros [id v] [id' v']; simpl.
-    split; intro pf.
-    - rewrite Bool.andb_true_iff in pf.
-      destruct pf.
-      rewrite Nat.eqb_eq in *.
-      congruence.
-    - inversion pf.
-      do 2 rewrite Nat.eqb_refl.
-      auto.
-  Qed.
 
 End PORAM.

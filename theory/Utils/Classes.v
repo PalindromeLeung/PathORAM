@@ -1,5 +1,37 @@
 Require Import Arith Lia.
 
+Class EqDec (A : Type) : Type := {
+  eq_dec : forall x y : A, {x = y} + {x <> y}
+  }.
+
+
+Definition eqb {A} `{EqDec A} (x y : A) : bool :=
+  if eq_dec x y then true else false.
+
+Lemma eqb_true_iff {A} `{EqDec A} :
+  forall x y, eqb x y = true <-> x = y.
+Proof.
+  unfold eqb.
+  intros; split; intro pf.
+  - destruct (eq_dec x y); auto; discriminate.
+  - destruct (eq_dec x y); auto; contradiction.
+Qed.
+
+Global Instance Bool_EqDec : EqDec bool.
+Proof.
+  constructor.
+  intros [] []; auto.
+  right; discriminate.
+Defined.
+
+Lemma eqb_refl {A} `{EqDec A} : forall x,
+  eqb x x = true.
+Proof.
+  intro.
+  rewrite eqb_true_iff.
+  reflexivity.
+Qed.
+
 Class Ord (A : Type) := {
   ord_dec : A -> A -> comparison;
   ord_refl : forall x, ord_dec x x = Eq;

@@ -15,12 +15,10 @@ Record dist (A : Type) : Type :=
 Arguments Dist {A} _.
 Arguments dist_pmf {A} _.
 
-Definition mreturn_dist {A : Type} (x : A) : dist A.
-  refine (Dist [ (x, 1 / 1) ] _ ).
-  Proof.
-    unfold sum_dist. simpl.
-    unfold Qeq. simpl. reflexivity.
-  Defined.
+Definition mreturn_dist {A : Type} (x : A) : dist A :=
+    {| dist_pmf := [(x, 1 / 1)];
+       dist_law := eq_refl;
+    |}.
 
 Lemma refold_sum_dist:
   forall {A} (a : A) (q : Q) (l : list (A * Q)),
@@ -76,21 +74,6 @@ Defined.
 
 Definition coin_flip : dist bool := Dist [ (true, 1 / 2) ; (false , 1 / 2) ] eq_refl.
 
-(* Definition norm_dist {A} (d: dist A) : dist A := *)
-(*   let supp := dist_pmf d in *)
-(*   let sum_tot := sum_dist d in *)
-(*   Dist(map_alist (fun x : Q => x / sum_tot) supp). *)
-
-(* might collide when you import the List Lib. *)
-
-(* The goal of evalDist is to evaluate the probability when given an event under a certain distribution.      *)
-
-(* 1. get the list -- dist_pmf *)
-(* 2. filter a, construct the new list (A, rat) which satisfies event predicate *)
-(* 3. reconstruct/repack a dist using this one *)
-(* 4. sum it up -- sum_dist *)
-
- 
 Fixpoint filter_dist {A} (l: list (A * Q))
   (f: A -> bool): list (A * Q) :=
   match l with
@@ -103,12 +86,6 @@ Fixpoint filter_dist {A} (l: list (A * Q))
             else filter_dist t f
       end
   end.
-    
-(* Definition evalDist {A} (x: event A) (d: dist A): Q := *)
-(*    sum_dist(Dist(filter_dist (dist_pmf d) x)). *)
-
-(* Definition uniform_dist {A} (l: list A) :dist A:= *)
-(*  norm_dist(Dist(map_l (fun x => (x, 1)) l)). *)
 
 Lemma zero_one_neq : ~ (0 == 1)%Q.
 Proof.
@@ -130,7 +107,7 @@ Definition peek {X} (d : dist X) : X :=
 
 (* WARNING: distribution should contain non-zero weighted support *)
 Definition dist_lift {X} (P : X -> Prop) (d : dist X) : Prop.
-Proof.   
+Proof.
   destruct d.
   eapply (Forall P (List.map fst dist_pmf0)).
 Defined.
@@ -147,28 +124,47 @@ Proof.
     inversion Hdx; auto.
 Qed.
 
-Lemma dist_lift_ret : forall (X : Type) (x : X) (P : X -> Prop), P x -> dist_lift P (mreturn x).
+Lemma dist_lift_ret : forall (X : Type) (x : X) (P : X -> Prop),
+  P x -> dist_lift P (mreturn x).
 Proof.
   intros; simpl.
   repeat constructor; auto.
 Qed.
 
-Lemma dist_lift_bind :
-forall (X Y : Type) (P : X -> Prop)
-  (Q : Y -> Prop) (mx : dist X)
-  (f : X -> dist Y),
-dist_lift P mx ->
-(forall x : X, P x -> dist_lift Q (f x)) ->
-dist_lift Q (x <- mx;; f x).
+Lemma dist_lift_bind (X Y : Type) (P : X -> Prop)
+    (Q : Y -> Prop) (mx : dist X) (f : X -> dist Y) :
+  dist_lift P mx ->
+  (forall x : X, P x -> dist_lift Q (f x)) ->
+  dist_lift Q (x <- mx;; f x).
 Proof.
-  intros. simpl mbind. unfold mbind_dist.
-    unfold dist_lift. rewrite Forall_map. unfold mbind_dist_pmf. rewrite flat_map_concat_map. rewrite Forall_concat. rewrite Forall_map.
-    eapply Forall_impl.
-    2:{destruct mx. simpl in *. rewrite Forall_map in H. exact H. }
-    intros (k,v) pk. simpl. unfold update_probs. rewrite Forall_map.
-    specialize (H0 k pk). destruct (f k). simpl in *. rewrite Forall_map in H0. eapply Forall_impl.
-    2:{exact H0. }
-    intros (a, b) pa. exact pa.
+  unfold dist_lift.
+  destruct mx as [mx mx_law]; simpl.
+  unfold mbind_dist_pmf; simpl.
+  clear mx_law.
+  repeat rewrite Forall_forall.
+  intros Hmx Hf y Hy.
+  rewrite in_map_iff in Hy.
+  destruct Hy as [[y' ?] [? Hy']]; subst.
+  rewrite flat_map_concat_map in Hy'.
+  rewrite in_concat in Hy'.
+  destruct Hy' as [l [Hl1 Hl2]].
+  rewrite in_map_iff in Hl1.
+  destruct Hl1 as [[x ?] [Hx1 Hx2]].
+  apply in_map with (f := fst) in Hx2.
+  specialize (Hmx _ Hx2).
+  specialize (Hf _ Hmx); simpl in *.
+  destruct (f x) as [n ?].
+  rewrite Forall_forall in Hf.
+  apply Hf.
+  simpl in Hx1.
+  unfold update_probs in Hx1.
+  rewrite <- Hx1 in Hl2.
+  rewrite in_map_iff in Hl2.
+  destruct Hl2 as [[y k] [Hy1 Hy2]].
+  rewrite in_map_iff.
+  exists (y, k).
+  split; auto.
+  inversion Hy1; auto.
 Qed.
 
 Lemma dist_lift_weaken {X} (P Q : X -> Prop) :
