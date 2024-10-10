@@ -218,7 +218,7 @@ Proof.
   intros c ag s Hwf.
   do 2 apply plift_map.
   pose proof (acc_dist_list_length ag s Hwf).
-  eapply dist_has_weakening; [ | exact H].
+  eapply plift_weaken; [ | exact H].
   intros.
   simpl in H0. destruct x. destruct H0. simpl.
   destruct H0.
