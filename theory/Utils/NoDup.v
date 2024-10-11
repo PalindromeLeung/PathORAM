@@ -4,6 +4,7 @@ Require Import Coq.QArith.QArith.
 Import ListNotations.
 Require Import POram.Utils.Lists.
 Require Import POram.System.PathORAMDef.
+Require Import POram.Utils.Classes.
 
 Definition inj_on_list {A B} (l : list A) (f : A -> B) :=
   forall x y, In x l -> In y l -> f x = f y -> x = y.
@@ -110,61 +111,59 @@ Proof.
         now inversion nd_fl.
 Qed.
 
-  Lemma remove_aux_removed {A} (A_eqb : A -> A -> bool)
-    (A_eqb_correct : eqb_correct A_eqb) :
+  Lemma remove_aux_removed {A} `{EqDec A} :
     forall (lst : list A) (a : A),
       NoDup lst ->
-      ~ In a (remove_aux A_eqb lst a).
+      ~ In a (remove_aux eqb lst a).
   Proof.
     induction lst as [|a' lst]; simpl; intros; auto.
-    destruct A_eqb eqn: eq_cond.
+    destruct eqb eqn: eq_cond.
     - intro bp.
-      rewrite (A_eqb_correct a' a) in eq_cond.
+      rewrite (eqb_true_iff a' a) in eq_cond.
       subst.
-      inversion H; auto.
+      inversion H0; auto.
     - intros [| in_cond]; subst.
-      + rewrite eqb_correct_refl in eq_cond; auto.
+      + rewrite eqb_refl in eq_cond.
         discriminate.
       + eapply IHlst; eauto.
-        inversion H; auto.
+        inversion H0; auto.
   Qed.
 
-  Lemma NoDup_remove_aux_general {A} (A_eqb : A -> A -> bool) : forall lst b,
+  Lemma NoDup_remove_aux_general {A} `{EqDec A} : forall lst b,
       NoDup lst ->
-      NoDup (remove_aux A_eqb lst b).
+      NoDup (remove_aux eqb lst b).
   Proof.
     induction lst; simpl; intros; auto.
-    destruct A_eqb eqn: eq_cond.
-    - inversion H; auto.
+    destruct eqb eqn: eq_cond.
+    - inversion H0; auto.
     - constructor.
       + intro pf.
         apply In_remove_aux in pf.
-        inversion H; auto.
+        inversion H0; auto.
       + apply IHlst.
-        inversion H; auto.
+        inversion H0; auto.
   Qed.
 
-Lemma remove_list_sub_removed {A} (A_eqb : A -> A -> bool)
-  (A_eqb_correct : eqb_correct A_eqb) : forall dlt lst b,
+Lemma remove_list_sub_removed {A} `{EqDec A} : forall dlt lst b,
     NoDup lst ->
-    In b (remove_list_sub A_eqb dlt lst) ->
+    In b (remove_list_sub eqb dlt lst) ->
     ~ In b dlt.
 Proof.
   induction dlt; intros; simpl in *; auto.
   intros [ | in_cond]; subst.
-  - apply remove_list_sub_weaken in H0.
-    apply remove_aux_removed in H0; auto.
-  - apply IHdlt in H0; auto.
+  - apply remove_list_sub_weaken in H1.
+    apply remove_aux_removed in H1; auto.
+  - apply IHdlt in H1; auto.
     apply NoDup_remove_aux_general; auto.
 Qed.
 
   (* TODO: make this generic and move elsewhere *)
   Lemma NoDup_remove_aux : forall lst x,
     NoDup (List.map block_blockid lst) ->
-    NoDup (List.map block_blockid (remove_aux block_eqb lst x)).
+    NoDup (List.map block_blockid (remove_aux eqb lst x)).
   Proof.
     induction lst; simpl; intros; auto.
-    destruct block_eqb eqn: eq_cond; simpl.
+    destruct eqb eqn: eq_cond; simpl.
     - inversion H; auto.
     - apply NoDup_cons_iff. split.
       + intro.
@@ -344,7 +343,7 @@ Qed.
   (* TODO: make generic and move elsewhere *)
   Lemma NoDup_remove_list_sub : forall (dlt lst : list block),
       NoDup (List.map block_blockid lst) -> 
-      NoDup (List.map block_blockid (remove_list_sub block_eqb dlt lst)).
+      NoDup (List.map block_blockid (remove_list_sub eqb dlt lst)).
   Proof.
     induction dlt; simpl.
     - intros; auto.
@@ -399,7 +398,7 @@ Qed.
         (List.map block_blockid lst) -> 
       disjoint_list
         (List.map block_blockid (get_all_blks_tree (up_oram_tr o lvl dlt p)))
-        (List.map block_blockid (remove_list_sub block_eqb dlt lst)).
+        (List.map block_blockid (remove_list_sub eqb dlt lst)).
   Proof.
     intros.
     intros id [Hid1 Hid2].
@@ -426,7 +425,5 @@ Qed.
       }
       subst.
       apply remove_list_sub_removed in Hc2; auto.
-      + apply block_eqb_correct.
-      + eapply NoDup_map_inv; eauto.
+      eapply NoDup_map_inv; eauto.
   Qed.
-  

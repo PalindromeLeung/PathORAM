@@ -84,17 +84,6 @@ Proof.
   - destruct H; eapply In_remove_list; eauto.
 Qed.
 
-(* TODO: move this somewhere*)
-Definition eqb_correct {A} (A_eqb : A -> A -> bool) : Prop :=
-  forall a a', A_eqb a a' = true <-> a = a'.
-
-Lemma eqb_correct_refl {A} (A_eqb : A -> A -> bool) :
- eqb_correct A_eqb -> forall a, A_eqb a a = true.
-Proof.
-  intros A_eqb_correct a.
-  rewrite (A_eqb_correct a a); auto.
-Qed.
-
 Fixpoint remove_aux {A} (A_eqb : A -> A -> bool) (lst : list A) (x : A) : list A :=
   match lst with
   | [] => []
@@ -108,59 +97,57 @@ Fixpoint remove_list_sub {A} (A_eqb : A -> A -> bool) (sublist : list A) (lst : 
   | h :: t => remove_list_sub A_eqb t (remove_aux A_eqb lst h)
   end.
 
-Lemma remove_aux_lemma {A} (A_eqb : A -> A -> bool)
-  (A_eqb_correct : eqb_correct A_eqb) : forall (lst : list A) (a a' : A),
+Lemma remove_aux_lemma {A} `{EqDec A} : forall (lst : list A) (a a' : A),
     In a' lst ->
-    In a' (remove_aux A_eqb lst a) \/ a = a'.
+    In a' (remove_aux eqb lst a) \/ a = a'.
 Proof.
   intros.
   induction lst; intuition.
   simpl.
-  destruct A_eqb eqn: eq_cond; simpl.
-  - destruct H.
+  destruct eqb eqn: eq_cond; simpl.
+  - destruct H0.
     + right.
-      rewrite (A_eqb_correct a0 a) in eq_cond; congruence.
+      rewrite (eqb_true_iff a0 a) in eq_cond; congruence.
     + tauto.
-  - destruct H.
+  - destruct H0.
     + do 2 left; auto.
-    + apply IHlst in H. tauto.
+    + apply IHlst in H0. tauto.
 Qed.
 
-Lemma remove_list_sub_lemma {A} (A_eqb : A -> A -> bool)
-  (A_eqb_correct : eqb_correct A_eqb) : forall (a : A) (sub : list A) (lst : list A),
+Lemma remove_list_sub_lemma {A} `{EqDec A} : forall (a : A) (sub : list A) (lst : list A),
       In a lst ->
-      In a (remove_list_sub A_eqb sub lst) \/ In a sub.
+      In a (remove_list_sub eqb sub lst) \/ In a sub.
 Proof.
   intros a sub.
   induction sub. 
   - simpl.  intros. left; auto.
   - intros. simpl remove_list_sub.
-    pose proof (IHsub (remove_aux A_eqb lst a0))%list.
-    destruct (remove_aux_lemma A_eqb A_eqb_correct _ a0 _ H).
-    + apply H0 in H1. destruct H1.
+    pose proof (IHsub (remove_aux eqb lst a0))%list.
+    destruct (remove_aux_lemma _ a0 _ H0).
+    + apply H1 in H2. destruct H2.
       * left. auto.
       * right. right; auto.
     + right. left; auto.
 Qed.
 
-Lemma In_remove_aux {A} (A_eqb : A -> A -> bool) :
+Lemma In_remove_aux {A} `{EqDec A} :
   forall (lst : list A) (x a : A),
-    In x (remove_aux A_eqb lst a) ->
+    In x (remove_aux eqb lst a) ->
     In x lst.
 Proof.
   induction lst; simpl; intros; auto.
-  destruct A_eqb eqn: eq_cond; simpl.
+  destruct eqb eqn: eq_cond; simpl.
   - right; auto.
-  - destruct H; auto. right.
+  - destruct H0; auto. right.
     apply IHlst with (a := a0). auto.
 Qed.
 
-Lemma remove_list_sub_weaken {A} (A_eqb : A -> A -> bool) : forall dlt lst b,
-    In b (remove_list_sub A_eqb dlt lst) -> In b lst.
+Lemma remove_list_sub_weaken {A} `{EqDec A} : forall dlt lst b,
+    In b (remove_list_sub eqb dlt lst) -> In b lst.
 Proof.
   induction dlt; simpl; intros; auto.
-  apply IHdlt in H.
-  apply In_remove_aux in H; auto.
+  apply IHdlt in H0.
+  apply In_remove_aux in H0; auto.
 Qed.
 
 Lemma map_takeL {A B} (f : A -> B) : forall n l,
