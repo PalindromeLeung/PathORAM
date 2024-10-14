@@ -68,21 +68,8 @@ Section PORAM_PROOF.
   Lemma on_path_dec b o : forall p,
     on_path b o p \/ ~ on_path b o p.
   Proof.
-    unfold on_path.
-    induction o; intro p.
-    - right; intro; auto.
-    - destruct p; simpl.
-      + destruct data; simpl; [|tauto].
-        apply block_dec.
-      + destruct b0.
-        * destruct data; auto.
-          simpl; rewrite in_app_iff.
-          specialize (IHo1 p).
-          pose (block_dec b b0); tauto.
-        * destruct data; auto.
-          simpl; rewrite in_app_iff.
-          specialize (IHo2 p).
-          pose (block_dec b b0); tauto.
+    intro.
+    apply in_dec.
   Qed.
 
   Lemma pos_map_stable_across_wb : forall n p s start,
@@ -238,36 +225,16 @@ Qed.
       In b (concat (lookup_path_oram o p)) ->
       In b (get_all_blks_tree o). 
   Proof.
-    induction o; simpl; intros; auto.
-    destruct p as [|hd tl]. 
-    - destruct data; simpl in *; auto.
-      + rewrite app_nil_r in H.
-        apply in_or_app.
-        left; auto.
-      + contradiction.
-    - destruct hd.
-      + destruct data.
-        * simpl in H.
-          apply in_app_or in H.
-          apply in_or_app.
-          destruct H.
-          -- left; auto.
-          -- right. apply in_or_app.
-             left. eapply IHo1; eauto.
-        * apply in_or_app.
-          left.
-          eapply IHo1; eauto.
-      + destruct data.
-        * simpl in H.
-          apply in_app_or in H.
-          apply in_or_app.
-          destruct H.
-          -- left; auto.
-          -- right. apply in_or_app.
-             right. eapply IHo2; eauto.
-        * apply in_or_app.
-          right.
-          eapply IHo2; eauto.
+    intros o p b pf.
+    rewrite in_concat in pf.
+    destruct pf as [bs [Hbs1 Hbs2]].
+    unfold lookup_path_oram in Hbs1.
+    rewrite filter_Some_correct in Hbs1.
+    unfold get_all_blks_tree.
+    rewrite in_concat.
+    exists bs; split; auto.
+    rewrite filter_Some_correct.
+    apply lookup_path_flatten_tree in Hbs1; auto.
   Qed.
 
   Lemma NoDup_tree_id_same_v:
