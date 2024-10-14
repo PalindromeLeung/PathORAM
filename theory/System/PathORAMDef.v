@@ -71,55 +71,37 @@ Class Config: Type :=
 
 Section PORAM.
   Context `{Config}.
-  
+
   Definition block_id := nat.
-  Record block : Type := Block
-                           { block_blockid : block_id
-                           ; block_payload : nat
-                           }.
+
+  Record block : Type :=
+    Block {
+      block_blockid : block_id;
+      block_payload : nat;
+    }.
+
   Definition position_map := dict block_id path.
   Definition stash := list block.
   Definition bucket := list block.
 
   Definition oram : Type := tree (option bucket).
 
-  Record state : Type := State
-                           { state_position_map : position_map
-                           ; state_stash : stash
-                           ; state_oram : oram
-                           }.
+  Record state : Type :=
+    State {
+      state_position_map : position_map;
+      state_stash : stash;
+      state_oram : oram;
+    }.
 
-  Inductive operation := 
+  Variant operation := 
   | Read : operation 
   | Write : nat -> operation.
 
   Definition Poram : Type -> Type :=
     StateT state dist.
 
-  Fixpoint lookup_path_oram (o : oram) : path -> list bucket :=
-    match o with
-    | leaf => fun _ => []
-    | node obkt o_l o_r =>
-        fun p => 
-          match p with
-          | [] =>
-              match obkt with
-              | Some bkt => [bkt]
-              | None => []
-              end
-          | h :: t =>
-              match h with
-              | true => match obkt with
-                       | Some bkt => bkt :: lookup_path_oram o_l t
-                       | None => lookup_path_oram o_l t
-                       end
-              | false => match obkt with
-                        | Some bkt => bkt :: lookup_path_oram o_r t
-                        | None => lookup_path_oram o_r t
-                        end
-              end
-          end
-    end.
+  Definition lookup_path_oram (o : oram) (p : path) : list bucket :=
+    filter_Some (lookup_path o p).
 
   Fixpoint clear_path (o : oram ) : path -> oram :=
     match o with
@@ -222,15 +204,8 @@ Section PORAM.
     | S m => f p start (iterate_right (S start) p f m x)
     end.
 
-    Fixpoint get_all_blks_tree (o : oram) : list block :=
-    match o with
-    | leaf => []
-    | node obkt o_l o_r => 
-        match obkt with
-        | None => get_all_blks_tree o_l ++ get_all_blks_tree o_r
-        | Some bkt => bkt ++ (get_all_blks_tree o_l ++ get_all_blks_tree o_r)
-        end
-    end.
+  Definition get_all_blks_tree (o : oram) : list block :=
+    concat (filter_Some (flatten_tree o)).
 
   Definition write_back_r (start : nat) (p : path) (step : nat) (s : state):=
     iterate_right start p blocks_selection step s.

@@ -126,3 +126,73 @@ Proof.
     +  split; try tauto.
        apply IHo2; tauto.
 Qed.
+
+Fixpoint lookup_path {X} (t : tree X) (p : path) : list X :=
+  match t with
+  | leaf => []
+  | node x t1 t2 =>
+    match p with
+    | [] => [x]
+    | true :: p' => x :: lookup_path t1 p'
+    | false :: p' => x :: lookup_path t2 p'
+    end
+  end.
+
+Fixpoint flatten_tree {X} (t : tree X) : list X :=
+  match t with
+  | leaf => []
+  | node x t1 t2 => x :: flatten_tree t1 ++ flatten_tree t2
+  end.
+
+Lemma In_flatten_update {X} (t : tree X) : forall (lvl : nat) (x x' : X) (p : path),
+  In x (flatten_tree (update_tree t lvl x' p)) ->
+  In x (flatten_tree t) \/ x = x'.
+Proof.
+  induction t; intros lvl x x' p pf.
+  - destruct pf.
+  - destruct lvl.
+    + destruct pf.
+      * right; auto.
+      * left; right; auto.
+    + destruct p as [|[] p'].
+      * left; destruct pf.
+        -- left; auto.
+        -- right; auto.
+      * destruct pf.
+        -- left; left; auto.
+        -- apply in_app_or in H.
+           destruct H.
+           ++ apply IHt1 in H.
+              destruct H; [|tauto].
+              left; right.
+              apply in_or_app; now left.
+           ++ left; right.
+              apply in_or_app; now right.
+      * destruct pf.
+        -- left; left; auto.
+        -- apply in_app_or in H.
+           destruct H.
+           ++ left; right.
+              apply in_or_app; now left.
+           ++ apply IHt2 in H.
+              destruct H; [|tauto].
+              left; right.
+              apply in_or_app; now right.
+Qed.
+
+Lemma lookup_path_flatten_tree {X} (t : tree X) : forall (p : path ) (x : X), In x (lookup_path t p) -> In x (flatten_tree t).
+Proof.
+  induction t; intros p x pf.
+  - destruct pf.
+  - destruct p as [|[|] p'].
+    + destruct pf; [|contradiction].
+      now left.
+    + destruct pf; [now left|].
+      right; apply in_or_app; left.
+      eapply IHt1; eauto.
+    + destruct pf; [now left|].
+      right; apply in_or_app; right.
+      eapply IHt2; eauto.
+Qed.
+
+

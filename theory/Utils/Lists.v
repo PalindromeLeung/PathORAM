@@ -158,3 +158,44 @@ Proof.
   destruct l; simpl; try reflexivity.
   rewrite IHn. reflexivity.
 Qed.
+
+Fixpoint filter_Some {X} (l : list (option X)) : list X :=
+  match l with
+  | [] => []
+  | Some x :: l' => x :: filter_Some l'
+  | None :: l' => filter_Some l'
+  end.
+
+Lemma filter_Some_correct {X} (l : list (option X)) : forall x,
+  In x (filter_Some l) <-> In (Some x) l.
+Proof.
+  intro x; split; intro pf.
+  - induction l as [|o l'].
+    + destruct pf.
+    + destruct o as [x'|].
+      * destruct pf.
+        -- left; congruence.
+        -- right; auto.
+      * right; auto.
+- induction l as [|o l'].
+  + destruct pf.
+  + destruct pf.
+    * subst.
+      left; reflexivity.
+    * destruct o.
+      -- right; auto.
+      -- auto.
+Qed.
+
+Lemma in_dec {A} `{EqDec A} : forall (x : A) (l : list A),
+  In x l \/ ~ In x l.
+Proof.
+  intros x l.
+  induction l.
+  - now right.
+  - destruct (eq_dec a x).
+    + subst; left; now left.
+    + destruct IHl.
+      * left; now right.
+      * right; simpl; tauto.
+Qed.
